@@ -56,7 +56,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!limited.allowed) return rateLimitResponse(limited);
       const projectCode = clean(url.searchParams.get("project"), 40).toUpperCase();
       const respondentRef = clean(url.searchParams.get("respondent"));
-      if (!/^PRJ-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
+      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
       const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(project_code,status,survey_url,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project || assignment.status !== "ACTIVE" || project.status !== "LIVE") {

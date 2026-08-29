@@ -1,6 +1,6 @@
 # ResearchOps
 
-A working research fieldwork operations application: organization overview, PM-scoped Project Center, controlled project creation, contact directories, supplier traffic controls, masked respondent routing, event metrics, respondent/analytics exports, and a Cloudflare Worker API.
+A working research fieldwork operations application: organization overview, PM-scoped Project Center, controlled project creation, ISO country/language markets, contact directories, supplier traffic controls, masked respondent routing, event metrics, respondent/analytics exports, and a Cloudflare Worker API.
 
 ## Development status
 
@@ -8,13 +8,13 @@ Read [PROJECT_TRACKER.md](PROJECT_TRACKER.md) before continuing development. It 
 
 ## Hosted staging
 
-The owner-only hosted staging environment is available at:
+The publicly reachable hosted staging environment is available at:
 
 ```text
 https://researchops-fieldwork.rav9912.chatgpt.site
 ```
 
-It runs the Cloudflare Worker-compatible Vinext build through Sites and uses a hosted Supabase Free project in `ap-south-1`. Migrations `001` through `019` and the local authentication/application records were migrated on 2026-08-29. Runtime credentials are managed by the hosting secret store and are not committed to this repository.
+It runs the Cloudflare Worker-compatible Vinext build through Sites and uses a hosted Supabase Free project in `ap-south-1`. The ResearchOps login remains mandatory and unauthenticated API requests are rejected. Migrations `001` through `019` and the local authentication/application records were migrated on 2026-08-29. Runtime credentials are managed by the hosting secret store and are not committed to this repository.
 
 ## Run locally
 
@@ -85,7 +85,7 @@ npx supabase stop
 
 Copy `.env.example` to `.env.local`, then supply your public Supabase URL and anon key. Never expose the service-role or provider secrets through a `VITE_` variable.
 
-Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, and tenant-visible member profiles. Always apply through the highest numbered migration (currently `019`) before live verification.
+Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, and durable project-manager display history. Always apply through the highest numbered migration (currently `020`) before live verification.
 
 Add your local and deployed `/reset-password` URLs to the Supabase Auth redirect allowlist before testing password recovery.
 

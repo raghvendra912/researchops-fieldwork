@@ -7,7 +7,7 @@ import { apiRequest } from "../../src/lib/api";
 import { ProjectMarketsEditor } from "./ProjectMarketsEditor";
 import { ProjectSuppliersEditor } from "./ProjectSuppliersEditor";
 
-const transitions: Record<ProjectStatus, Array<{ status: ProjectStatus; label: string }>> = { DRAFT: [{ status: "PENDING", label: "Submit for launch" }], PENDING: [{ status: "LIVE", label: "Launch project" }, { status: "DRAFT", label: "Return to draft" }], LIVE: [{ status: "PAUSED", label: "Pause fieldwork" }, { status: "CLOSED", label: "Close project" }], PAUSED: [{ status: "LIVE", label: "Resume fieldwork" }, { status: "CLOSED", label: "Close project" }], CLOSED: [] };
+const transitions: Record<ProjectStatus, Array<{ status: ProjectStatus; label: string }>> = { PENDING: [{ status: "LIVE", label: "Launch project" }], LIVE: [{ status: "PAUSED", label: "Pause fieldwork" }, { status: "ID_SUBMITTED", label: "Submit respondent IDs" }], PAUSED: [{ status: "LIVE", label: "Resume fieldwork" }, { status: "ID_SUBMITTED", label: "Submit respondent IDs" }], ID_SUBMITTED: [{ status: "INVOICED", label: "Mark invoiced" }, { status: "LIVE", label: "Reopen fieldwork" }], INVOICED: [{ status: "CLOSED", label: "Close project" }], CLOSED: [] };
 const projectTypes = ["B2C", "B2B", "Recontact", "Healthcare"];
 const categories = ["None", "Business & Professionals", "General Household", "Financial Technology", "Consumer Goods", "Healthcare", "Automotive", "Other"];
 

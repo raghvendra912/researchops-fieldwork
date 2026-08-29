@@ -3,6 +3,7 @@ import type { Project, ProjectStatus } from "../../src/features/projects/project
 import { isSupabaseConfigured, supabaseJson, supabaseRequest, type SupabaseEnv } from "../lib/supabase";
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { canTransition } from "../domain/project-lifecycle";
+import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
 
 export type ProjectApiEnv = SupabaseEnv;
 
@@ -13,6 +14,7 @@ type DatabaseProject = {
   client_po: string | null;
   project_type: string | null;
   project_manager_id: string | null;
+  project_manager_name: string | null;
   project_managers?: { display_name: string } | { display_name: string }[] | null;
   status: ProjectStatus;
   client_cpi: number | string | null;
@@ -35,9 +37,10 @@ type ProjectMetrics = { project_code: string; starts: number; reached: number; c
 
 type ProjectListQuery = {
   q: string;
+  projectId: string;
   client: string;
   manager: string;
-  status: ProjectStatus | "";
+  statuses: ProjectStatus[];
   type: string;
   from: string;
   to: string;
@@ -48,7 +51,8 @@ type ProjectListQuery = {
   scope: "all" | "mine";
 };
 
-const statuses: ProjectStatus[] = ["DRAFT", "LIVE", "PENDING", "PAUSED", "CLOSED"];
+const statuses: ProjectStatus[] = ["PENDING", "LIVE", "PAUSED", "ID_SUBMITTED", "INVOICED", "CLOSED"];
+const projectTypes = ["B2C", "B2B", "Healthcare", "Recontact", "Tracker", "Qualitative", "Quantitative", "Mixed method", "IHUT", "CLT"];
 const sortKeys: ProjectSortKey[] = ["createdAt", "code", "name", "status", "cpi"];
 const countryNames: Record<string, string> = { AU: "Australia", CA: "Canada", DE: "Germany", GB: "United Kingdom", IN: "India", SG: "Singapore", US: "United States" };
 
@@ -75,13 +79,14 @@ function dateValue(value: string | null) {
 
 function readListQuery(request: Request): ProjectListQuery {
   const params = new URL(request.url).searchParams;
-  const requestedStatus = simpleText(params.get("status"), 16).toUpperCase() as ProjectStatus;
+  const requestedStatuses = simpleText(params.get("status"), 120).toUpperCase().split(",").filter((status): status is ProjectStatus => statuses.includes(status as ProjectStatus));
   const requestedSort = simpleText(params.get("sortBy"), 20) as ProjectSortKey;
   return {
     q: simpleText(params.get("q")),
+    projectId: simpleText(params.get("projectId"), 40).toUpperCase(),
     client: simpleText(params.get("client")),
     manager: simpleText(params.get("manager")),
-    status: statuses.includes(requestedStatus) ? requestedStatus : "",
+    statuses: Array.from(new Set(requestedStatuses)),
     type: simpleText(params.get("type")),
     from: dateValue(params.get("from")),
     to: dateValue(params.get("to")),
@@ -112,7 +117,7 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     clientPo: row.client_po ?? "",
     market: (countryNames[countryCode] ?? countryCode) || "Not set",
     type: row.project_type ?? "Not set",
-    manager: managerName(row.project_managers),
+    manager: row.project_manager_name || managerName(row.project_managers),
     status: row.status,
     starts: metrics?.starts ?? 0,
     reached: metrics?.reached ?? 0,
@@ -138,7 +143,7 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
 }
 
 function statusSummary(projects: Array<Pick<Project, "status" | "completes">>) {
-  const result: Record<ProjectStatus, number> = { DRAFT: 0, LIVE: 0, PENDING: 0, PAUSED: 0, CLOSED: 0 };
+  const result: Record<ProjectStatus, number> = { PENDING: 0, LIVE: 0, PAUSED: 0, ID_SUBMITTED: 0, INVOICED: 0, CLOSED: 0 };
   for (const project of projects) result[project.status] += 1;
   return { statuses: result, totalCompletes: projects.reduce((total, project) => total + project.completes, 0) };
 }
@@ -146,8 +151,8 @@ function statusSummary(projects: Array<Pick<Project, "status" | "completes">>) {
 function facetsFor(projects: Project[]) {
   return {
     clients: Array.from(new Set(projects.map((project) => project.client))).sort(),
-    managers: Array.from(new Set(projects.map((project) => project.manager))).sort(),
-    types: Array.from(new Set(projects.map((project) => project.type))).sort(),
+    managers: Array.from(new Set(projects.map((project) => project.manager))).sort().map((manager) => ({ value: manager, label: manager })),
+    types: Array.from(new Set([...projectTypes, ...projects.map((project) => project.type)])).sort(),
     statuses,
   };
 }
@@ -155,11 +160,13 @@ function facetsFor(projects: Project[]) {
 function mockList(query: ProjectListQuery) {
   const term = query.q.toLowerCase();
   const filtered = mockProjects.filter((project) => {
-    const matchesTerm = !term || [project.id, project.name, project.client, project.clientPo, project.market].some((value) => value.toLowerCase().includes(term));
+    const matchesTerm = !term || [project.name, project.client, project.clientPo, project.market].some((value) => value.toLowerCase().includes(term));
+    const matchesProjectId = !query.projectId || project.id.toUpperCase().includes(query.projectId);
     return matchesTerm
+      && matchesProjectId
       && (!query.client || project.client === query.client)
       && (!query.manager || project.manager === query.manager)
-      && (!query.status || project.status === query.status)
+      && (!query.statuses.length || query.statuses.includes(project.status))
       && (!query.type || project.type === query.type);
   });
   const sortValue = (project: Project) => {
@@ -203,7 +210,7 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
   if (!Number.isInteger(quota) || quota < 1 || !Number.isFinite(clientCpi) || clientCpi < 0
     || (loi !== null && (!Number.isInteger(loi) || loi < 1))
     || (incidence !== null && (!Number.isFinite(incidence) || incidence < 0 || incidence > 100))
-    || !/^[A-Z]{2}$/.test(countryCode) || !/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/.test(languageCode)) return null;
+    || !validCountryCodes.has(countryCode) || !validLanguageCodes.has(languageCode)) return null;
   const urls = [payload.surveyUrl, payload.securityTerminateUrl].map((value) => String(value ?? "").trim());
   if (urls.some((value) => value && (!/^https?:\/\//i.test(value) || value.length > 2048))) return null;
   return {
@@ -249,7 +256,7 @@ function parseMarkets(payload: Record<string, unknown> | null): ProjectMarket[] 
     const market = value as Record<string, unknown>;
     return { countryCode: String(market.countryCode ?? "").trim().toUpperCase(), languageCode: String(market.languageCode ?? "").trim().toLowerCase(), targetQuota: Number(market.targetQuota), expectedLoiMinutes: Number(market.expectedLoiMinutes), expectedIr: Number(market.expectedIr) };
   });
-  const valid = markets.every((market) => /^[A-Z]{2}$/.test(market.countryCode) && /^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/.test(market.languageCode) && Number.isInteger(market.targetQuota) && market.targetQuota > 0 && Number.isInteger(market.expectedLoiMinutes) && market.expectedLoiMinutes > 0 && Number.isFinite(market.expectedIr) && market.expectedIr >= 0 && market.expectedIr <= 100);
+  const valid = markets.every((market) => validCountryCodes.has(market.countryCode) && validLanguageCodes.has(market.languageCode) && Number.isInteger(market.targetQuota) && market.targetQuota > 0 && Number.isInteger(market.expectedLoiMinutes) && market.expectedLoiMinutes > 0 && Number.isFinite(market.expectedIr) && market.expectedIr >= 0 && market.expectedIr <= 100);
   const keys = new Set(markets.map((market) => `${market.countryCode}:${market.languageCode}`));
   return valid && keys.size === markets.length ? markets : null;
 }
@@ -279,16 +286,20 @@ const databaseSortColumns: Record<ProjectSortKey, string> = { createdAt: "create
 
 async function supabaseList(env: ProjectApiEnv, authorization: string, query: ProjectListQuery, canOperate: boolean, userId: string) {
   const clientFilter = postgrestText(query.client);
-  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,${clientFilter ? "clients!inner(name)" : "clients(name)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
+  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,${clientFilter ? "clients!inner(name)" : "clients(name)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
   const params = new URLSearchParams({ select, order: `${databaseSortColumns[query.sortBy]}.${query.sortDirection}` });
   const search = postgrestText(query.q);
-  if (search) params.set("or", `(project_code.ilike.*${search}*,project_name.ilike.*${search}*,client_po.ilike.*${search}*)`);
+  if (search) params.set("or", `(project_name.ilike.*${search}*,client_po.ilike.*${search}*)`);
+  const projectIdSearch = postgrestText(query.projectId);
+  if (projectIdSearch) params.set("project_code", `ilike.*${projectIdSearch}*`);
   if (clientFilter) params.set("clients.name", `eq.${clientFilter}`);
-  if (query.status) params.set("status", `eq.${query.status}`);
+  if (query.statuses.length === 1) params.set("status", `eq.${query.statuses[0]}`);
+  else if (query.statuses.length > 1) params.set("status", `in.(${query.statuses.join(",")})`);
   if (query.type) params.set("project_type", `eq.${postgrestText(query.type)}`);
   if (query.from) params.set("created_at", `gte.${query.from}T00:00:00Z`);
   if (query.to) params.set("created_at", `lte.${query.to}T23:59:59.999Z`);
   if (query.manager === "UNASSIGNED") params.set("project_manager_id", "is.null");
+  else if (query.manager.startsWith("NAME:")) params.set("project_manager_name", `eq.${postgrestText(query.manager.slice(5))}`);
   else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query.manager)) params.set("project_manager_id", `eq.${query.manager}`);
   if (query.scope === "mine" && userId) params.set("project_manager_id", `eq.${userId}`);
 
@@ -304,14 +315,15 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
   const metricRows = codes.length ? await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=in.(${codes.join(",")})`, authorization) : [];
   const metrics = new Map(metricRows.map((row) => [row.project_code, row]));
   const facetScope = query.scope === "mine" && userId ? `&project_manager_id=eq.${encodeURIComponent(userId)}` : "";
-  const facetRows = await supabaseJson<Array<Pick<DatabaseProject, "project_type" | "project_manager_id" | "project_managers" | "status" | "clients">>>(
+  const facetRows = await supabaseJson<Array<Pick<DatabaseProject, "project_type" | "project_manager_id" | "project_manager_name" | "project_managers" | "status" | "clients">>>(
     env,
-    `/rest/v1/projects?select=project_type,project_manager_id,status,clients(name),project_managers:user_profiles(display_name)&order=created_at.desc&limit=1000${facetScope}`,
+    `/rest/v1/projects?select=project_type,project_manager_id,project_manager_name,status,clients(name),project_managers:user_profiles(display_name)&order=created_at.desc&limit=1000${facetScope}`,
     authorization,
   );
   const facetProjects = facetRows.map((row) => ({
-    client: relationName(row.clients), manager: { value: row.project_manager_id ?? "UNASSIGNED", label: managerName(row.project_managers) }, type: row.project_type ?? "Not set", status: row.status, completes: 0,
+    client: relationName(row.clients), manager: { value: row.project_manager_id ?? (row.project_manager_name ? `NAME:${row.project_manager_name}` : "UNASSIGNED"), label: row.project_manager_name || managerName(row.project_managers) }, type: row.project_type ?? "Not set", status: row.status, completes: 0,
   }));
+  const allClients = await supabaseJson<Array<{ name: string }>>(env, "/rest/v1/clients?select=name&order=name.asc&limit=1000", authorization);
   const resolvedTotal = Number.isFinite(total) ? total : rows.length;
   return {
     data: rows.map((row) => toProject(row, metrics.get(row.project_code))),
@@ -323,9 +335,9 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
       source: "supabase" as const,
       canOperate,
       facets: {
-        clients: Array.from(new Set(facetProjects.map((project) => project.client))).sort(),
+        clients: Array.from(new Set(allClients.map((item) => item.name))).sort(),
         managers: Array.from(new Map(facetProjects.map((project) => [project.manager.value, project.manager])).values()).sort((a, b) => a.label.localeCompare(b.label)),
-        types: Array.from(new Set(facetProjects.map((project) => project.type))).sort(),
+        types: Array.from(new Set([...projectTypes, ...facetProjects.map((project) => project.type)])).sort(),
         statuses,
       },
       summary: statusSummary(facetProjects),
@@ -339,9 +351,9 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (pathname === "/api/projects" && request.method === "POST") {
       const payload = await request.json().catch(() => null) as Record<string, unknown> | null;
       if (!parseCreatePayload(payload)) return Response.json({ error: "Valid project name, quota and CPI are required" }, { status: 400 });
-      return Response.json({ data: { id: "PRJ-1049", status: "DRAFT", createdAt: new Date().toISOString() }, meta: { source: "mock" } }, { status: 201 });
+      return Response.json({ data: { id: "ROP-1049", status: "PENDING", createdAt: new Date().toISOString() }, meta: { source: "mock" } }, { status: 201 });
     }
-    const mockDetail = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)$/i);
+    const mockDetail = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)$/i);
     if (mockDetail && request.method === "GET") {
       const project = mockProjects.find((item) => item.id.toLowerCase() === mockDetail[1].toLowerCase());
       return project ? Response.json({ data: project, meta: { source: "mock", canOperate: true } }) : Response.json({ error: "Project not found" }, { status: 404 });
@@ -353,7 +365,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!update) return Response.json({ error: "Valid project name, quota, CPI and dates are required" }, { status: 400 });
       return Response.json({ data: { ...project, name: update.p_project_name, clientPo: update.p_client_po, type: update.p_project_type, category: update.p_category, cpi: update.p_client_cpi, quota: update.p_quota, endDate: update.p_end_date ?? undefined, surveyUrl: update.p_survey_url ?? undefined, securityTerminateUrl: update.p_security_terminate_url ?? undefined }, meta: { source: "mock" } });
     }
-    const mockTransition = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)\/transitions$/i);
+    const mockTransition = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/transitions$/i);
     if (mockTransition && request.method === "POST") {
       const project = mockProjects.find((item) => item.id.toLowerCase() === mockTransition[1].toLowerCase());
       if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
@@ -361,13 +373,13 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!status || !canTransition(project.status, status)) return Response.json({ error: `Cannot move a ${project.status} project to ${status ?? "that status"}` }, { status: 409 });
       return Response.json({ data: { id: project.id, previousStatus: project.status, status }, meta: { source: "mock" } });
     }
-    const mockMarkets = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)\/markets$/i);
+    const mockMarkets = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/markets$/i);
     if (mockMarkets && request.method === "GET") return Response.json({ data: [{ id: "market-demo", countryCode: "IN", languageCode: "en", targetQuota: 500, expectedLoiMinutes: 12, expectedIr: 40 }], meta: { source: "mock" } });
     if (mockMarkets && request.method === "PUT") {
       const markets = parseMarkets(await request.json().catch(() => null) as Record<string, unknown> | null);
       return markets ? Response.json({ data: markets, meta: { source: "mock" } }) : Response.json({ error: "Valid, unique market rows are required" }, { status: 400 });
     }
-    const mockAssignments = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)\/suppliers$/i);
+    const mockAssignments = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/suppliers$/i);
     if (mockAssignments && request.method === "GET") return Response.json({ data: [{ id: "assignment-cpx", supplierId: "supplier-cpx", supplierName: "CPX Research", supplierProjectId: "CPX-1048", supplierCpi: 7.5, targetQuota: 250, status: "ACTIVE" }], meta: { source: "mock" } });
     if (mockAssignments && request.method === "PUT") {
       const assignments = parseAssignments(await request.json().catch(() => null) as Record<string, unknown> | null);
@@ -393,17 +405,17 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!created) throw new Error("Supabase did not return the created project");
       return Response.json({ data: { id: created.project_code, databaseId: created.project_id, status: created.status }, meta: { source: "supabase" } }, { status: 201 });
     }
-    const detailMatch = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)$/i);
+    const detailMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)$/i);
     if (detailMatch && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
       const code = encodeURIComponent(detailMatch[1]);
-      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,clients(name),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
+      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,clients(name),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
       return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM") } });
     }
-    const marketsMatch = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)\/markets$/i);
+    const marketsMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/markets$/i);
     if (marketsMatch && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
@@ -418,7 +430,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       const rows = await supabaseJson<Array<{ id: string; country_code: string; language_code: string; target_quota: number; expected_loi_minutes: number; expected_ir: number | string }>>(env, "/rest/v1/rpc/replace_project_markets", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: marketsMatch[1].toUpperCase(), p_markets: markets.map((market) => ({ country_code: market.countryCode, language_code: market.languageCode, target_quota: market.targetQuota, expected_loi_minutes: market.expectedLoiMinutes, expected_ir: market.expectedIr })) }) });
       return Response.json({ data: rows.map(marketRow), meta: { source: "supabase" } });
     }
-    const assignmentsMatch = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)\/suppliers$/i);
+    const assignmentsMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/suppliers$/i);
     if (assignmentsMatch && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
@@ -444,7 +456,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       await supabaseJson(env, "/rest/v1/rpc/update_project_core_v3", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: detailMatch[1].toUpperCase(), ...update }) });
       return Response.json({ data: { id: detailMatch[1].toUpperCase(), ...update }, meta: { source: "supabase" } });
     }
-    const transitionMatch = pathname.match(/^\/api\/projects\/(PRJ-[A-Z0-9-]+)\/transitions$/i);
+    const transitionMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/transitions$/i);
     if (transitionMatch && request.method === "POST") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);
       if (!access.ok) return authorizationError(access);

@@ -1,3 +1,3 @@
-export type LifecycleStatus="DRAFT"|"PENDING"|"LIVE"|"PAUSED"|"CLOSED";
-export const lifecycleTransitions:Record<LifecycleStatus,readonly LifecycleStatus[]>={DRAFT:["PENDING"],PENDING:["DRAFT","LIVE"],LIVE:["PAUSED","CLOSED"],PAUSED:["LIVE","CLOSED"],CLOSED:[]};
+export type LifecycleStatus="PENDING"|"LIVE"|"PAUSED"|"ID_SUBMITTED"|"INVOICED"|"CLOSED";
+export const lifecycleTransitions:Record<LifecycleStatus,readonly LifecycleStatus[]>={PENDING:["LIVE"],LIVE:["PAUSED","ID_SUBMITTED"],PAUSED:["LIVE","ID_SUBMITTED"],ID_SUBMITTED:["INVOICED","LIVE"],INVOICED:["CLOSED"],CLOSED:[]};
 export function canTransition(from:LifecycleStatus,to:LifecycleStatus){return lifecycleTransitions[from].includes(to)}

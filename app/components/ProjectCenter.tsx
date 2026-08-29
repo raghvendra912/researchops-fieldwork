@@ -23,12 +23,12 @@ type ProjectMeta = {
 };
 type ProjectsResponse = { data: Project[]; meta: ProjectMeta };
 
-const initialStatuses: ProjectStatus[] = ["DRAFT", "LIVE", "PENDING", "PAUSED", "CLOSED"];
+const initialStatuses: ProjectStatus[] = ["PENDING", "LIVE", "PAUSED", "ID_SUBMITTED", "INVOICED", "CLOSED"];
 const initialSummary = demoProjects.reduce<ProjectSummary>((summary, project) => {
   summary.statuses[project.status] += 1;
   summary.totalCompletes += project.completes;
   return summary;
-}, { statuses: { DRAFT: 0, LIVE: 0, PENDING: 0, PAUSED: 0, CLOSED: 0 }, totalCompletes: 0 });
+}, { statuses: { PENDING: 0, LIVE: 0, PAUSED: 0, ID_SUBMITTED: 0, INVOICED: 0, CLOSED: 0 }, totalCompletes: 0 });
 const initialFacets: ProjectFacets = {
   clients: Array.from(new Set(demoProjects.map((project) => project.client))).sort(),
   managers: Array.from(new Set(demoProjects.map((project) => project.manager))).sort().map((manager) => ({ value: manager, label: manager })),
@@ -53,21 +53,22 @@ export function ProjectCenter() {
     source: "mock",
     canOperate: !configured,
     facets: configured ? { clients: [], managers: [], types: [], statuses: initialStatuses } : initialFacets,
-    summary: configured ? { statuses: { DRAFT: 0, LIVE: 0, PENDING: 0, PAUSED: 0, CLOSED: 0 }, totalCompletes: 0 } : initialSummary,
+    summary: configured ? { statuses: { PENDING: 0, LIVE: 0, PAUSED: 0, ID_SUBMITTED: 0, INVOICED: 0, CLOSED: 0 }, totalCompletes: 0 } : initialSummary,
   });
   const [source, setSource] = useState<"loading" | "mock" | "supabase">(configured ? "loading" : "mock");
   const [loadError, setLoadError] = useState("");
   const [client, setClient] = useState("ALL");
   const [manager, setManager] = useState("ALL");
-  const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
+  const [selectedStatuses, setSelectedStatuses] = useState<ProjectStatus[]>([]);
   const [type, setType] = useState("ALL");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [query, setQuery] = useState("");
+  const [projectIdQuery, setProjectIdQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [debouncedProjectId, setDebouncedProjectId] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-  const [sort, setSort] = useState("createdAt:desc");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -75,14 +76,19 @@ export function ProjectCenter() {
   }, [query]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedProjectId(projectIdQuery.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [projectIdQuery]);
+
+  useEffect(() => {
     if (configured && !session?.access_token) return;
     const controller = new AbortController();
-    const [sortBy, sortDirection] = sort.split(":");
-    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), sortBy, sortDirection, scope: "mine" });
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), sortBy: "createdAt", sortDirection: "desc", scope: "mine" });
     if (debouncedQuery) params.set("q", debouncedQuery);
+    if (debouncedProjectId) params.set("projectId", debouncedProjectId);
     if (client !== "ALL") params.set("client", client);
     if (manager !== "ALL") params.set("manager", manager);
-    if (status !== "ALL") params.set("status", status);
+    if (selectedStatuses.length) params.set("status", selectedStatuses.join(","));
     if (type !== "ALL") params.set("type", type);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
@@ -101,7 +107,7 @@ export function ProjectCenter() {
       setLoadError("Project data could not be loaded. Check the API and Supabase configuration.");
     });
     return () => controller.abort();
-  }, [client, configured, debouncedQuery, from, manager, page, pageSize, session?.access_token, sort, status, to, type]);
+  }, [client, configured, debouncedProjectId, debouncedQuery, from, manager, page, pageSize, selectedStatuses, session?.access_token, to, type]);
 
   function resetPageAnd(action: () => void) {
     setPage(1);
@@ -111,11 +117,12 @@ export function ProjectCenter() {
   function resetFilters() {
     setClient("ALL");
     setManager("ALL");
-    setStatus("ALL");
+    setSelectedStatuses([]);
     setType("ALL");
     setFrom("");
     setTo("");
     setQuery("");
+    setProjectIdQuery("");
     setPage(1);
   }
 
@@ -152,7 +159,7 @@ export function ProjectCenter() {
 
       <div className="metric-strip">
         <MetricCard label="Live projects" value={counts.LIVE} detail="Currently fielding" tint="#cae7df" />
-        <MetricCard label="Pending launch" value={counts.PENDING + counts.DRAFT} detail="Includes drafts" tint="#f2dfbb" />
+        <MetricCard label="Pending launch" value={counts.PENDING} detail="Awaiting fieldwork" tint="#f2dfbb" />
         <MetricCard label="Paused" value={counts.PAUSED} detail="Awaiting action" tint="#dbe3f2" />
         <MetricCard label="Total completes" value={meta.summary.totalCompletes.toLocaleString()} detail="Across this result set" tint="#f1d7ce" />
       </div>
@@ -163,10 +170,10 @@ export function ProjectCenter() {
           <div className="field"><label htmlFor="to-date">Created to</label><input id="to-date" className="control" type="date" value={to} onChange={(event) => resetPageAnd(() => setTo(event.target.value))} /></div>
           <div className="field"><label htmlFor="client">Client</label><select id="client" className="control" value={client} onChange={(event) => resetPageAnd(() => setClient(event.target.value))}><option value="ALL">All clients</option>{meta.facets.clients.map((item) => <option key={item}>{item}</option>)}</select></div>
           <div className="field"><label htmlFor="manager">Project manager</label><select id="manager" className="control" value={manager} onChange={(event) => resetPageAnd(() => setManager(event.target.value))}><option value="ALL">All managers</option>{meta.facets.managers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
-          <div className="field"><label htmlFor="status">Status</label><select id="status" className="control" value={status} onChange={(event) => resetPageAnd(() => setStatus(event.target.value as ProjectStatus | "ALL"))}><option value="ALL">All statuses</option>{meta.facets.statuses.map((item) => <option key={item}>{item}</option>)}</select></div>
+          <div className="field"><label htmlFor="status">Statuses</label><select id="status" className="control" multiple size={3} value={selectedStatuses} onChange={(event) => resetPageAnd(() => setSelectedStatuses(Array.from(event.target.selectedOptions, (option) => option.value as ProjectStatus)))}>{meta.facets.statuses.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}</select><span className="field-help">Select multiple statuses with Ctrl/⌘ or Shift.</span></div>
           <div className="field"><label htmlFor="type">Project type</label><select id="type" className="control" value={type} onChange={(event) => resetPageAnd(() => setType(event.target.value))}><option value="ALL">All types</option>{meta.facets.types.map((item) => <option key={item}>{item}</option>)}</select></div>
-          <div className="field"><label htmlFor="sort">Sort by</label><select id="sort" className="control" value={sort} onChange={(event) => resetPageAnd(() => setSort(event.target.value))}><option value="createdAt:desc">Newest first</option><option value="createdAt:asc">Oldest first</option><option value="code:asc">Project ID A–Z</option><option value="code:desc">Project ID Z–A</option><option value="name:asc">Project name A–Z</option><option value="status:asc">Status A–Z</option><option value="cpi:desc">Highest CPI</option><option value="cpi:asc">Lowest CPI</option></select></div>
-          <div className="field search-wrap"><label htmlFor="search">Search</label><input id="search" className="control search-control" placeholder="Project, client, PO or market" value={query} onChange={(event) => resetPageAnd(() => setQuery(event.target.value))} /></div>
+          <div className="field search-wrap"><label htmlFor="project-id-search">Internal project ID</label><input id="project-id-search" className="control search-control" placeholder="e.g. ROP-1050" value={projectIdQuery} onChange={(event) => resetPageAnd(() => setProjectIdQuery(event.target.value))} /></div>
+          <div className="field search-wrap"><label htmlFor="search">General search</label><input id="search" className="control search-control" placeholder="Project name or client PO" value={query} onChange={(event) => resetPageAnd(() => setQuery(event.target.value))} /></div>
         </div>
         <div className="filter-actions"><button className="button small ghost" type="button" onClick={resetFilters}>Clear filters</button></div>
       </section>
@@ -186,7 +193,7 @@ export function ProjectCenter() {
                   <td>{project.client}</td>
                   <td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td>{project.completes.toLocaleString()}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td>
                   <td className="rate">{project.incidenceRate.toFixed(1)}</td><td>{project.conversionRate.toFixed(1)}</td><td>${project.cpi.toFixed(2)}</td>
-                  <td><span className={`status-pill status-${project.status}`}>{project.status}</span></td>
+                  <td><span className={`status-pill status-${project.status}`}>{project.status.replaceAll("_", " ")}</span></td>
                   <td><Link className="button small ghost" href={`/projects/${project.id}`}>Open →</Link></td>
                 </tr>
               ))}

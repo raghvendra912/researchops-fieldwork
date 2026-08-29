@@ -25,7 +25,7 @@ export async function ingestNormalizedEvent(body: NormalizedEvent, env: EventEnv
   const respondentRef = String(body.respondentRef ?? "").trim();
   const organizationId = String(body.organizationId ?? "").trim();
   const projectCode = String(body.projectCode ?? "").trim().toUpperCase();
-  if (!eventTypes.includes(eventType) || !respondentRef || !organizationId || !/^PRJ-[A-Z0-9-]+$/.test(projectCode)) return Response.json({ error: "Invalid event payload" }, { status: 400 });
+  if (!eventTypes.includes(eventType) || !respondentRef || !organizationId || !/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode)) return Response.json({ error: "Invalid event payload" }, { status: 400 });
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ data: { accepted: true, created: true, eventType }, meta: { source: "mock" } }, { status: 202 });
   try {
     const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/ingest_survey_event`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }, body: JSON.stringify({ p_organization_id: organizationId, p_project_code: projectCode, p_supplier_id: body.supplierId || null, p_respondent_ref: respondentRef, p_event_type: eventType, p_provider_transaction_id: body.providerTransactionId || null, p_occurred_at: body.occurredAt || null, p_metadata: body.metadata ?? {} }) });

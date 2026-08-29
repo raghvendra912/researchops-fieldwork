@@ -116,7 +116,10 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .status-PENDING { color: var(--amber); background: var(--amber-soft); }
 .status-DRAFT { color: #765d31; background: #f1eadc; }
 .status-PAUSED { color: var(--blue); background: var(--blue-soft); }
+.status-ID_SUBMITTED { color: #684f9a; background: #eee8f8; }
+.status-INVOICED { color: #15606e; background: #dff1f3; }
 .status-CLOSED { color: #717975; background: #e9ebe8; }
+.field-help { color: var(--muted); font-size: 12px; line-height: 1.35; }
 .status-ACTIVE { color: var(--green); background: var(--green-soft); }
 .status-INACTIVE { color: #717975; background: #e9ebe8; }
 .table-footer { padding: 13px 18px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; }

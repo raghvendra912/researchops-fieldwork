@@ -97,8 +97,8 @@ test("Worker and Supabase persist operator, event, fraud, and provider workflows
       securityTerminateUrl: "https://client.example.test/project-security",
     },
   }), 201).data;
-  assert.match(project.id, /^PRJ-/);
-  assert.equal(project.status, "DRAFT");
+  assert.match(project.id, /^ROP-/);
+  assert.equal(project.status, "PENDING");
 
   expectStatus(await call(`/api/projects/${project.id}`, {
     token,
@@ -133,10 +133,6 @@ test("Worker and Supabase persist operator, event, fraud, and provider workflows
   }), 200).data;
   assert.equal(assignments[0].supplierId, supplier.id);
 
-  const pending = expectStatus(await call(`/api/projects/${project.id}/transitions`, {
-    token, method: "POST", body: { status: "PENDING" },
-  }), 200).data;
-  assert.equal(pending.status, "PENDING");
   const live = expectStatus(await call(`/api/projects/${project.id}/transitions`, {
     token, method: "POST", body: { status: "LIVE" },
   }), 200).data;

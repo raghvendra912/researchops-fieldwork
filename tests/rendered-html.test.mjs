@@ -87,7 +87,7 @@ test("serves Worker health and project APIs", async () => {
     body: JSON.stringify({ projectName: "API smoke project", client: "Northstar Bank", quota: 100, clientCpi: 8.5 }),
   });
   assert.equal(created.status, 201);
-  assert.equal((await created.json()).data.status, "DRAFT");
+  assert.equal((await created.json()).data.status, "PENDING");
 
   for (const invalidProject of [
     { projectName: "Fractional quota", client: "Northstar Bank", quota: 1.5, clientCpi: 8.5 },
