@@ -1,5 +1,15 @@
 # ResearchOps deployment checklist
 
+## Current hosted staging
+
+- URL: `https://researchops-fieldwork.rav9912.chatgpt.site`
+- Access: owner-only through Sites.
+- Runtime: Sites-managed Cloudflare Worker-compatible Vinext build.
+- Database/Auth: Supabase Free in `ap-south-1`, with migrations `001` through `019` applied.
+- Runtime configuration: managed through Sites environment variables and secrets; no hosted credentials belong in repository files.
+
+The staging site is the permanent hosted test environment. Quick Tunnels remain temporary local-development surfaces.
+
 ## Runtime configuration
 
 Public browser variables:

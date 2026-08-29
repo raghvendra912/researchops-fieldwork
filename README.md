@@ -6,6 +6,16 @@ A working research fieldwork operations application: organization overview, PM-s
 
 Read [PROJECT_TRACKER.md](PROJECT_TRACKER.md) before continuing development. It is the source of truth for implemented features, the complete roadmap, acceptance criteria, blockers, required credentials, verification history, and the exact next task. Update it before ending every development session.
 
+## Hosted staging
+
+The owner-only hosted staging environment is available at:
+
+```text
+https://researchops-fieldwork.rav9912.chatgpt.site
+```
+
+It runs the Cloudflare Worker-compatible Vinext build through Sites and uses a hosted Supabase Free project in `ap-south-1`. Migrations `001` through `019` and the local authentication/application records were migrated on 2026-08-29. Runtime credentials are managed by the hosting secret store and are not committed to this repository.
+
 ## Run locally
 
 Requirements: Node.js 22.13 or newer and Docker Desktop running.

@@ -39,8 +39,8 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Complete the in-progress private Sites staging deployment after Supabase CLI authentication: create the free hosted project, apply migrations `001` through `019`, migrate the local data, configure hosted secrets and Auth redirect URLs, deploy, and verify readiness/authenticated flows.
-2. Complete browser-driven keyboard, responsive, and authenticated-flow verification for `TST-04`/`TST-05` when a supported browser runtime is available.
+1. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` against the private Sites staging URL when a supported owner-authenticated browser runtime is available.
+2. Keep the private Sites staging deployment and hosted Supabase Free project available for cross-device development testing.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve financial rules, currency, billing, and reconciliation decisions before implementing `FIN-01` through `FIN-03`.
 5. Keep the verified Quick Tunnel and local Supabase stack available for cross-device development testing.
@@ -172,7 +172,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `OPS-01` | Structured logging and error tracking | BLOCKED | Request IDs and sanitized structured logs are implemented and verified; selecting and credentialing an external error-tracking sink remains a product/operations decision. |
 | `OPS-02` | Backup/recovery procedure | DONE | Procedures are documented and an isolated scoped dump/restore drill validated organizations, projects, sessions, events, audits, fraud, notifications, and migration `015`, then removed all temporary artifacts. |
 | `DEP-01` | Cloudflare configuration | DONE | Public/server-only variables, runtime bindings, secret boundaries, staging/promotion gates, named-tunnel requirements, monitoring, rollback, and a working Wrangler tunnel launcher are documented and verified locally. |
-| `DEP-02` | Staging deployment | IN PROGRESS | A private Sites project and source repository now exist and the validated source is pushed; hosted Supabase creation/data migration, runtime secrets, Auth redirects, deployment, and live verification remain blocked on Supabase CLI authentication. |
+| `DEP-02` | Staging deployment | READY | Owner-only Sites staging is deployed with hosted Supabase in `ap-south-1`, migrations `001`-`019`, exact migrated row counts, hosted secrets, and Auth redirects; owner-authenticated browser health/readiness and critical-flow evidence remain gated by the unavailable browser surface. |
 | `DEP-03` | Production deployment | BLOCKED | Requires approved staging evidence, production Cloudflare/Supabase access, monitoring sink, backup ownership, and commercial/provider decisions. |
 | `DEP-04` | Named Cloudflare Tunnel | BLOCKED | Requires a Cloudflare account, owned domain/hostname, access policy decision, and tunnel credentials; verified Quick Tunnel remains development-only. |
 
@@ -207,7 +207,7 @@ Do not record secret values here. Mark only whether they are available.
 | Email provider credentials | MISSING | Provider not selected. |
 | Research Defender credentials | MISSING | Integration decision and credentials not supplied. |
 | Sites deployment access | AVAILABLE | A private ResearchOps Sites project and source repository were created on 2026-08-29. |
-| Hosted Supabase access | MISSING | The CLI is not authenticated; login is required before creating and migrating the free hosted project. |
+| Hosted Supabase access | AVAILABLE | The ResearchOps Free project is deployed in `ap-south-1`; schema, authentication users, and application data were migrated on 2026-08-29. |
 | Supported browser-control surface | UNAVAILABLE | Browser discovery returned no connected in-app, Chrome, or Edge surface; required for `TST-04`/`TST-05`. |
 
 ## Architecture decisions
@@ -232,7 +232,7 @@ Do not record secret values here. Mark only whether they are available.
 
 | ID | Blocker / risk | Resolution |
 |---|---|---|
-| `BLK-01` | Hosted Supabase staging/production credentials are not configured and the CLI is not authenticated. | Run `npx supabase login` locally without sharing the token, then create the free hosted project and migrate schema/data before deploying the prepared Sites version. |
+| `BLK-01` | RESOLVED - hosted Supabase staging and Sites runtime credentials are configured. | Keep credentials in Supabase/Sites secret stores and verify authenticated hosted flows when browser control is available. |
 | `BLK-02` | No supported browser-control surface is connected for E2E/accessibility evidence. | Connect the in-app browser or supported Chrome/Edge extension, then run authenticated keyboard, responsive, and critical-flow checks against the live tunnel. |
 | `BLK-03` | Provider API contracts and credentials are not available. | Obtain current sandbox documentation and credentials before M5 implementation. |
 | `BLK-04` | Financial rules and currency requirements are not defined. | Confirm billing, supplier liability, adjustment, tax, and FX rules before M7. |
@@ -296,8 +296,20 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-27 | Protected owner Quick Tunnel restart | PASS - local Supabase and the production Worker started successfully; the Quick Tunnel generated a fresh protected OWNER auto-login link and its public health endpoint returned `healthy` |
 | 2026-08-29 | Protected owner Quick Tunnel restart | PASS - replaced the previous verified tunnel process tree, rebuilt the production app, confirmed configured database readiness, and registered a fresh Cloudflare QUIC tunnel; local hostname propagation remained pending during the short verification window |
 | 2026-08-29 | Permanent hosting preparation | PASS - production build passes; private Sites project and source repository created; exact validated source committed and pushed without environment files, credentials, or local Supabase state |
+| 2026-08-29 | Hosted Supabase migration | PASS - migrations `001`-`019` applied; 14 application-table counts and 77 Auth users exactly match local source; hosted credentials stored only in Sites/Supabase |
+| 2026-08-29 | Private Sites staging deployment | PASS - version 1 published owner-only at the permanent staging URL with environment revision 1; unauthenticated access returns HTTP 401 as expected |
 
 ## Session log
+
+### 2026-08-29 - Free hosted staging deployed
+
+- Created the Supabase Free ResearchOps project in `ap-south-1`, applied migrations `001` through `019`, and migrated local Auth plus public application data using temporary ignored exports.
+- Verified exact local/hosted counts for 14 application tables and all 77 authentication users.
+- Configured public connection values and server-only service, ingestion, callback, and fraud secrets in the Sites environment store; `DEV_AUTO_LOGIN` is disabled in hosted staging.
+- Published version 1 to the owner-only permanent Sites URL and confirmed unauthenticated requests receive HTTP 401.
+- Configured Supabase Auth site and password-recovery redirects for the permanent hosted URL, then restored local-development values in `supabase/config.toml`.
+- `DEP-02` is READY; final owner-authenticated health/readiness, keyboard, responsive, and critical-flow evidence remains gated by the unavailable supported browser-control surface.
+- Current task returns to the browser-verification gate, followed by the external provider, email/error-tracking, financial, and production-approval decisions in Current focus.
 
 ### 2026-08-29 - Permanent free hosting preparation
 
