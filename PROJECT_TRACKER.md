@@ -312,8 +312,17 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | Production transcript-workflow rollout | PASS - hosted migration `020` applied and Sites version 2 published; production login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
 | 2026-08-29 | PRJ-1125 production routing diagnosis | BLOCKED SAFELY - production is bound to the expected hosted Supabase project; PRJ-1125 is PENDING and has no survey URL, the reported supplier token is absent from the hosted directory, and the exact public route currently returns HTTP 404 without starting a respondent session |
 | 2026-08-29 | Pre-deployment standard verification after routing diagnosis | PASS - production build, 13 standard tests, and lint pass; 4 credential-gated integration suites skipped as designed |
+| 2026-08-29 | Sites version 3 production deployment | PASS - exact pushed commit `19de1c7` packaged and published; the live login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
 
 ## Session log
+
+### 2026-08-29 - Sites version 3 deployed
+
+- Re-ran the production build, 13-test standard suite, and lint successfully before publishing.
+- Pushed commit `19de1c7`, saved Sites version 3 from that exact source and verified it is the current live version at the permanent public URL.
+- Verified the production login returns HTTP 200 with ResearchOps content and protected project API access remains HTTP 401 without authentication.
+- The deployment preserves `BLK-07`: PRJ-1125 routing still requires its intended client survey URL and a valid hosted supplier assignment before traffic can be safely activated.
+- Current task remains obtaining that routing configuration; next task is activating the assignment/project and verifying a real-respondent 302 redirect.
 
 ### 2026-08-29 - PRJ-1125 routing activation diagnosis
 
