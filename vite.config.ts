@@ -69,7 +69,17 @@ export default defineConfig(async ({ mode }) => {
         : {}),
     },
     plugins: isVercelBuild
-      ? [vinext(), nitro({ serverDir: "./server" })]
+      ? [
+          vinext(),
+          nitro({
+            serverDir: "./server",
+            vercel: {
+              functions: {
+                environment: { NODE_OPTIONS: "--conditions=react-server" },
+              },
+            },
+          }),
+        ]
       : [
           vinext(),
           sites(),
