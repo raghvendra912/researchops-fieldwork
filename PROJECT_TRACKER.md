@@ -241,6 +241,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-04` | Financial rules and currency requirements are not defined. | Confirm billing, supplier liability, adjustment, tax, and FX rules before M7. |
 | `BLK-05` | RESOLVED - Sites staging is publicly reachable and the ResearchOps login remains mandatory. | Keep protected APIs authenticated and verify external-account browser flows when browser control is available. |
 | `BLK-06` | RESOLVED - hosted migration `020` and Sites version 2 were explicitly approved and deployed. | Monitor the production workflow and retain migration/rollback procedures. |
+| `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 
 ## Verification record
 
@@ -309,8 +310,18 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | Transcript workflow standard suite | PASS - production build, 13 standard tests, and lint pass after status, search/filter, ID, manager-history, project-type, routing-label, and ISO market changes |
 | 2026-08-29 | Local migration `020` | PASS - migration applied to local Supabase; new projects receive `ROP-` IDs and PENDING status, controlled transition and project query paths pass live; the event RPC passes directly with current local credentials |
 | 2026-08-29 | Production transcript-workflow rollout | PASS - hosted migration `020` applied and Sites version 2 published; production login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
+| 2026-08-29 | PRJ-1125 production routing diagnosis | BLOCKED SAFELY - production is bound to the expected hosted Supabase project; PRJ-1125 is PENDING and has no survey URL, the reported supplier token is absent from the hosted directory, and the exact public route currently returns HTTP 404 without starting a respondent session |
+| 2026-08-29 | Pre-deployment standard verification after routing diagnosis | PASS - production build, 13 standard tests, and lint pass; 4 credential-gated integration suites skipped as designed |
 
 ## Session log
+
+### 2026-08-29 - PRJ-1125 routing activation diagnosis
+
+- Verified that the Sites production environment is connected to the expected hosted Supabase project.
+- Confirmed PRJ-1125 is PENDING and has no configured client survey URL; activating it in that state would not have a valid destination.
+- Confirmed the supplier token from the reported link is stale/not present in the hosted supplier directory and the exact public route now returns HTTP 404 without following a redirect or creating a survey session.
+- Did not bypass lifecycle or routing safeguards and did not write incomplete production configuration.
+- Current task is obtaining the intended client survey URL and selecting the hosted supplier assignment; next task is activating the assignment/project and verifying a 302 with a real respondent ID. `BLK-07` records this external configuration dependency.
 
 ### 2026-08-29 - Transcript workflow deployed to production
 
