@@ -39,8 +39,8 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Complete browser-driven keyboard, responsive, and authenticated-flow verification for `TST-04`/`TST-05` when a supported browser runtime is available.
-2. Add hosted staging only when Cloudflare and hosted Supabase credentials are available.
+1. Complete the in-progress private Sites staging deployment after Supabase CLI authentication: create the free hosted project, apply migrations `001` through `019`, migrate the local data, configure hosted secrets and Auth redirect URLs, deploy, and verify readiness/authenticated flows.
+2. Complete browser-driven keyboard, responsive, and authenticated-flow verification for `TST-04`/`TST-05` when a supported browser runtime is available.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve financial rules, currency, billing, and reconciliation decisions before implementing `FIN-01` through `FIN-03`.
 5. Keep the verified Quick Tunnel and local Supabase stack available for cross-device development testing.
@@ -172,7 +172,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `OPS-01` | Structured logging and error tracking | BLOCKED | Request IDs and sanitized structured logs are implemented and verified; selecting and credentialing an external error-tracking sink remains a product/operations decision. |
 | `OPS-02` | Backup/recovery procedure | DONE | Procedures are documented and an isolated scoped dump/restore drill validated organizations, projects, sessions, events, audits, fraud, notifications, and migration `015`, then removed all temporary artifacts. |
 | `DEP-01` | Cloudflare configuration | DONE | Public/server-only variables, runtime bindings, secret boundaries, staging/promotion gates, named-tunnel requirements, monitoring, rollback, and a working Wrangler tunnel launcher are documented and verified locally. |
-| `DEP-02` | Staging deployment | BLOCKED | Requires Cloudflare deployment access, Supabase staging credentials, migrations, test tenants, and provider fixtures. |
+| `DEP-02` | Staging deployment | IN PROGRESS | A private Sites project and source repository now exist and the validated source is pushed; hosted Supabase creation/data migration, runtime secrets, Auth redirects, deployment, and live verification remain blocked on Supabase CLI authentication. |
 | `DEP-03` | Production deployment | BLOCKED | Requires approved staging evidence, production Cloudflare/Supabase access, monitoring sink, backup ownership, and commercial/provider decisions. |
 | `DEP-04` | Named Cloudflare Tunnel | BLOCKED | Requires a Cloudflare account, owned domain/hostname, access policy decision, and tunnel credentials; verified Quick Tunnel remains development-only. |
 
@@ -206,7 +206,8 @@ Do not record secret values here. Mark only whether they are available.
 | PureSpectrum sandbox credentials | MISSING | Required for `PURE-01`. |
 | Email provider credentials | MISSING | Provider not selected. |
 | Research Defender credentials | MISSING | Integration decision and credentials not supplied. |
-| Cloudflare deployment access | NOT PROVIDED | Quick Tunnels work without account access; hosted staging/production requires account credentials. |
+| Sites deployment access | AVAILABLE | A private ResearchOps Sites project and source repository were created on 2026-08-29. |
+| Hosted Supabase access | MISSING | The CLI is not authenticated; login is required before creating and migrating the free hosted project. |
 | Supported browser-control surface | UNAVAILABLE | Browser discovery returned no connected in-app, Chrome, or Edge surface; required for `TST-04`/`TST-05`. |
 
 ## Architecture decisions
@@ -225,12 +226,13 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-25 | Keep client/supplier outcome configuration in their directories and project-level configuration limited to the survey/security entry points. | Matches the call workflow, avoids duplicating redirect ownership per project, and keeps opaque callbacks stable across assignments. |
 | 2026-08-25 | Scope Project Center to the authenticated PM while keeping Overview organization-wide. | Preserves an operator-focused work queue without hiding portfolio health from authorized workspace readers. |
 | 2026-08-25 | Use one signed-in project manager and the existing secure role model until explicit requirements approve broader edit ownership. | Resolves conflicting transcript phrasing without weakening established authorization boundaries. |
+| 2026-08-29 | Prefer the repository-native Sites/Cloudflare Worker runtime with Supabase Free over Vercel or Render for initial hosting. | The application already builds as a Cloudflare Worker; Render free services sleep and its free Postgres expires, while Vercel Hobby is personal/non-commercial and would require a runtime adaptation. |
 
 ## Known blockers and risks
 
 | ID | Blocker / risk | Resolution |
 |---|---|---|
-| `BLK-01` | Hosted Supabase staging/production credentials are not configured. | Local development is unblocked; obtain hosted environment credentials before staging promotion. |
+| `BLK-01` | Hosted Supabase staging/production credentials are not configured and the CLI is not authenticated. | Run `npx supabase login` locally without sharing the token, then create the free hosted project and migrate schema/data before deploying the prepared Sites version. |
 | `BLK-02` | No supported browser-control surface is connected for E2E/accessibility evidence. | Connect the in-app browser or supported Chrome/Edge extension, then run authenticated keyboard, responsive, and critical-flow checks against the live tunnel. |
 | `BLK-03` | Provider API contracts and credentials are not available. | Obtain current sandbox documentation and credentials before M5 implementation. |
 | `BLK-04` | Financial rules and currency requirements are not defined. | Confirm billing, supplier liability, adjustment, tax, and FX rules before M7. |
@@ -293,8 +295,17 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-25 | Development tunnel stylesheet validation | PASS - PowerShell parses and lint passes; `npm run tunnel:dev` starts on port 3001, creates a Quick Tunnel, and the public login page and Vite stylesheet return HTTP 200 with `text/css` |
 | 2026-08-27 | Protected owner Quick Tunnel restart | PASS - local Supabase and the production Worker started successfully; the Quick Tunnel generated a fresh protected OWNER auto-login link and its public health endpoint returned `healthy` |
 | 2026-08-29 | Protected owner Quick Tunnel restart | PASS - replaced the previous verified tunnel process tree, rebuilt the production app, confirmed configured database readiness, and registered a fresh Cloudflare QUIC tunnel; local hostname propagation remained pending during the short verification window |
+| 2026-08-29 | Permanent hosting preparation | PASS - production build passes; private Sites project and source repository created; exact validated source committed and pushed without environment files, credentials, or local Supabase state |
 
 ## Session log
+
+### 2026-08-29 - Permanent free hosting preparation
+
+- Compared current official free-tier constraints and selected the repository-native Sites/Cloudflare Worker runtime with Supabase Free instead of adapting the Worker application to Vercel or accepting Render's sleep and expiring-database limitations.
+- Stopped the temporary Quick Tunnel so it no longer held the production build, then completed a clean production build.
+- Created a private ResearchOps Sites project, persisted its opaque project ID in hosting metadata, initialized the source repository, excluded local build/Supabase state, and pushed the validated source using a short-lived credential.
+- Supabase browser control remains unavailable and the CLI is not authenticated, so no hosted database, secrets, or production deployment was created. `DEP-02` is now IN PROGRESS and blocked specifically on the user completing `npx supabase login` locally.
+- Current task is hosted Supabase creation/schema-data migration and private deployment; browser QA and external integrations remain next.
 
 ### 2026-08-29 - Protected owner Quick Tunnel restarted
 
