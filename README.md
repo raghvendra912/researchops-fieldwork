@@ -14,7 +14,7 @@ The publicly reachable hosted staging environment is available at:
 https://researchops-fieldwork.rav9912.chatgpt.site
 ```
 
-It runs the Cloudflare Worker-compatible Vinext build through Sites and uses a hosted Supabase Free project in `ap-south-1`. The ResearchOps login remains mandatory and unauthenticated API requests are rejected. Migrations `001` through `019` and the local authentication/application records were migrated on 2026-08-29. Runtime credentials are managed by the hosting secret store and are not committed to this repository.
+It runs the Cloudflare Worker-compatible Vinext build through Sites and uses a hosted Supabase Free project in `ap-south-1`. The ResearchOps login remains mandatory and unauthenticated API requests are rejected. Migrations `001` through `020` and the local authentication/application records were migrated on 2026-08-29. Runtime credentials are managed by the hosting secret store and are not committed to this repository.
 
 ## Run locally
 

@@ -5,7 +5,7 @@
 - URL: `https://researchops-fieldwork.rav9912.chatgpt.site`
 - Access: publicly reachable through Sites; ResearchOps authentication remains mandatory and protected APIs reject unauthenticated requests.
 - Runtime: Sites-managed Cloudflare Worker-compatible Vinext build.
-- Database/Auth: Supabase Free in `ap-south-1`, with migrations `001` through `019` applied.
+- Database/Auth: Supabase Free in `ap-south-1`, with migrations `001` through `020` applied.
 - Runtime configuration: managed through Sites environment variables and secrets; no hosted credentials belong in repository files.
 
 The staging site is the permanent hosted test environment. Quick Tunnels remain temporary local-development surfaces.

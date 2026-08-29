@@ -3,8 +3,8 @@
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
 Last updated: 2026-08-29
-Current milestone: Transcript-aligned workflow rollout, followed by external integration and browser/deployment gates
-Overall state: Transcript-aligned Project Center search/filter, lifecycle, manager history, project-type, and ISO market changes are implemented and locally verified; hosted migration and deployment await explicit approval because the migration converts existing DRAFT projects to PENDING
+Current milestone: External integration and browser/deployment gates
+Overall state: Transcript-aligned Project Center search/filter, lifecycle, manager history, project-type, and ISO market changes are implemented, hosted, and production-verified; remaining UI evidence and external integrations require the recorded browser, vendor, or commercial inputs
 
 ## Resume protocol
 
@@ -37,13 +37,12 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
-### Now - transcript workflow rollout
+### Now - M8 verification and external integrations
 
-1. Obtain explicit approval to apply migration `020` to hosted Supabase; it converts existing `DRAFT` projects to `PENDING`, adds the agreed operational/commercial states, starts new IDs with `ROP-`, and preserves manager display names.
-2. After approval, apply migration `020`, deploy the validated Sites source, and verify public login plus protected API behavior.
-3. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
-4. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
-5. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
+1. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
+2. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
+3. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
+4. Keep the public Sites deployment and hosted Supabase project available for cross-device testing.
 
 ### Next - external decision and credential gates
 
@@ -98,11 +97,11 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `PRJ-04` | Persistent project read API | DONE | Live Worker integration proves authenticated tenant-scoped detail and filtered/paginated list reads from Supabase. |
 | `PRJ-05` | Persistent project creation | DONE | Live Worker integration proves existing-client-only atomic creation with controlled type/category, current created date, signed-in PM, first market, multiple saved suppliers, survey URL, and security URL; malformed quota, LOI, incidence, and URL inputs are rejected. |
 | `PRJ-06` | Project update API | DONE | Live Worker integration proves validated atomic persistence and the corresponding audit record. |
-| `PRJ-07` | Project state transitions | IN PROGRESS | Local migration and automated rules implement PENDING, LIVE, PAUSED, ID_SUBMITTED, INVOICED, and CLOSED with audited controlled transitions; hosted migration/deployment requires explicit approval. |
+| `PRJ-07` | Project state transitions | DONE | Hosted migration and automated rules implement PENDING, LIVE, PAUSED, ID_SUBMITTED, INVOICED, and CLOSED with audited controlled transitions; existing DRAFT records were normalized to PENDING. |
 | `PRJ-08` | Project detail UI | READY | API-backed detail loading/editing, created date, survey/security URLs, average duration, lifecycle actions, markets, and expanded supplier comparison render in mock/Supabase modes; non-operators remain read-only. |
 | `PRJ-09` | Project manager and survey configuration | DONE | Creation assigns the authenticated operator; audited create/read/update flows persist validated project survey and security-termination URLs while directory records own outcome routing. |
 | `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
-| `MKT-02` | ISO market option catalog | READY | Creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; hosted rollout and browser evidence remain pending. |
+| `MKT-02` | ISO market option catalog | READY | Hosted creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; browser interaction evidence remains pending. |
 | `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
 | `CLI-01` | Client directory UI | READY | Admin-only create/edit UI includes contacts, address, four outcome destinations, and copyable opaque client links; other roles receive a read-only directory. |
 | `CLI-02` | Client CRUD | DONE | Live Worker integration proves admin-scoped contact/outcome create/update, persistent reads, opaque token generation, URL/email constraints, and audit records. |
@@ -173,7 +172,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `OPS-01` | Structured logging and error tracking | BLOCKED | Request IDs and sanitized structured logs are implemented and verified; selecting and credentialing an external error-tracking sink remains a product/operations decision. |
 | `OPS-02` | Backup/recovery procedure | DONE | Procedures are documented and an isolated scoped dump/restore drill validated organizations, projects, sessions, events, audits, fraud, notifications, and migration `015`, then removed all temporary artifacts. |
 | `DEP-01` | Cloudflare configuration | DONE | Public/server-only variables, runtime bindings, secret boundaries, staging/promotion gates, named-tunnel requirements, monitoring, rollback, and a working Wrangler tunnel launcher are documented and verified locally. |
-| `DEP-02` | Staging deployment | READY | Publicly reachable Sites staging is deployed with mandatory ResearchOps authentication, hosted Supabase in `ap-south-1`, migrations `001`-`019`, exact migrated row counts, hosted secrets, and Auth redirects; authenticated browser health/readiness and critical-flow evidence remain gated by the unavailable browser surface. |
+| `DEP-02` | Staging deployment | READY | Publicly reachable Sites version 2 is deployed with mandatory ResearchOps authentication, hosted Supabase in `ap-south-1`, migrations `001`-`020`, hosted secrets, and Auth redirects; authenticated browser health/readiness and critical-flow evidence remain gated by the unavailable browser surface. |
 | `DEP-03` | Production deployment | BLOCKED | Requires approved staging evidence, production Cloudflare/Supabase access, monitoring sink, backup ownership, and commercial/provider decisions. |
 | `DEP-04` | Named Cloudflare Tunnel | BLOCKED | Requires a Cloudflare account, owned domain/hostname, access policy decision, and tunnel credentials; verified Quick Tunnel remains development-only. |
 
@@ -241,7 +240,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-03` | Provider API contracts and credentials are not available. | Obtain current sandbox documentation and credentials before M5 implementation. |
 | `BLK-04` | Financial rules and currency requirements are not defined. | Confirm billing, supplier liability, adjustment, tax, and FX rules before M7. |
 | `BLK-05` | RESOLVED - Sites staging is publicly reachable and the ResearchOps login remains mandatory. | Keep protected APIs authenticated and verify external-account browser flows when browser control is available. |
-| `BLK-06` | Hosted migration `020` rewrites existing DRAFT projects to PENDING and therefore requires explicit production-data approval. | Apply the migration and deploy only after the user explicitly approves that hosted data change. |
+| `BLK-06` | RESOLVED - hosted migration `020` and Sites version 2 were explicitly approved and deployed. | Monitor the production workflow and retain migration/rollback procedures. |
 
 ## Verification record
 
@@ -309,8 +308,17 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | Public Sites access with application auth | PASS - public root and login routes return HTTP 200 while an unauthenticated protected API request returns HTTP 401 |
 | 2026-08-29 | Transcript workflow standard suite | PASS - production build, 13 standard tests, and lint pass after status, search/filter, ID, manager-history, project-type, routing-label, and ISO market changes |
 | 2026-08-29 | Local migration `020` | PASS - migration applied to local Supabase; new projects receive `ROP-` IDs and PENDING status, controlled transition and project query paths pass live; the event RPC passes directly with current local credentials |
+| 2026-08-29 | Production transcript-workflow rollout | PASS - hosted migration `020` applied and Sites version 2 published; production login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
 
 ## Session log
+
+### 2026-08-29 - Transcript workflow deployed to production
+
+- Applied migration `020` to hosted Supabase after explicit approval, normalizing existing DRAFT projects to PENDING and enabling the expanded operational/commercial lifecycle.
+- Published Sites version 2 with the new `ROP-` project IDs, multi-status filtering, separate search modes, historical manager names, expanded types, and complete ISO country/language selectors.
+- Verified the production login route returns HTTP 200 with ResearchOps content and the unauthenticated projects API remains protected with HTTP 401.
+- `PRJ-07` is DONE, `BLK-06` is resolved, and `MKT-02` remains READY only for browser interaction evidence.
+- Current task returns to the supported-browser verification gate, followed by the recorded vendor and commercial decisions.
 
 ### 2026-08-29 - Transcript-aligned workflow implemented locally
 
