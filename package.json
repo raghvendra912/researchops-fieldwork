@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "build:vercel": "vite build && node scripts/fix-vercel-vinext-output.mjs",
+    "build:vercel": "node scripts/build-vercel.mjs",
     "start": "vinext start",
     "tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1",
     "tunnel:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1 -Mode development -Port 3001",

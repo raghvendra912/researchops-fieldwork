@@ -316,8 +316,16 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | Sites version 3 production deployment | PASS - exact pushed commit `19de1c7` packaged and published; the live login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
 | 2026-08-30 | Vercel adapter build | PARTIAL PASS - Nitro/Vercel Build Output was generated with frontend and ResearchOps middleware/backend included; Windows preview exposed a platform-specific generated-module resolution issue, so Vercel's Linux remote build remains the deployment verification gate |
 | 2026-08-30 | GitHub source security audit | PASS - tracked files and 161 reachable historical blobs contain no high-confidence private-key or provider-token patterns; local environment files and deployment/runtime state remain ignored |
+| 2026-08-30 | Vercel React runtime-condition fix | PASS LOCALLY - the Vercel build completes when the parent deployment environment enables `react-server`, while the Vite subprocess runs without that incompatible condition; standard build, 13 tests, and lint pass |
 
 ## Session log
+
+### 2026-08-30 - Vercel build/runtime condition separated
+
+- Diagnosed the production HTTP 500 as Vercel starting the Vinext server function without React's required `react-server` condition; the failure occurs before Supabase access.
+- Confirmed that adding project-level `NODE_OPTIONS=--conditions=react-server` fixes the runtime condition but also applies it to Vite, causing the build-time `createContext` export failure.
+- Added a cross-platform Vercel build launcher that removes `NODE_OPTIONS` only from the Vite subprocess, while allowing the deployed function to retain the runtime condition.
+- The exact conditioned-parent Vercel build simulation, standard production build, 13 standard tests, and lint pass; the next task is pushing this revision, restoring the Production `NODE_OPTIONS` variable, and verifying the remote Vercel runtime.
 
 ### 2026-08-30 - Sanitized GitHub source deployment
 
