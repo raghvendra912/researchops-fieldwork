@@ -315,8 +315,16 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | Pre-deployment standard verification after routing diagnosis | PASS - production build, 13 standard tests, and lint pass; 4 credential-gated integration suites skipped as designed |
 | 2026-08-29 | Sites version 3 production deployment | PASS - exact pushed commit `19de1c7` packaged and published; the live login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
 | 2026-08-30 | Vercel adapter build | PARTIAL PASS - Nitro/Vercel Build Output was generated with frontend and ResearchOps middleware/backend included; Windows preview exposed a platform-specific generated-module resolution issue, so Vercel's Linux remote build remains the deployment verification gate |
+| 2026-08-30 | GitHub source security audit | PASS - tracked files and 161 reachable historical blobs contain no high-confidence private-key or provider-token patterns; local environment files and deployment/runtime state remain ignored |
 
 ## Session log
+
+### 2026-08-30 - Sanitized GitHub source deployment
+
+- Audited the tracked source and all 161 reachable historical Git blobs for high-confidence private-key, GitHub, AWS, Slack, Stripe, Google API, and JWT credential patterns; no deployable credential was found.
+- Confirmed local environment files, Vercel metadata, Wrangler state, generated output, tunnel state, and local Supabase temporary state are excluded by `.gitignore` and no untracked file is eligible for the commit.
+- The only current-tree credential-name matches are runtime environment-variable wiring and a short non-JWT test fixture; no server secret value is committed.
+- Current task remains the browser-verification and external-integration gates in Current focus; next task remains completing those checks when their recorded dependencies become available.
 
 ### 2026-08-30 - Vercel migration prepared, secret approval pending
 
