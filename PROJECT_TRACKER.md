@@ -327,6 +327,8 @@ Do not record secret values here. Mark only whether they are available.
 - Added a cross-platform Vercel build launcher that removes `NODE_OPTIONS` only from the Vite subprocess, while allowing the deployed function to retain the runtime condition.
 - The exact conditioned-parent Vercel build simulation, standard production build, 13 standard tests, and lint pass; the next task is pushing this revision, restoring the Production `NODE_OPTIONS` variable, and verifying the remote Vercel runtime.
 - Connected the configured Vercel project to GitHub; its first Git deployment was blocked because historical Codex commits used a local placeholder email, so the repository-local author is being changed to the owner's verified GitHub noreply identity for the next deployment trigger.
+- The verified-author Git deployment builds successfully, but Vercel ignored both the dashboard and Nitro-generated function environment setting and the runtime still rejected React Server Components before database access.
+- Added the required `react-server` condition to the repository-level Vercel function `env` configuration documented by Vercel; the Vercel build and lint pass, and the next task is remote runtime verification from the automatically triggered production deployment.
 
 ### 2026-08-30 - Sanitized GitHub source deployment
 
