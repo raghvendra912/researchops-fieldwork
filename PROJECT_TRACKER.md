@@ -1,0 +1,662 @@
+# ResearchOps Development Tracker
+
+> This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
+
+Last updated: 2026-08-29
+Current milestone: External integration and browser/deployment gates
+Overall state: Call-derived directory, project, redirect-routing, PM scoping, supplier control, respondent export, analytics export, security, and duration features are implemented and live-verified; remaining UI evidence and external integrations require unavailable browser access, vendor/commercial decisions, or hosted credentials
+
+## Resume protocol
+
+Every developer or coding agent must follow this sequence:
+
+1. Read this entire file and `README.md`.
+2. Inspect the current workspace before editing. Do not rebuild completed features from scratch.
+3. Check the Current focus section and continue the first unblocked item.
+4. Keep changes limited to the selected milestone unless a dependency requires otherwise.
+5. Run the acceptance checks listed for the changed features.
+6. Update feature statuses, Current focus, Verification record, Decisions, Blockers, and Session log before stopping.
+7. Never put passwords, access tokens, provider secrets, or service-role keys in this file.
+
+Use this prompt in a new conversation:
+
+```text
+Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the existing implementation, then continue the Current focus without rebuilding completed features. Follow the acceptance criteria, verify your work, and update PROJECT_TRACKER.md before finishing.
+```
+
+## Status legend
+
+| Status | Meaning |
+|---|---|
+| DONE | Implemented and verified against the stated acceptance criteria. |
+| PROTOTYPE | Working UI or mock behavior exists, but it is not production-connected. |
+| READY | Code or schema exists but still needs environment setup or live verification. |
+| IN PROGRESS | This is the active implementation item. Keep at most one main feature here. |
+| TODO | Not implemented. |
+| BLOCKED | Cannot continue until the named dependency or credential is available. |
+
+## Current focus
+
+### Now - M8 verification and external integrations
+
+1. Complete browser-driven keyboard, responsive, and authenticated-flow verification for `TST-04`/`TST-05` when a supported browser runtime is available.
+2. Add hosted staging only when Cloudflare and hosted Supabase credentials are available.
+3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
+4. Resolve financial rules, currency, billing, and reconciliation decisions before implementing `FIN-01` through `FIN-03`.
+5. Keep the verified Quick Tunnel and local Supabase stack available for cross-device development testing.
+
+### Next - external decision and credential gates
+
+- Obtain official CPX, BitLabs, and PureSpectrum sandbox contracts and credentials.
+- Select an email delivery provider and error-tracking sink.
+- Approve financial, currency/FX, tax, reconciliation, and permission rules.
+- Supply Cloudflare and hosted Supabase staging credentials for deployment verification.
+
+### Browser verification gate
+
+- Connect the supported in-app/external browser surface, then run authenticated keyboard, responsive, and critical-flow verification for `TST-04`/`TST-05`.
+
+## Feature board
+
+### M1 - Foundation and first vertical slice
+
+| ID | Feature | Status | Acceptance / current result |
+|---|---|---|---|
+| `FND-01` | Cloudflare-compatible React/Vite application | DONE | Application builds with Vinext/Vite and the Cloudflare Worker entry point. |
+| `FND-02` | Responsive product shell and navigation | DONE | Desktop, tablet, and mobile layouts exist with routes for all planned centers. |
+| `FND-03` | Dashboard UI | READY | Organization-wide Overview loads monthly completes, live-project counts, supplier delivery/cost, and operational notifications from protected APIs; project creation remains in PM-scoped Project Center. |
+| `FND-04` | Login UI | READY | Supabase sign-in/session/sign-out and protected product gating are implemented; an explicit local-only testing switch can issue an OWNER session only after a per-launch high-entropy protected-link cookie, while ordinary visitors and all non-testing environments retain normal login enforcement. |
+| `FND-05` | Worker health endpoint | DONE | `GET /api/health` returns HTTP 200 and `status: healthy`. |
+| `FND-06` | Baseline automated tests | DONE | Server-render and Worker API smoke tests pass. |
+| `FND-07` | TypeScript and production build | DONE | `tsc --noEmit` and `npm run build` pass. |
+| `DEV-01` | Cloudflare Quick Tunnel workflow | DONE | `npm run tunnel` builds and serves production; `npm run tunnel:dev` serves Vite with hot reload; both report readiness, validate the public page and browser-style CSS, create a temporary public URL, and clean up owned processes on normal exit. |
+
+### M2 - Supabase, authentication, and tenancy
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `ENV-01` | Supabase development environment | DONE | Docker-backed local Supabase is running on loopback with development credentials kept outside source control. |
+| `DB-01` | Core PostgreSQL schema | DONE | The complete tenant schema and atomic RLS-protected RPC set are applied through migration `019` and exercised live. |
+| `DB-02` | Apply and verify migration | DONE | Migrations `001` through `019` and the development seed are applied; live integration tests verify constraints, RPCs, grants, routing data, and idempotency. |
+| `DB-03` | Tenant Row Level Security | DONE | A live three-user/two-organization integration test proves cross-tenant reads are hidden, writes are denied, and analyst writes are denied. |
+| `DB-04` | Development seed | DONE | Local seed data is applied and later onboarding creates Auth-linked tenant memberships safely. |
+| `AUTH-01` | Supabase email authentication | READY | Sign in, sign out, session restoration, generic error state, and route protection are implemented; public tunnel signup and authenticated API access are live-verified. |
+| `AUTH-02` | Password recovery | READY | Generic reset request, recovery-session validation, confirmation, update, expired/replayed-link handling, and a disposable live recovery lifecycle pass; production email delivery and browser UI evidence remain gated. |
+| `ORG-01` | Organization onboarding | READY | Membership gate, onboarding UI/API, OWNER membership transaction, and default supplier creation are implemented; public tunnel creation/read is live-verified. |
+| `ORG-02` | Roles and server authorization | DONE | Worker and database role boundaries are live integration-tested for owner, analyst, and cross-tenant access. |
+| `ORG-03` | Workspace settings | DONE | Owner/admin-controlled organization name and timezone persist through an audited RPC; mandatory security controls are presented as enforced and live update/audit/restore verification passes. |
+| `ORG-04` | Tenant-visible member profiles | DONE | Auth signup/update synchronizes a safe display name; tenant RLS exposes only shared-workspace teammates, and project manager reads never expose internal IDs as labels. |
+| `AUD-01` | Privileged action audit trail | DONE | Live integration verifies project creation/update/transitions, directory changes, market/quota changes, supplier assignments, fraud resolution, and rule administration audit records. |
+
+### M3 - Projects, clients, suppliers, and markets
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `PRJ-01` | Project Center table UI | READY | PM-scoped API search/filter/status counters/sort/pagination, human-readable manager facets, safe CSV export, and role-aware New Project access are implemented; browser evidence remains pending. |
+| `PRJ-02` | Project summary metrics | READY | Status counts, event outcomes, monthly Overview completes, and average respondent duration are connected in Supabase mode with demo fallback. |
+| `PRJ-03` | Demo project API | DONE | The explicit no-credentials fallback covers list/detail/create/update, transitions, markets, and assignments for local demonstrations. |
+| `PRJ-04` | Persistent project read API | DONE | Live Worker integration proves authenticated tenant-scoped detail and filtered/paginated list reads from Supabase. |
+| `PRJ-05` | Persistent project creation | DONE | Live Worker integration proves existing-client-only atomic creation with controlled type/category, current created date, signed-in PM, first market, multiple saved suppliers, survey URL, and security URL; malformed quota, LOI, incidence, and URL inputs are rejected. |
+| `PRJ-06` | Project update API | DONE | Live Worker integration proves validated atomic persistence and the corresponding audit record. |
+| `PRJ-07` | Project state transitions | DONE | Live Worker integration proves DRAFT to PENDING to LIVE transitions and their audit records; invalid transition rules have automated API coverage. |
+| `PRJ-08` | Project detail UI | READY | API-backed detail loading/editing, created date, survey/security URLs, average duration, lifecycle actions, markets, and expanded supplier comparison render in mock/Supabase modes; non-operators remain read-only. |
+| `PRJ-09` | Project manager and survey configuration | DONE | Creation assigns the authenticated operator; audited create/read/update flows persist validated project survey and security-termination URLs while directory records own outcome routing. |
+| `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
+| `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
+| `CLI-01` | Client directory UI | READY | Admin-only create/edit UI includes contacts, address, four outcome destinations, and copyable opaque client links; other roles receive a read-only directory. |
+| `CLI-02` | Client CRUD | DONE | Live Worker integration proves admin-scoped contact/outcome create/update, persistent reads, opaque token generation, URL/email constraints, and audit records. |
+| `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
+| `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
+| `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing ST/RC/CO/TE/OQ/QT, IR, cost, redirect mode, and copyable project Test/Live links; PAUSED/CLOSED stops live routing. |
+| `SUP-04` | Persistent supplier assignment | DONE | Live Worker integration proves atomic assignment replacement for supplier project ID, CPI, quota, status, tenant authorization, and audit history. |
+
+### M4 - Sessions, events, and operational metrics
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `EVT-01` | Survey session schema | DONE | Live Worker integration persists five respondent sessions and all seven planned immutable event types. |
+| `EVT-02` | Append-only event ingestion service | DONE | Live timestamped HMAC requests invoke the service-role-only RPC for every planned event type. |
+| `EVT-03` | Duplicate transaction handling | DONE | Live replay returns the original event with `created: false`; metrics remain single-counted. |
+| `MET-01` | Metrics aggregation service | DONE | Live views correctly aggregate starts, reached-client, complete, terminate, over-quota, quality terminate, abandon/conversion rates, supplier cost, and average respondent duration. |
+| `MET-02` | Live Project Center metrics | DONE | Live tenant-scoped list/detail responses return the persisted five starts and one complete. |
+| `MET-03` | Supplier comparison metrics | DONE | Live assignment delivery returns five starts, one complete, and the expected 8.75 supplier cost. |
+| `RSP-01` | Respondent/session explorer | DONE | Project filter/search returns normalized chronological timelines with supplier CPI and duration; a formula-safe per-project/all-project CSV export supports up to 1,000 rows. |
+| `ANA-01` | Analytics UI | READY | Date controls, source comparisons, supplier conversion/IR/cost indicators, and formula-safe portfolio/supplier/client/market CSV export are implemented with demo fallback. |
+| `ANA-02` | Persistent analytics API | DONE | Live date-bounded tenant analytics returns the expected portfolio events and supplier cost from persisted data. |
+
+### M5 - Provider integrations and callbacks
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `PROV-01` | Provider adapter interface | DONE | Shared provider types isolate launch URL construction, callback normalization, verification routing, and core event processing; contract and live callback-path tests pass. |
+| `CPX-01` | CPX adapter | BLOCKED | Isolated test-mode mapping and contract coverage exist; official sandbox payload/signature documentation and credentials are required before claiming CPX compatibility. |
+| `BIT-01` | BitLabs adapter | BLOCKED | Isolated test-mode mapping and contract coverage exist; official sandbox payload/signature documentation and credentials are required before claiming BitLabs compatibility. |
+| `PURE-01` | PureSpectrum adapter | BLOCKED | Isolated test-mode mapping and contract coverage exist; official sandbox payload/signature documentation and credentials are required before claiming PureSpectrum compatibility. |
+| `CBK-01` | Callback routing | DONE | Live signed CPX, BitLabs, and PureSpectrum test callbacks normalize and persist through dedicated provider routes. |
+| `CBK-02` | Fast callback acknowledgement | DONE | Live callback paths perform only signature validation, normalization, and the atomic event write before returning success. |
+| `CBK-03` | Callback observability | DONE | Live provider responses carry request IDs; structured records cover provider, outcome, rejection, throttling, status, and latency without sensitive identifiers. |
+| `RDR-01` | Opaque live respondent routing | DONE | Live verification proves opaque supplier links enforce active state/quota, record events, apply fraud/security checks, mask all client callbacks, redirect into the project survey, and return the final outcome to the supplier destination. |
+
+### M6 - Security and fraud controls
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `SEC-01` | Provider signature verification | DONE | Timestamp-plus-raw-body HMAC, expiry rejection, constant-time comparison, unsigned rejection, and live signed callbacks are verified. |
+| `SEC-02` | API authorization middleware | DONE | PostgREST validates bearer JWTs while the shared guard enforces tenant membership and role; owner, analyst, and cross-tenant behavior is live-tested. |
+| `SEC-03` | Rate limiting | DONE | Callback, generic event, password login, signup, and recovery endpoints enforce per-origin limits with Retry-After responses; automated boundary tests pass. |
+| `SEC-04` | Secret management | DONE | Service-role, ingestion, callback, and fraud secrets remain server-only Worker bindings, are absent from browser variables/responses/logs, and have documented hosted-secret procedures. |
+| `FRD-01` | Duplicate IP/device controls | DONE | Live repeated IP/device inputs create high-severity flags from server-only HMAC fingerprints without persisting raw identifiers. |
+| `FRD-02` | Speeding and quality rules | DONE | Live rapid completion creates an explainable speeding flag; trusted quality-signal rule behavior is migration- and API-tested. |
+| `FRD-03` | Research Defender integration | BLOCKED | Requires a product decision, current API contract, and credentials; native fraud controls remain independent. |
+| `FRD-04` | Fraud review queue | DONE | Live tenant-scoped review returns project-linked flags and persists an operator CONFIRMED resolution with audit history; capability metadata makes analyst/member views explicitly read-only and omits decision controls. |
+
+### M7 - Notifications and financials
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `NOT-01` | Transactional email provider | BLOCKED | Email channel preferences are modeled, but delivery requires selecting a provider and supplying credentials. |
+| `NOT-02` | Operational alerts | DONE | Live lifecycle notifications persist, read state updates, all seven administrator rules round-trip, the UI edits and persists pacing thresholds with role-aware read-only behavior, malformed rule sets are rejected, and the shell badge derives its unread count from the protected API; hosted scheduling remains a deployment concern. |
+| `FIN-01` | Project financial model | BLOCKED | Revenue recognition, supplier liability, currency/FX, taxes, adjustments, and reconciliation rules require a commercial decision. |
+| `FIN-02` | Financials UI | BLOCKED | Depends on the approved `FIN-01` model and permission decisions; supplier event cost is already visible operationally. |
+| `FIN-03` | Export and reconciliation | BLOCKED | Depends on approved financial rules, required export format, and accounting ownership. |
+
+### M8 - Testing, operations, and deployment
+
+| ID | Feature | Status | Acceptance criteria / next action |
+|---|---|---|---|
+| `TST-01` | Unit/business-rule tests | DONE | Lifecycle, rate-limit, safe CSV, authorization, signatures, mappings, URL validation, auth throttling, disposable password recovery, live idempotency, metrics, fraud, callbacks, directories, and notifications coverage pass; financial tests belong to the blocked financial model. |
+| `TST-02` | Database/RLS integration tests | DONE | Live local Supabase test covers three users, two tenants, owner/analyst roles, cross-tenant denial, atomic project creation, and event replay idempotency. |
+| `TST-03` | Provider contract tests | BLOCKED | Test-mode adapter fixtures pass; recorded official/sandbox fixtures require vendor contracts and credentials. |
+| `TST-04` | Playwright E2E vertical slice | BLOCKED | The authenticated stack and test-user creation are ready, but the supported browser-control runtime cannot initialize its trusted dependency in this environment. |
+| `TST-05` | Accessibility and responsive QA | BLOCKED | Static JSX accessibility lint passes; keyboard, focus, contrast, and viewport evidence requires the blocked supported browser-control runtime. |
+| `OPS-01` | Structured logging and error tracking | BLOCKED | Request IDs and sanitized structured logs are implemented and verified; selecting and credentialing an external error-tracking sink remains a product/operations decision. |
+| `OPS-02` | Backup/recovery procedure | DONE | Procedures are documented and an isolated scoped dump/restore drill validated organizations, projects, sessions, events, audits, fraud, notifications, and migration `015`, then removed all temporary artifacts. |
+| `DEP-01` | Cloudflare configuration | DONE | Public/server-only variables, runtime bindings, secret boundaries, staging/promotion gates, named-tunnel requirements, monitoring, rollback, and a working Wrangler tunnel launcher are documented and verified locally. |
+| `DEP-02` | Staging deployment | BLOCKED | Requires Cloudflare deployment access, Supabase staging credentials, migrations, test tenants, and provider fixtures. |
+| `DEP-03` | Production deployment | BLOCKED | Requires approved staging evidence, production Cloudflare/Supabase access, monitoring sink, backup ownership, and commercial/provider decisions. |
+| `DEP-04` | Named Cloudflare Tunnel | BLOCKED | Requires a Cloudflare account, owned domain/hostname, access policy decision, and tunnel credentials; verified Quick Tunnel remains development-only. |
+
+## Milestone exit criteria
+
+| Milestone | Exit criteria | State |
+|---|---|---|
+| M1 Foundation | All routes render, core prototype flows work, build/type/smoke checks pass. | COMPLETE |
+| M2 Persistent core | Real auth, organization tenancy, applied RLS, and persistent project CRUD pass integration tests. | COMPLETE |
+| M3 Operational CRUD | Clients, suppliers, markets, quotas, assignments, and state transitions are production-connected. | COMPLETE |
+| M4 Events and metrics | Trusted events generate accurate project and supplier metrics. | COMPLETE |
+| M5 Providers | CPX, BitLabs, and PureSpectrum work through isolated, tested adapters and callbacks. | NOT STARTED |
+| M6 Security | Authorization, signatures, abuse controls, fraud checks, and auditability pass review. | COMPLETE for native controls; Research Defender remains an optional blocked external integration |
+| M7 Commercial operations | Notifications and financial workflows are reconciled and permissioned. | BLOCKED - notifications pass; financial decisions are missing |
+| M8 Production readiness | E2E, accessibility, observability, staging, backup, deployment, and rollback are verified. | NOT STARTED |
+
+## Environment and credentials checklist
+
+Do not record secret values here. Mark only whether they are available.
+
+| Requirement | State | Notes |
+|---|---|---|
+| Node.js 22.13+ | AVAILABLE | Node 24.19 was used for the latest verification. |
+| npm dependencies | AVAILABLE | Installed in the current workspace. |
+| Local Docker/Supabase | AVAILABLE | Minimal local stack is running; API and database are exposed only on loopback. |
+| Supabase project URL | AVAILABLE | Local development URL is configured outside source control. |
+| Supabase anon key | AVAILABLE | Local public development key is configured outside source control. |
+| Supabase service-role key | AVAILABLE | Local server-only development key is passed only to the Worker runtime. |
+| CPX sandbox credentials | MISSING | Required for `CPX-01`. |
+| BitLabs sandbox credentials | MISSING | Required for `BIT-01`. |
+| PureSpectrum sandbox credentials | MISSING | Required for `PURE-01`. |
+| Email provider credentials | MISSING | Provider not selected. |
+| Research Defender credentials | MISSING | Integration decision and credentials not supplied. |
+| Cloudflare deployment access | NOT PROVIDED | Quick Tunnels work without account access; hosted staging/production requires account credentials. |
+| Supported browser-control surface | UNAVAILABLE | Browser discovery returned no connected in-app, Chrome, or Edge surface; required for `TST-04`/`TST-05`. |
+
+## Architecture decisions
+
+| Date | Decision | Reason |
+|---|---|---|
+| 2026-08-18 | Use React/TypeScript on the Cloudflare-compatible Vinext/Vite starter. | Keeps React routes and Worker deployment in one project while following the available Sites workflow. |
+| 2026-08-18 | Use Supabase/PostgreSQL as the system of record. | Provides Auth, relational data, PostgreSQL constraints, and Row Level Security. |
+| 2026-08-18 | Keep provider secrets and privileged writes in the Worker. | Browser bundles cannot safely hold secrets or assert trusted completion events. |
+| 2026-08-18 | Store append-only survey events and derive operational metrics. | Prevents mutable counters from becoming the only source of truth. |
+| 2026-08-18 | Use mock data only for the M1 vertical slice. | Allows UI and interaction work before database credentials are available. |
+| 2026-08-18 | Keep one environment-aware application path: authenticated Supabase mode when configured and labeled demo mode otherwise. | Lets development continue without credentials while preventing mock data from being mistaken for live persistence. |
+| 2026-08-18 | Forward each user's access token to Supabase and rely on RLS for project operations. | Preserves tenant identity end to end and avoids using a service-role key for ordinary CRUD. |
+| 2026-08-18 | Keep provider-specific code behind adapters. | Prevents CPX, BitLabs, or PureSpectrum behavior from leaking into pages and core services. |
+| 2026-08-18 | Use Quick Tunnels only for development demonstrations. | Cloudflare documents that random `trycloudflare.com` tunnels have no uptime guarantee and are not production hosting. |
+| 2026-08-25 | Keep client/supplier outcome configuration in their directories and project-level configuration limited to the survey/security entry points. | Matches the call workflow, avoids duplicating redirect ownership per project, and keeps opaque callbacks stable across assignments. |
+| 2026-08-25 | Scope Project Center to the authenticated PM while keeping Overview organization-wide. | Preserves an operator-focused work queue without hiding portfolio health from authorized workspace readers. |
+| 2026-08-25 | Use one signed-in project manager and the existing secure role model until explicit requirements approve broader edit ownership. | Resolves conflicting transcript phrasing without weakening established authorization boundaries. |
+
+## Known blockers and risks
+
+| ID | Blocker / risk | Resolution |
+|---|---|---|
+| `BLK-01` | Hosted Supabase staging/production credentials are not configured. | Local development is unblocked; obtain hosted environment credentials before staging promotion. |
+| `BLK-02` | No supported browser-control surface is connected for E2E/accessibility evidence. | Connect the in-app browser or supported Chrome/Edge extension, then run authenticated keyboard, responsive, and critical-flow checks against the live tunnel. |
+| `BLK-03` | Provider API contracts and credentials are not available. | Obtain current sandbox documentation and credentials before M5 implementation. |
+| `BLK-04` | Financial rules and currency requirements are not defined. | Confirm billing, supplier liability, adjustment, tax, and FX rules before M7. |
+
+## Verification record
+
+| Date | Check | Result |
+|---|---|---|
+| 2026-08-18 | `npm run build` | PASS |
+| 2026-08-18 | `tsc --noEmit` | PASS |
+| 2026-08-18 | `node --test tests/rendered-html.test.mjs` | PASS - 2 tests |
+| 2026-08-18 | `GET /projects` on local dev server | PASS - HTTP 200 |
+| 2026-08-18 | `GET /api/health` on local dev server | PASS - healthy |
+| 2026-08-18 | Cloudflare Quick Tunnel connection | PASS - tunnel created and registered over QUIC; Cloudflare connectivity pre-checks passed |
+| 2026-08-18 | `GET /api/readiness` through production server | PASS - application/API healthy; database correctly reports not configured |
+| 2026-08-18 | `npm run lint` after M2 code-ready changes | PASS |
+| 2026-08-18 | `npm test` after M2 code-ready changes | PASS - production build and 2 smoke tests, including mock project creation |
+| 2026-08-18 | Fresh local production server and Cloudflare Quick Tunnel after M2 changes | PASS - local health/readiness/projects and public health/readiness/projects returned HTTP 200; readiness correctly reports mock data |
+| 2026-08-18 | `npm run lint` and `npm test` after `PRJ-04` query controls | PASS - build and smoke tests cover filtering, sorting, exact totals, and pagination |
+| 2026-08-18 | Updated `PRJ-04` build through a fresh Cloudflare Quick Tunnel | PASS - public Project Center and combined filter/sort/pagination API returned HTTP 200 |
+| 2026-08-18 | `npm run lint` and `npm test` after auth/roles/directories batch | PASS - 5 test groups cover recovery pages, directory pages/APIs, and read-vs-operate role enforcement |
+| 2026-08-19 | `npm test` and `npm run lint` after notifications, unit coverage, and API observability | PASS - production build and 7 tests |
+| 2026-08-19 | Fresh local production origin and Cloudflare Quick Tunnel | PASS - local/public health healthy and public Project Center HTTP 200; database correctly reports not configured/mock |
+| 2026-08-19 | Local Supabase migrations `001`-`015` and seed | PASS - schema, grants, RPC fixes, and seed applied successfully |
+| 2026-08-19 | Live Supabase integration test | PASS - tenant isolation, roles, project transaction, event persistence, and replay idempotency verified |
+| 2026-08-19 | `npm test` and `npm run lint` after same-origin Supabase gateway | PASS - production build, 8 standard tests, 1 environment-gated integration test, and lint |
+| 2026-08-19 | Local Worker plus public Quick Tunnel with Supabase | PASS - readiness reports configured/supabase-ready; auth gateway, signup, workspace creation, and authenticated read succeed publicly |
+| 2026-08-19 | Fresh public Quick Tunnel attached to existing local Worker | PASS - public health healthy and readiness reports configured/supabase-ready |
+| 2026-08-19 | Live M3 Worker/Supabase operator workflow | PASS - onboarding, client/supplier CRUD, project create/update, markets, quota roll-up, supplier assignment, lifecycle, filtered read, and nine audit action classes |
+| 2026-08-19 | Live M4 event/metrics/respondent/analytics workflow | PASS - all seven event types, replay idempotency, project/supplier metrics, respondent timeline, and date-bounded analytics match persisted facts |
+| 2026-08-19 | Live provider/fraud workflow | PASS - three signed provider callbacks persist, duplicate IP/device and speeding flags appear, and operator resolution is audited |
+| 2026-08-19 | Live notification workflow | PASS - lifecycle inbox, read state, seven rules, and persisted pacing threshold verified |
+| 2026-08-19 | Auth gateway throttling | PASS - eleventh password-login request returns 429 with Retry-After after ten upstream attempts |
+| 2026-08-19 | Isolated logical backup/restore drill | PASS - application/auth/migration schemas restored; core record counts and migration `015` verified; temporary database and dump removed |
+| 2026-08-19 | Final standard verification | PASS - production build, 9 standard tests, 3 environment-gated integration suites, and lint |
+| 2026-08-19 | Fresh final Quick Tunnel | PASS - public readiness is configured/supabase-ready; Auth health, login page, signup, and persistent workspace creation return successfully |
+| 2026-08-21 | Public UI and authentication regression check | PASS - login and Project Center HTML, all 18 referenced CSS/JavaScript assets, auth health, temporary signup, and password login succeeded through the Quick Tunnel; test account removed |
+| 2026-08-21 | Strengthened tunnel launcher verification | PASS - PowerShell parses, lint passes, 9 standard tests pass with 3 environment-gated suites skipped, and a fresh tunnel reports ready/configured/supabase-ready only after public UI/CSS/auth checks succeed |
+| 2026-08-21 | Tunnel navigation hardening | PASS - page-to-page controls compile to native anchors, lint and the production build pass, 9 standard tests pass with 3 environment-gated suites skipped, and the replacement tunnel reports ready/configured/supabase-ready |
+| 2026-08-22 | Inert-control audit and Project Center export | PASS - safe quoted CSV unit coverage passes; lint passes; production build and 10 standard tests pass with 3 environment-gated suites skipped |
+| 2026-08-22 | Migration `016` and workspace settings | PASS - migration applied; owner update, timezone persistence, `ORGANIZATION_SETTINGS_UPDATED` audit record, and restoration verified live; build, 10 standard tests, and lint pass |
+| 2026-08-22 | Disposable password recovery lifecycle | PASS - real recovery link generation, recovery-session verification, password update, new-password login, replay rejection, and test-user removal pass against local Supabase |
+| 2026-08-22 | Standard suite after recovery coverage | PASS - production build and 10 standard tests pass with 4 environment-gated integration suites skipped; lint passes |
+| 2026-08-22 | Migration `017` and project redirect persistence | PASS - migration applied; authenticated create/update/detail round-trip preserves complete, terminate, and quota-full URLs; standard production build, 10 tests, and lint pass |
+| 2026-08-22 | Fresh public runtime after migration `017` | PASS - Quick Tunnel readiness reports ready with the local database configured |
+| 2026-08-22 | Project-creation validation hardening | PASS - invalid fractional quota, non-positive LOI, out-of-range incidence, malformed date, and unsafe redirect inputs return 400; production build, 10 standard tests, and lint pass |
+| 2026-08-22 | Notification rule administration audit | PASS - pacing threshold is exposed in the UI, owner persistence passes live, analyst metadata is read-only and update returns 403, incomplete/out-of-range rule sets return 400; build, 10 standard tests, and lint pass |
+| 2026-08-22 | Migration `018` and manager profile fidelity | PASS - migration applied; authenticated profile sync, human-readable detail/facet labels, UUID-backed manager filtering, and tenant-scoped project result pass live; build, 10 standard tests, and lint pass |
+| 2026-08-22 | Directory role-aware controls | PASS - owner directory capability passes live; analyst client reads report read-only, mutation controls are omitted by the UI contract, and direct write authorization remains 403; build, 10 standard tests, and lint pass |
+| 2026-08-22 | Project Center/create role-aware controls | PASS - owner project capability passes live; analyst list metadata reports read-only and writes remain 403; Project Center omits New Project and creation submission is disabled for non-operators; build, 10 standard tests, and lint pass |
+| 2026-08-22 | Project detail role-aware controls | PASS - owner detail capability passes live; analyst capability and 403 mutation boundaries pass; lifecycle, core edit, market, and supplier controls consume the protected capability; build, 10 standard tests, and lint pass |
+| 2026-08-22 | Dashboard role-aware project shortcut | PASS - Dashboard consumes protected project capability and replaces New Project with read-only status for non-operators; project capability owner/analyst contracts, build, 10 standard tests, and lint pass |
+| 2026-08-22 | Fraud Review role-aware controls | PASS - owner capability and resolution pass live against Supabase; analyst reads report `canOperate: false`, direct resolution returns 403, and the UI replaces decision controls with an awaiting-operator state; production build, 10 standard tests, and lint pass |
+| 2026-08-25 | Protected testing owner auto-login | PASS - disabled-by-default and missing-cookie denial tests pass; protected entry cookie issues a real local Supabase OWNER session; service credentials remain server-only; production build, 13 standard tests, lint, PowerShell parsing, local OWNER API access, and public tunnel surface pass |
+| 2026-08-25 | Migration `019` call-feature schema/API verification | PASS - contacts/outcomes, redirect tokens/modes, project survey/security URLs, admin-only client writes, v3 project RPCs, and average-duration view applied locally |
+| 2026-08-25 | Standard verification after call-feature implementation | PASS - lint and production build pass; 13 standard tests pass with 4 environment-gated suites skipped |
+| 2026-08-25 | Live Worker/Supabase workflow after migration `019` | PASS - authenticated directory/project/market/supplier/event/fraud/respondent/analytics/provider/notification workflow passes against local persistence |
+| 2026-08-25 | Masked redirect routing | PASS - supplier Live returns 302 to the project survey and the opaque client completion callback returns 302 to the configured supplier destination with events persisted |
+| 2026-08-25 | Tunnel launcher active-key refresh | PASS - Windows PowerShell native-stderr handling corrected; launcher reports active service binding refreshed and readiness reports configured/supabase-ready |
+| 2026-08-25 | Development tunnel stylesheet validation | PASS - PowerShell parses and lint passes; `npm run tunnel:dev` starts on port 3001, creates a Quick Tunnel, and the public login page and Vite stylesheet return HTTP 200 with `text/css` |
+| 2026-08-27 | Protected owner Quick Tunnel restart | PASS - local Supabase and the production Worker started successfully; the Quick Tunnel generated a fresh protected OWNER auto-login link and its public health endpoint returned `healthy` |
+| 2026-08-29 | Protected owner Quick Tunnel restart | PASS - replaced the previous verified tunnel process tree, rebuilt the production app, confirmed configured database readiness, and registered a fresh Cloudflare QUIC tunnel; local hostname propagation remained pending during the short verification window |
+
+## Session log
+
+### 2026-08-29 - Protected owner Quick Tunnel restarted
+
+- Identified and stopped only the verified ResearchOps Worker and Cloudflare child processes from the previous tunnel session so the replacement server would receive a fresh protected-entry token.
+- Rebuilt the production application and started a new database-configured Quick Tunnel with the existing local-only `DEV_AUTO_LOGIN` protection.
+- Cloudflared environment checks passed for DNS, QUIC, HTTP/2, and Cloudflare API access, and the new tunnel connection registered successfully; this machine's lookup of the new hostname was still propagating during the short public-health retry window.
+- No feature status changed. Current and next tasks remain the M8 browser-verification and external-integration gates listed under Current focus.
+
+### 2026-08-27 - Protected owner Quick Tunnel restarted
+
+- Started Docker Desktop and restored the local Supabase services required by the authenticated application.
+- Built the current production application and launched a fresh Cloudflare Quick Tunnel with the existing local-only `DEV_AUTO_LOGIN` protection enabled.
+- Verified the public health endpoint returns `healthy`; the protected OWNER link was shared only in the active conversation and was not stored in the repository or tracker.
+- No feature status changed. Current and next tasks remain the M8 browser-verification and external-integration gates listed under Current focus.
+
+### 2026-08-25 - Development tunnel stylesheet validation
+
+- Reproduced the launcher failure: a direct PowerShell request to Vite's CSS module received the JavaScript hot-reload wrapper even though browser stylesheet requests received valid CSS.
+- Updated the local and public stylesheet checks to send browser-style `Accept` and `Sec-Fetch-Dest` request headers while retaining the existing production checks.
+- Documented the development-mode behavior in the README.
+- PowerShell parsing and lint pass; a complete `npm run tunnel:dev` run created a public Quick Tunnel whose page and stylesheet both returned HTTP 200, with the stylesheet served as `text/css`.
+- Stopped the temporary verification tunnel after the checks completed; port 3001 is free for the next run.
+- Current and next tasks remain the M8 browser-verification and external-integration gates listed under Current focus.
+
+### 2026-08-25 - Call-derived operations and routing feature set
+
+- Added migration `019_call_feature_updates.sql` for client/supplier contacts and outcomes, opaque redirect tokens, supplier STATIC/DYNAMIC mode, project survey/security URLs, admin-only client writes, v3 project transactions, and average duration.
+- Rebuilt client/supplier directories with role-aware contact editing, outcome destinations, masked links, copy controls, and removed the obsolete supplier-type UI.
+- Added opaque Test/Live routing that enforces supplier/project/assignment state and quota, records START/REACHED/outcome events, applies fraud/security checks, injects masked client callbacks, and routes final outcomes back to supplier destinations.
+- Updated project creation/detail for controlled types/categories, existing clients, signed-in PM, created date, multi-supplier selection, survey/security URLs, and duration metrics.
+- Made Project Center PM-scoped and Overview organization-wide with monthly completes; expanded supplier delivery controls/metrics and links.
+- Added respondent project filtering, CPI/duration columns, formula-safe CSV export, and analytics source CSV/export diagnostics.
+- Fixed nullable directory fields exposed by live integration and corrected the tunnel launcher's Windows PowerShell service-key refresh so service-role event ingestion survives local key rotation.
+- Applied migration `019`; lint, production build, 13 standard tests, direct Supabase isolation, live Worker/Supabase workflow, and end-to-end masked routing pass.
+- Final Quick Tunnel is running from the verified production build; its hostname remains temporary and local DNS propagation can lag even while Cloudflare has registered it.
+
+### 2026-08-25 - Protected temporary owner auto-login
+
+- Added an explicit `DEV_AUTO_LOGIN` testing switch that preserves the completed normal authentication implementation for later enforcement.
+- Rejected an unrestricted public OWNER bypass and replaced it with a new 256-bit protected entry link on every tunnel launch; ordinary tunnel visitors still receive the login page.
+- The protected entry sets an HTTP-only, secure, same-site testing cookie before the client requests a short-lived Supabase session for the first local workspace OWNER.
+- Kept the service credential outside browser bundles and responses, added disabled/denied/success contract tests, and made the launcher refresh rotating local Supabase service bindings without writing them to disk.
+- Production build, 13 standard tests, lint, PowerShell parsing, and a live session-to-protected-workspace check pass. The live tunnel was restarted and verified; its private testing token is intentionally not recorded here.
+
+### 2026-08-22 - Fraud Review permission fidelity and final mutation audit
+
+- Added protected operator-capability metadata to Fraud Review reads and consumed it in the UI.
+- Confirm/Dismiss actions are now limited to OWNER, ADMIN, and PM roles; analyst/member views are explicitly read-only and open flags show an awaiting-operator state.
+- Added mock owner capability coverage, analyst readable/403-resolution coverage, and live Supabase owner capability verification.
+- Production build, 10 standard tests, live Worker/Supabase integration, and lint pass; a final protected-write/UI audit found no additional safely unblocked permission gap.
+- Restarted the database-backed local Worker and Quick Tunnel at `https://month-dvds-erik-wallet.trycloudflare.com`; remaining roadmap work is limited to the documented browser, vendor, commercial, and hosted-environment gates.
+
+### 2026-08-18 - M1 vertical slice
+
+- Initialized the Cloudflare-compatible React/Vite project.
+- Built dashboard, navigation, Project Center, create form, project detail, supplier comparison, clients, suppliers, respondents, analytics, settings, and mock login.
+- Added mock project data and Worker project/health APIs.
+- Added Supabase client configuration, core migration, seed, RLS policy definitions, event ledger, and audit schema.
+- Added smoke tests, README, responsive styling, and build verification.
+- Next session: configure Supabase and begin M2 in the order listed under Current focus.
+
+### 2026-08-18 - Tracker created
+
+- Added this roadmap and resume protocol.
+- Added explicit feature IDs, milestone exit criteria, environment requirements, blockers, decisions, and verification history.
+- Future sessions must update this tracker before stopping.
+
+### 2026-08-18 - Cloudflare Quick Tunnel readiness
+
+- Installed `cloudflared` 2026.8.2.
+- Added `npm run tunnel` for a production build plus temporary public tunnel and `npm run tunnel:dev` for live-reload use.
+- Fixed the tunnel origin at `127.0.0.1:3010` for production and the development server at port `3001`.
+- Added a narrow `.trycloudflare.com` Vite host allowlist instead of disabling host protection.
+- Added `/api/readiness` so application, API, database configuration, and current data source are explicit.
+- Verified Cloudflare DNS, QUIC, HTTP/2, API reachability, and tunnel registration.
+- Supabase persistence remains blocked by `ENV-01`; the current tunnel intentionally reports and serves mock data until credentials, migration, authentication, and RLS tests are complete.
+
+### 2026-08-18 - M2 authentication and project persistence code-ready
+
+- Replaced the static login with Supabase email/password sign-in, session restoration, sign-out, safe return paths, and client-side product route protection.
+- Preserved a clearly labeled demo mode when Supabase variables are absent.
+- Routed Project Center reads through the Worker API and forwarded the signed-in user's bearer token to Supabase.
+- Connected Create Project to the Worker and added migration `002_create_project_rpc.sql` for an atomic project, first-market, and supplier-assignment transaction under RLS.
+- Added the organization membership gate, first-workspace onboarding UI/API, and migration `003_organization_onboarding.sql` to create the OWNER membership and default suppliers atomically.
+- Passed Supabase connection values into local Worker development and production tunnel processes without exposing the service-role key.
+- Updated API smoke coverage and cleared the repository lint errors.
+- Next session: configure Supabase, apply all three migrations, test onboarding and two-tenant isolation, then finish Project API query controls.
+
+### 2026-08-18 - M2 local and tunnel runtime
+
+- Built and started the current M2 implementation at `127.0.0.1:3010`.
+- Started a fresh Cloudflare Quick Tunnel and verified the public Project Center, health endpoint, and readiness endpoint.
+- The server and tunnel were left running for cross-device testing; Supabase remains unconfigured, so the public site is intentionally serving labeled demo data.
+
+### 2026-08-18 - PRJ-04 project query controls
+
+- Moved Project Center search, client/manager/status/type/date filters, sorting, and pagination behind the Worker API contract.
+- Added bounded query parsing, exact result counts, page metadata, facets, and summary counts for both mock and tenant-scoped Supabase modes.
+- Added accessible page-size, previous/next, page-number, sorting, and clear-filter controls to the Project Center.
+- Added smoke coverage for combined status filtering, deterministic sorting, pagination, and text search.
+- `PRJ-04` is code-ready; live two-tenant verification remains blocked by `ENV-01` and `DB-02`.
+- Restarted the local production server and Quick Tunnel with the updated build; Cloudflare public DNS and HTTP routing were verified.
+- Next unblocked implementation: `AUTH-02` password recovery.
+
+### 2026-08-18 - AUTH-02, ORG-02, CLI-02, and SUP-02 code-ready
+
+- Added generic password-reset requests, dedicated recovery-session password updates, confirmation validation, expired-link handling, and non-enumerating responses.
+- Added a reusable Worker membership/role guard and applied read vs operate permissions to project endpoints.
+- Added migration `004_role_authorization.sql` so direct PostgREST access cannot bypass Worker role rules.
+- Replaced static client and supplier pages with searchable create/edit/activate/deactivate CRUD surfaces backed by tenant APIs.
+- Create Project now loads active clients and suppliers from the directory APIs instead of hard-coded options.
+- Build, lint, five test groups, mock CRUD behavior, and role rejection checks pass.
+- Next autonomous batch: `PRJ-06` project editing, then `PRJ-07` state transitions and audit entries.
+
+### 2026-08-18 - PRJ-06 and PRJ-07 project lifecycle code-ready
+
+- Replaced the static project detail page with API-backed detail loading and an editable core-information form.
+- Added operator-protected project update and transition endpoints with consistent mock behavior.
+- Added migration `005_project_lifecycle.sql` for transactional project updates, controlled lifecycle transitions, and actor-scoped audit entries.
+- Enforced DRAFT → PENDING, PENDING → DRAFT/LIVE, LIVE → PAUSED/CLOSED, and PAUSED → LIVE/CLOSED transitions; CLOSED remains terminal.
+- Added API coverage for valid edits, valid/invalid transitions, and ANALYST role denial.
+- Production build and all five test groups pass; lint passes after removing the hook dependency warning.
+- Next autonomous batch: `MKT-01` and `QTA-01` multi-market/quota editing, followed by `SUP-04` supplier assignment.
+
+### 2026-08-18 - MKT-01 and QTA-01 code-ready
+
+- Added an API-backed project markets editor with add/remove, country/language, target quota, LOI, and incidence controls.
+- Added migration `006_project_markets.sql` for validated atomic market replacement, duplicate prevention, overall project quota roll-up, and audit logging.
+- Added mock and authorization tests for market reads/writes plus duplicate rejection.
+- Production build, five test groups, and lint pass.
+- Next autonomous feature: `SUP-04` persistent supplier assignments.
+
+### 2026-08-18 - SUP-04 code-ready
+
+- Replaced the mock supplier comparison on project detail with directory-backed assignment management.
+- Added assignment read/replace APIs for supplier project ID, supplier CPI, target quota, and lifecycle status.
+- Added migration `007_project_suppliers.sql` for tenant-validated atomic assignment replacement and audit logging.
+- Added mock API and ANALYST role-denial coverage; production build, five test groups, and lint pass.
+- Next autonomous feature: complete remaining `AUD-01` coverage, then begin trusted event ingestion.
+
+### 2026-08-18 - AUD-01, EVT-02, EVT-03, and callback security code-ready
+
+- Added migration `008_directory_audit.sql` for project creation and client/supplier change audit triggers.
+- Added timestamped HMAC-SHA256 callback verification over the raw request body with a five-minute replay window and constant-time comparison.
+- Added migration `009_event_ingestion.sql` with a service-role-only atomic ingestion RPC, session upsert, event validation, supplier-project validation, and replay-safe idempotency index.
+- Kept service-role and callback secrets server-only and extended local/tunnel environment loading without printing secret values.
+- Added signed/unsigned callback tests; production build, five test groups, and lint pass.
+- Next autonomous features: `MET-01`, `MET-02`, and `MET-03` event-derived metrics.
+
+### 2026-08-18 - MET-01, MET-02, and MET-03 code-ready
+
+- Added migration `010_event_metrics.sql` with tenant-safe project and supplier aggregation views.
+- Derived starts, reached-client, last-24-hour completes, terminal outcomes, abandon/incidence/conversion rates, last complete, and supplier cost from the append-only event ledger.
+- Connected Supabase Project Center/detail responses and supplier delivery tables to the derived metrics.
+- Production build, five test groups, and lint pass.
+- Next autonomous feature: `RSP-01` respondent/session explorer.
+
+### 2026-08-18 - RSP-01 code-ready
+
+- Replaced the Respondents placeholder with an authenticated, debounced session search surface.
+- Added a tenant-scoped session API that returns project, supplier, disposition, timestamps, and nested immutable events.
+- Added a chronological event timeline and clear empty/error states, with representative demo data when Supabase is absent.
+- Production build, five test groups, and lint pass.
+- Next autonomous feature: provider adapter contracts and callback mapping.
+
+### 2026-08-18 - Provider foundation and callback controls
+
+- Added a shared provider adapter contract and isolated CPX, BitLabs, and PureSpectrum test-mode adapters for launch URL and callback normalization.
+- Added dedicated signed callback routes with provider-scoped server secrets and idempotent event processing.
+- Added per-origin callback/event throttling, Retry-After responses, generated request IDs, latency/outcome logs, and secret/respondent-safe structured logging.
+- Added contract-style callback coverage for all three test adapters; production build, five test groups, and lint pass.
+- Live vendor compatibility remains blocked on official sandbox contracts and credentials; next unblocked features are fraud rules and review.
+
+### 2026-08-18 - FRD-01, FRD-02, and FRD-04 code-ready
+
+- Added migration `011_fraud_controls.sql` with project policies, explainable fraud flags, tenant RLS, indexes, event risk evaluation, and audited resolution.
+- Added server-only HMAC fingerprints for IP/device duplicate checks without persisting raw identifiers.
+- Added duplicate IP/device, speeding, and trusted quality-violation rules linked to immutable events.
+- Added a Fraud Review workspace with tenant-scoped loading and operator-only confirm/dismiss actions.
+- Production build, fraud route/API smoke coverage, five test groups, and lint pass.
+- Research Defender remains blocked on a product decision and credentials; next autonomous feature is persistent analytics.
+
+### 2026-08-18 - ANA-01 and ANA-02 code-ready
+
+- Added migration `012_analytics.sql` with a tenant-scoped, date-bounded analytics snapshot for portfolio, client, market, and supplier rollups.
+- Replaced static analytics with API-backed date controls, operational metrics, client/market comparisons, and supplier IR/cost delivery.
+- Added valid/invalid date-range API coverage; production build, five test groups, and lint pass.
+- Next autonomous feature: notification configuration and operational alert rules independent of an external email vendor.
+
+### 2026-08-18 - NOT-02 notification foundation code-ready
+
+- Added migration `013_notifications.sql` with tenant-scoped alert rules, user/global inbox records, read state, RLS, indexes, and audited administrator configuration.
+- Added automatic project lifecycle and fraud/quality notifications without coupling core behavior to an email vendor.
+- Added a Notifications workspace for unread messages and configurable in-app/email channel preferences.
+- Added notification page/API coverage; production build, five test groups, and lint pass.
+- External email delivery is blocked on provider selection; financial features remain blocked on commercial/currency rules. Next autonomous work is stronger unit coverage and broader observability.
+
+### 2026-08-19 - Business-rule tests and API observability
+
+- Extracted the project lifecycle state machine into a directly tested domain module.
+- Added direct fixed-window throttling tests and expanded the default test command to run business-rule plus rendered/API suites.
+- Added sanitized structured request logs and response request IDs consistently across Worker APIs.
+- Production build, seven tests, and lint pass.
+- Next autonomous work: backup/recovery and deployment configuration documentation, followed by a full remaining-scope audit.
+
+### 2026-08-19 - Current build hosted for cross-device testing
+
+- Built the latest implementation and started the production origin at `127.0.0.1:3010`.
+- Replaced an unresolvable temporary hostname with a fresh Cloudflare Quick Tunnel and verified public health and Project Center responses.
+- The tunnel is intentionally serving labeled mock data because Supabase credentials and migrations remain unavailable.
+- Quick Tunnel availability is temporary and depends on this computer, origin process, and tunnel process remaining online.
+
+### 2026-08-19 - Local Supabase and public authenticated tunnel
+
+- Started a minimal Docker-backed Supabase stack and applied migrations `001` through `015` plus the development seed.
+- Added explicit API grants and corrected the project-creation RPC conflict target after live integration testing exposed both issues.
+- Added a same-origin Supabase Auth gateway so phones and other remote devices use the laptop's local database through the tunnel instead of their own loopback address.
+- Corrected the production tunnel launcher to serve the Worker build through Wrangler with runtime bindings, which preserves database access after future rebuilds/restarts.
+- Live-tested two-tenant RLS, analyst restrictions, persistent project creation, event idempotency, and metrics.
+- Restarted the latest build under the Wrangler Worker runtime at `127.0.0.1:3010`; the existing Quick Tunnel now reports `configured` / `supabase-ready`.
+- Public signup, organization creation, and authenticated organization read passed through `https://depot-tokyo-cable-satisfactory.trycloudflare.com`.
+
+### 2026-08-19 - Live roadmap verification and remaining external gates
+
+- Added live Worker/Supabase integration suites for the complete operator CRUD/lifecycle/audit path, all seven event types, idempotent replay, project/supplier metrics, respondent timelines, analytics, native fraud controls, three signed provider callback paths, notifications, and administrator rule persistence.
+- Corrected respondent event normalization and deterministic timeline ordering.
+- Prevented local Worker upstream exhaustion by consuming token-check and same-origin Supabase gateway responses before returning.
+- Added per-origin password-login, signup, and recovery throttling with Retry-After coverage; native security milestone checks now pass.
+- Ran a scoped logical backup/restore drill in an isolated temporary database, validated core record counts and migration `015`, and removed the database and dump.
+- Restored Docker/Supabase after the runtime interruption, rebuilt the final source, reran standard/live checks, and started a fresh database-backed Quick Tunnel at `https://opportunities-smooth-strictly-observed.trycloudflare.com`.
+- Browser E2E/accessibility remains blocked because browser discovery returned no connected supported browser. Vendor adapters, email delivery, Research Defender, financials, external error tracking, named tunnel/staging, and production deployment remain blocked on the recorded external credentials or decisions.
+
+### 2026-08-19 - Fresh Quick Tunnel for testing
+
+- Confirmed the existing local Worker at `127.0.0.1:3010` is healthy and reports Supabase `configured` / `supabase-ready`.
+- Started a fresh Cloudflare Quick Tunnel against the existing origin after the full tunnel script was blocked by the running Worker holding `dist`.
+- Verified public health and readiness through `https://reached-oak-reflection-sponsorship.trycloudflare.com`.
+- Next task remains browser-driven authenticated, keyboard, and responsive verification for `TST-04`/`TST-05`.
+
+### 2026-08-19 - Formal remaining-scope blocker audit
+
+- Re-read the complete tracker and README and confirmed the local Worker still reports `ready`, `configured`, and `supabase-ready`.
+- Reattempted the supported browser connection; no usable browser-control surface was available, so authenticated E2E and visual/accessibility evidence cannot proceed in this environment.
+- Audited every non-DONE feature: all UI READY items depend on that browser gate, while all BLOCKED items require recorded vendor contracts/credentials, email or error-tracking provider selection, financial rules, or Cloudflare/hosted-Supabase deployment access.
+- No safely unblocked implementation or verification item remains. Resume from Current focus when any recorded external input becomes available.
+
+### 2026-08-21 - Tunnel UI and login recovery
+
+- Reproduced the reported cross-device failure state and found that the previously shared Quick Tunnel had expired while Docker, the Worker, and local Supabase were no longer running.
+- Restarted the local Supabase stack and production Worker, then verified the public login and Project Center HTML, every referenced CSS/JavaScript asset, the same-origin Auth health route, and a complete temporary signup/login cycle.
+- Updated the tunnel launcher so `Tunnel verified` now requires rendered login HTML, a publicly loadable CSS asset, API health, and the authentication gateway when Supabase is configured.
+- Passed PowerShell parsing, lint, the production build, and the standard test suite; browser-controlled visual evidence remains blocked because the supported browser connection could not initialize in this environment.
+- Started a fresh database-backed Quick Tunnel at `https://mind-furnishings-continued-style.trycloudflare.com`; it remains temporary and depends on this laptop, Docker, the Worker, and cloudflared staying online.
+
+### 2026-08-21 - Local demo login provisioned
+
+- Provisioned a confirmed local-only demo Auth user for cross-device testing without storing its password or credentials in the repository or tracker.
+- Verified that the demo user receives a valid session through the current public tunnel login endpoint.
+- The account belongs only to this laptop's local Supabase stack; first login continues through the normal workspace-onboarding flow.
+
+### 2026-08-21 - Public navigation hardening
+
+- Correlated the reported inert navigation with public Worker logs: login, onboarding, session restoration, and data APIs succeeded, but affected clicks produced no route request.
+- Replaced framework-intercepted page links with an accessible shared native-anchor component so sidebar, New Project, project detail, directory, dashboard, and authentication navigation perform dependable full document requests through Quick Tunnels.
+- Kept stateful controls, form submissions, filtering, pagination, and authenticated API interactions client-side.
+- Lint, production build, and the standard suite pass; the deployed client bundle contains native anchors and the fresh public tunnel reports configured/supabase-ready.
+- Started the corrected build at `https://crest-focal-head-reason.trycloudflare.com`; browser-controlled click evidence remains pending the recorded browser availability gate.
+
+### 2026-08-22 - Local and tunnel run commands documented
+
+- Updated the README with copy-paste commands for starting the complete local application and the Cloudflare Quick Tunnel with local Supabase.
+- Documented the Docker requirement, first-time dependency installation, live-reload tunnel option, temporary URL behavior, shutdown behavior, and the Supabase stop command.
+- No implementation or feature status changed in this documentation-only session.
+
+### 2026-08-22 - Inert-control audit and operational export
+
+- Audited visible buttons and found three controls without meaningful behavior: Project Center export, the top-bar notification counter, and the initial create-project Add Market affordance.
+- Implemented a safe CSV export for the currently displayed Project Center page, including spreadsheet-formula neutralization and unit coverage.
+- Connected the top-bar notification counter to the Notifications workspace.
+- Replaced the unsupported initial Add Market action with accurate guidance; multi-market editing remains available after project creation through the completed market editor.
+- Lint passes; the production build and 10 standard tests pass with 3 credential-gated integration suites skipped.
+- Started and publicly verified the updated database-backed build at `https://smithsonian-producer-download-prices.trycloudflare.com`.
+- `PRJ-01` remains READY until supported browser download/click evidence is available; next safely unblocked work remains browser verification of the READY UI set.
+
+### 2026-08-22 - Persistent workspace settings and live unread badge
+
+- Added migration `016_organization_settings.sql` with a constrained organization timezone and an owner/admin-only audited settings RPC.
+- Replaced the inert Settings form with protected API loading, role-aware organization name/timezone editing, save feedback, and accurate enforced-security descriptions.
+- Replaced the hard-coded top-bar notification count with the unread total from the protected Notifications API.
+- Added mock API validation, analyst-denial coverage, and live integration coverage for settings persistence and its audit action.
+- Applied migration `016` locally and live-verified update, audit visibility, and restoration against the existing demo workspace.
+- Production build, 10 standard tests, and lint pass; `ORG-03` is DONE. Browser visual evidence for the remaining READY UI items remains the next unblocked gate.
+
+### 2026-08-22 - Disposable password recovery verification
+
+- Added an environment-gated local Supabase integration test for the complete password recovery contract.
+- The test creates a disposable confirmed user, generates a real recovery link, verifies its hashed token into a recovery session, updates the password, signs in with the replacement password, rejects token replay, and removes the user in cleanup.
+- The live recovery lifecycle passes without retaining credentials or test accounts; production outbound email delivery remains correctly blocked on provider selection.
+- Production build and 10 standard tests pass with 4 environment-gated integration suites skipped; lint passes.
+- `AUTH-02` remains READY only for production email-delivery and browser UI evidence; its local backend recovery contract is now live-verified.
+
+### 2026-08-22 - Project manager and redirect persistence
+
+- Audited the creation form and found that its hard-coded manager choices were ignored while complete, terminate, and quota-full URLs were collected but discarded.
+- Replaced the fictitious manager selection with the actual rule: the authenticated operator is assigned by the database transaction.
+- Added migration `017_project_redirects.sql`, URL constraints, create/update RPCs, protected API mapping, and project-detail editing for all three redirect destinations.
+- Applied migration `017` and passed an authenticated create/update/read persistence cycle against local Supabase.
+- Production build, 10 standard tests, and lint pass; the rebuilt Quick Tunnel reports ready with the database configured.
+- Remaining work is unchanged: supported browser evidence for READY UI items and the external decisions, credentials, and hosted environments listed in Current focus and Blockers.
+- Retried the supported browser-control workflow against the fresh public URL; initialization failed at its trusted runtime dependency, so `TST-04`/`TST-05` remain genuine environment blockers and no unsupported browser fallback was used.
+
+### 2026-08-22 - Project setup validation audit
+
+- Made mandatory duplicate-prevention and callback-signature protections visibly enforced instead of presenting ignored editable checkboxes.
+- Tightened project-creation validation for integer quotas, positive LOI, bounded incidence, valid ISO calendar dates, country/language codes, and safe HTTP(S) redirect URLs.
+- Added API regression coverage proving five malformed creation payload classes return HTTP 400 before database access.
+- Production build, 10 standard tests, and lint pass; the updated local and tunnel runtime was restarted.
+- No additional safely unblocked implementation gap was found in this audit; remaining READY evidence and BLOCKED integrations still depend on the recorded browser runtime, vendor, commercial, or hosted-environment inputs.
+
+### 2026-08-22 - Notification administration completion audit
+
+- Found that pacing thresholds were supported and integration-tested by the API but could not be viewed or edited in the Notifications UI.
+- Added a bounded pacing-percentage control, API-provided administrator capability metadata, read-only analyst behavior, save progress, and persisted response reconciliation.
+- Hardened replacement validation to require exactly one valid rule for every supported event, boolean channel settings, a 1-100 pacing threshold, and no unsupported thresholds.
+- Live Supabase notification/rule persistence passes; mock/API coverage proves incomplete and invalid thresholds return 400 and analyst updates return 403.
+- Production build, 10 standard tests, focused role/API tests, and lint pass; the current runtime was rebuilt and restarted.
+
+### 2026-08-22 - Project manager profile fidelity
+
+- Found that Project Center manager filters displayed shortened database UUIDs and project rows/details replaced the real assignee with the generic label `Workspace team`.
+- Added migration `018_user_profiles.sql` with Auth profile synchronization, existing-user backfill, shared-workspace read isolation, and manager referential integrity.
+- Changed project list/detail APIs to return human-readable manager names and value/label facets, keeping internal identifiers out of visible labels while preserving exact filtering.
+- Applied migration `018`; live verification proves profile creation, detail and facet labels, and manager-filtered project reads for a disposable authenticated operator.
+- Production build, 10 standard tests, live Worker/Supabase workflow, and lint pass; `ORG-04` is DONE and `PRJ-01` remains READY only for the recorded browser evidence gate.
+
+### 2026-08-22 - Role-aware directory controls
+
+- Found that analyst/member users could read client and supplier directories but were still shown create, edit, activate, and deactivate controls that the protected API correctly rejected.
+- Added `canOperate` capability metadata to client/supplier reads and made both directory UIs explicitly read-only when the workspace role lacks operator permission.
+- Owner capability passes in the live Supabase workflow; analyst mock authorization proves readable data with `canOperate: false`, while direct writes remain forbidden.
+- Production build, 10 standard tests, focused authorization coverage, live Worker/Supabase workflow, and lint pass; `CLI-01`/`SUP-01` remain READY only for browser evidence.
+
+### 2026-08-22 - Project Center and creation role awareness
+
+- Extended protected project list/detail metadata with the authenticated workspace operator capability.
+- Project Center now replaces New Project with an explicit read-only state for analysts/members, and the creation form disables submission with a clear permission explanation derived from directory capabilities.
+- Mock/API authorization proves `canOperate: false` for analysts while direct project mutations remain 403; the owner capability passes in the live Supabase workflow.
+- Production build, 10 standard tests, live Worker/Supabase workflow, and lint pass.
+- Next safely unblocked task is applying the same capability to project detail lifecycle, core edit, market, and supplier-assignment controls.
+
+### 2026-08-22 - Project detail role awareness
+
+- Applied protected project-detail capability metadata to lifecycle transitions, core project editing, market/quota editing, and supplier-assignment management.
+- Non-operator roles now receive an explicit read-only project workspace with every mutation affordance omitted; operators retain the existing validated workflows.
+- Reworked the three detail components without changing their API behavior and removed a misleading hard-coded quality-rate note while preserving event-derived metrics.
+- Owner detail capability passes live; analyst list capability and direct lifecycle/core/market/supplier 403 boundaries pass automated authorization coverage.
+- Production build, 10 standard tests, live Worker/Supabase workflow, and lint pass.
+- Next safely unblocked task is removing the Dashboard New Project shortcut for read-only roles using the existing project-list capability.
+
+### 2026-08-22 - Dashboard project permission fidelity
+
+- Connected Dashboard to the protected project-list operator capability already used by Project Center and project creation.
+- New Project is now available only to OWNER, ADMIN, and PM roles; analyst/member users receive the same explicit read-only state used across project surfaces.
+- Production build, 10 standard tests, project capability authorization coverage, and lint pass; the runtime was rebuilt and restarted.
+- A new remaining-scope audit found the next safely unblocked gap: Fraud Review still shows Confirm/Dismiss actions to read-only roles even though its API correctly returns 403.

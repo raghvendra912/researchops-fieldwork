@@ -1,0 +1,16 @@
+create or replace function public.analytics_snapshot(p_from timestamptz, p_to timestamptz)
+returns jsonb language plpgsql stable security invoker set search_path=public as $$
+declare organization uuid; result jsonb;
+begin
+ select organization_id into organization from public.organization_members where user_id=auth.uid() order by created_at limit 1;
+ if organization is null then raise exception 'Workspace membership required'; end if;
+ with scoped as (select e.*,s.project_id,s.project_supplier_id from public.survey_events e join public.survey_sessions s on s.id=e.session_id where e.organization_id=organization and e.occurred_at>=p_from and e.occurred_at<p_to),
+ portfolio as (select count(distinct session_id) filter(where event_type='START') starts,count(distinct session_id) filter(where event_type='COMPLETE') completes,count(distinct session_id) filter(where event_type='QUALITY_TERMINATE') quality_terminates,count(distinct session_id) filter(where event_type='ABANDON') abandons from scoped),
+ suppliers as (select sup.name, count(distinct sc.session_id) filter(where sc.event_type='START') starts,count(distinct sc.session_id) filter(where sc.event_type='COMPLETE') completes,round(100*count(distinct sc.session_id) filter(where sc.event_type='COMPLETE')/nullif(count(distinct sc.session_id) filter(where sc.event_type in('COMPLETE','TERMINATE')),0),2) ir,round(count(distinct sc.session_id) filter(where sc.event_type='COMPLETE')*coalesce(ps.supplier_cpi,0),2) cost from public.project_suppliers ps join public.suppliers sup on sup.id=ps.supplier_id left join scoped sc on sc.project_supplier_id=ps.id where sup.organization_id=organization group by sup.name,ps.supplier_cpi),
+ clients as (select c.name,count(distinct sc.session_id) filter(where sc.event_type='COMPLETE') completes from public.clients c join public.projects p on p.client_id=c.id left join scoped sc on sc.project_id=p.id where c.organization_id=organization group by c.name),
+ markets as (select pm.country_code,count(distinct sc.session_id) filter(where sc.event_type='COMPLETE') completes from public.project_markets pm join public.projects p on p.id=pm.project_id left join scoped sc on sc.project_id=p.id where p.organization_id=organization group by pm.country_code)
+ select jsonb_build_object('portfolio',(select jsonb_build_object('starts',starts,'completes',completes,'qualityTerminates',quality_terminates,'abandons',abandons,'conversionRate',round(100*completes/nullif(starts,0),2)) from portfolio),'suppliers',coalesce((select jsonb_agg(jsonb_build_object('name',name,'starts',starts,'completes',completes,'incidenceRate',ir,'cost',cost) order by completes desc) from suppliers),'[]'::jsonb),'clients',coalesce((select jsonb_agg(jsonb_build_object('name',name,'completes',completes) order by completes desc) from clients),'[]'::jsonb),'markets',coalesce((select jsonb_agg(jsonb_build_object('countryCode',country_code,'completes',completes) order by completes desc) from markets),'[]'::jsonb)) into result;
+ return result;
+end $$;
+revoke all on function public.analytics_snapshot(timestamptz,timestamptz) from public;
+grant execute on function public.analytics_snapshot(timestamptz,timestamptz) to authenticated;
