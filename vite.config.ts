@@ -1,4 +1,5 @@
 import vinext from "vinext";
+import { nitro } from "nitro/vite";
 import { defineConfig, loadEnv } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
@@ -34,6 +35,7 @@ const localBindingConfig = {
 };
 
 export default defineConfig(async ({ mode }) => {
+  const isVercelBuild = Boolean(process.env.VERCEL) || process.env.NITRO_PRESET === "vercel";
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= "false";
@@ -66,13 +68,15 @@ export default defineConfig(async ({ mode }) => {
         ? { watch: { useFsEvents: false, usePolling: true } }
         : {}),
     },
-    plugins: [
-      vinext(),
-      sites(),
-      cloudflare({
-        viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: { ...localBindingConfig, vars: workerVariables },
-      }),
-    ],
+    plugins: isVercelBuild
+      ? [vinext(), nitro({ serverDir: "./server" })]
+      : [
+          vinext(),
+          sites(),
+          cloudflare({
+            viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+            config: { ...localBindingConfig, vars: workerVariables },
+          }),
+        ],
   };
 });

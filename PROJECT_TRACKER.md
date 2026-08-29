@@ -242,6 +242,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-05` | RESOLVED - Sites staging is publicly reachable and the ResearchOps login remains mandatory. | Keep protected APIs authenticated and verify external-account browser flows when browser control is available. |
 | `BLK-06` | RESOLVED - hosted migration `020` and Sites version 2 were explicitly approved and deployed. | Monitor the production workflow and retain migration/rollback procedures. |
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
+| `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
 
 ## Verification record
 
@@ -313,8 +314,18 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | PRJ-1125 production routing diagnosis | BLOCKED SAFELY - production is bound to the expected hosted Supabase project; PRJ-1125 is PENDING and has no survey URL, the reported supplier token is absent from the hosted directory, and the exact public route currently returns HTTP 404 without starting a respondent session |
 | 2026-08-29 | Pre-deployment standard verification after routing diagnosis | PASS - production build, 13 standard tests, and lint pass; 4 credential-gated integration suites skipped as designed |
 | 2026-08-29 | Sites version 3 production deployment | PASS - exact pushed commit `19de1c7` packaged and published; the live login returns HTTP 200 with ResearchOps content and unauthenticated project API access remains HTTP 401 |
+| 2026-08-30 | Vercel adapter build | PARTIAL PASS - Nitro/Vercel Build Output was generated with frontend and ResearchOps middleware/backend included; Windows preview exposed a platform-specific generated-module resolution issue, so Vercel's Linux remote build remains the deployment verification gate |
 
 ## Session log
+
+### 2026-08-30 - Vercel migration prepared, secret approval pending
+
+- Added a conditional Nitro Vercel build while preserving the existing Sites/Cloudflare build path and hosted Supabase architecture.
+- Added Vercel project configuration and a Nitro middleware bridge so the current ResearchOps APIs, Supabase proxy, callbacks, and respondent routing can run in the Vercel function.
+- Generated Vercel Build Output successfully after enabling Nitro server-directory scanning; the Windows preview surfaced a generated Linux-target module-resolution limitation, so the remote Linux build remains required.
+- Authenticated the Vercel CLI and created/linked `researchops-fieldwork`; repository auto-connection failed because the existing Sites remote provider is not supported by Vercel, so deployment will use the CLI.
+- The security gate rejected exporting the hosted Supabase service-role key without explicit approval. No hosted secret was transferred and no Vercel production deployment was created.
+- Current task is obtaining explicit approval for encrypted Vercel storage of the service-role key (or choosing a backend redesign); next task is configuring production variables, deploying remotely, verifying auth/API/routing, and updating Supabase redirect allowlists. `BLK-08` records this decision.
 
 ### 2026-08-29 - Sites version 3 deployed
 
