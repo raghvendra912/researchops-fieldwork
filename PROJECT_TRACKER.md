@@ -329,6 +329,7 @@ Do not record secret values here. Mark only whether they are available.
 - Connected the configured Vercel project to GitHub; its first Git deployment was blocked because historical Codex commits used a local placeholder email, so the repository-local author is being changed to the owner's verified GitHub noreply identity for the next deployment trigger.
 - The verified-author Git deployment builds successfully, but Vercel ignored both the dashboard and Nitro-generated function environment setting and the runtime still rejected React Server Components before database access.
 - Added the required `react-server` condition to the repository-level Vercel function `env` configuration documented by Vercel; the Vercel build and lint pass, and the next task is remote runtime verification from the automatically triggered production deployment.
+- Vercel Node 24 still initialized the function before applying the required React condition; pinned the repository to the supported Node 22 major while retaining the function startup configuration. The Vercel build and lint pass; remote Node 22 runtime verification is next.
 
 ### 2026-08-30 - Sanitized GitHub source deployment
 
