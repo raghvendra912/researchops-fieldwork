@@ -99,8 +99,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     async signIn(email, password) {
       if (!supabase) return;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      // A successful token response already contains the session. Set it here
+      // as well as listening for Auth events so a delayed browser event cannot
+      // leave the login form in an unauthenticated state after HTTP 200.
+      if (!data.session) throw new Error("Supabase did not return a login session.");
+      setSession(data.session);
     },
     async requestSignUpOtp(email) {
       if (!supabase) return;

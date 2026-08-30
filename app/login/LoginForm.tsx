@@ -32,8 +32,16 @@ export function LoginForm() {
     try {
       await signIn(email, password);
       router.replace(returnTo);
-    } catch {
-      setError("We could not sign you in. Check your email and password and try again.");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "";
+      console.error("Sign-in did not establish a workspace session", cause);
+      if (/storage|localstorage|session storage/i.test(message)) {
+        setError("Your browser blocked secure session storage. Allow site data for this site, then try again.");
+      } else if (/did not return a login session/i.test(message)) {
+        setError("Your credentials were accepted, but a workspace session was not returned. Please try again once.");
+      } else {
+        setError("We could not sign you in. Check your email and password and try again.");
+      }
       setSubmitting(false);
     }
   }
