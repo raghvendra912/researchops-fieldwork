@@ -80,7 +80,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `DB-03` | Tenant Row Level Security | DONE | A live three-user/two-organization integration test proves cross-tenant reads are hidden, writes are denied, and analyst writes are denied. |
 | `DB-04` | Development seed | DONE | Local seed data is applied and later onboarding creates Auth-linked tenant memberships safely. |
 | `AUTH-01` | Supabase email authentication | READY | Sign in, sign out, session restoration, generic error state, and route protection are implemented; public tunnel signup and authenticated API access are live-verified. |
-| `AUTH-02` | Password recovery | READY | Generic reset request, recovery-session validation, confirmation, update, expired/replayed-link handling, and a disposable live recovery lifecycle pass; production email delivery and browser UI evidence remain gated. |
+| `AUTH-02` | Password recovery | READY | Generic reset request plus explicit PKCE-code, token-hash, and implicit-token callback exchange now establish the recovery session before showing the new-password form; production browser verification remains gated. |
 | `AUTH-03` | Email OTP signup | READY | Public signup requests account-creating email OTPs, verifies the code, and routes new users into workspace onboarding; hosted email-template configuration and live delivery verification remain. |
 | `ORG-01` | Organization onboarding | READY | Membership gate, onboarding UI/API, OWNER membership transaction, and default supplier creation are implemented; public tunnel creation/read is live-verified. |
 | `ORG-02` | Roles and server authorization | DONE | Worker and database role boundaries are live integration-tested for owner, analyst, and cross-tenant access. |
@@ -322,8 +322,15 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Vercel Vinext worker packaging | PASS LOCALLY - the generated Vercel handler imports without special Node conditions and returns HTTP 200 for `/api/health` and `/login`; standard build, 13 tests, and lint pass |
 | 2026-08-30 | Deterministic Vercel Build Output | PASS LOCALLY - a build launched with Vercel's environment flag emits the complete fetch worker, Build Output API v3 function/static layout, and HTTP 200 responses for `/api/health` and `/login`; lint passes |
 | 2026-08-30 | Client redirect separation and email OTP signup | PASS LOCALLY - lint, 14 standard tests, production build, Vercel Build Output, and diff validation pass; 4 credential-gated integration suites skip as designed |
+| 2026-08-30 | Password recovery callback handling | PASS LOCALLY - all three supported Supabase recovery callback shapes are covered; lint, 15 standard tests, production build, Vercel Build Output, and diff validation pass |
 
 ## Session log
+
+### 2026-08-30 - Password recovery redirect-loop fix
+
+- Diagnosed that the reset screen depended on an already-restored session and did not explicitly consume recovery credentials returned by Supabase.
+- Added recovery initialization for PKCE `code`, `token_hash` with recovery type, and implicit access/refresh-token links; successful exchange removes sensitive URL material before showing the new-password form.
+- Added callback-shape regression coverage. Lint, 15 standard tests, production build, Vercel Build Output, and `git diff --check` pass; live verification requires deployment and a newly generated recovery link.
 
 ### 2026-08-30 - Client redirect variables and email OTP signup
 

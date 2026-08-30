@@ -3,6 +3,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { parseRecoveryCallback } from "./recovery";
 
 type AuthContextValue = {
   configured: boolean;
@@ -30,18 +31,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     let active = true;
-    void supabase.auth.getSession().then(async ({ data }) => {
-      if (!active) return;
-      if (data.session) {
-        setSession(data.session);
-        setLoading(false);
-        return;
-      }
-      if (import.meta.env.VITE_DEV_AUTO_LOGIN !== "true") {
-        setLoading(false);
-        return;
-      }
+    const initialize = async () => {
       try {
+        if (globalThis.location?.pathname === "/reset-password") {
+          const recovery = parseRecoveryCallback(globalThis.location.href);
+          if (recovery?.kind === "code") {
+            const { error } = await supabase.auth.exchangeCodeForSession(recovery.code);
+            if (error) throw error;
+          } else if (recovery?.kind === "token-hash") {
+            const { error } = await supabase.auth.verifyOtp({ token_hash: recovery.tokenHash, type: "recovery" });
+            if (error) throw error;
+          } else if (recovery?.kind === "implicit") {
+            const { error } = await supabase.auth.setSession({ access_token: recovery.accessToken, refresh_token: recovery.refreshToken });
+            if (error) throw error;
+          }
+          if (recovery) globalThis.history.replaceState({}, "", "/reset-password");
+        }
+
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        if (data.session) {
+          setSession(data.session);
+          return;
+        }
+        if (import.meta.env.VITE_DEV_AUTO_LOGIN !== "true") return;
+
         const response = await fetch("/api/testing/auto-login", { method: "POST" });
         if (response.ok) {
           const credentials = await response.json() as { access_token: string; refresh_token: string };
@@ -50,11 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (active) setSession(autoLogin.session);
         }
       } catch {
-        // Normal authentication remains available when the explicit testing bypass is disabled.
+        // The reset page presents a generic invalid/expired state without leaking token details.
       } finally {
         if (active) setLoading(false);
       }
-    });
+    };
+    void initialize();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
