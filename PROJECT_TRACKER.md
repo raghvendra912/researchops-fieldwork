@@ -4,7 +4,7 @@
 
 Last updated: 2026-08-30
 Current milestone: External integration and browser/deployment gates
-Overall state: Client redirect-destination separation, email-OTP signup, password recovery, and the Supabase Auth POST proxy fix are deployed; live password traffic reaches Supabase, while the requested replacement account needs an operator dashboard reset because the email already exists
+Overall state: Client redirect-destination separation, email-OTP signup, password recovery, and the Supabase Auth POST proxy fix are deployed; recovery-code double consumption is fixed locally and awaiting Vercel rollout plus a new live reset-link verification
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Complete the fresh password-reset email for the existing requested account, then verify password login; dashboard deletion/recreation is no longer necessary unless recovery fails.
+1. Deploy the recovery-code ownership fix, request one new password-reset email, complete it once, then verify password login for the existing requested account.
 2. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
@@ -330,6 +330,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Production Supabase Auth POST proxy rollout | PASS - GitHub commit `c91e1db` reached Vercel and the live password-token endpoint changed from gateway HTTP 502 to the expected Supabase HTTP 400 for invalid credentials |
 | 2026-08-30 | Requested replacement Auth account | OPERATOR ACTION - production signup returns `user_already_exists`; Vercel correctly prevents secret export and browser control is unavailable, so the exact existing user must be deleted/recreated in the authenticated Supabase dashboard |
 | 2026-08-30 | Existing account recovery dispatch | PASS - the live same-origin Supabase recovery endpoint accepted a fresh request for the existing requested account with HTTP 200; user completion of the newly issued email link and password-login verification remain |
+| 2026-08-30 | Recovery callback single-consumer fix | PASS LOCALLY - disabled Supabase SDK automatic URL detection because AuthProvider explicitly redeems every supported recovery callback; lint, 19 standard tests, production build, Vercel Build Output, and diff validation pass |
 
 ## Session log
 
@@ -342,6 +343,7 @@ Do not record secret values here. Mark only whether they are available.
 - Pushed commit `c91e1db`; live password-token traffic now reaches Supabase and returns the expected HTTP 400 invalid-credential response instead of HTTP 502.
 - The requested email is already registered. Public signup correctly refuses to overwrite its password; Vercel did not export the encrypted production service-role secret, the temporary environment file was removed, and browser control was unavailable. The remaining safe action is deleting and recreating that exact user in Supabase Authentication > Users, followed by a password-login check.
 - Verified the supplied password is not the existing account's current password. Supabase accepted a new recovery-email request through the production proxy with HTTP 200; only the newest recovery email should be used because issuing it invalidates earlier links. Complete the recovery flow and then verify password login.
+- Root-cause investigation found two one-time recovery-code consumers in the browser: the SDK default `detectSessionInUrl` handler and the explicit AuthProvider callback exchange. Either could redeem the code first, leaving the other to show the generic expired state. Disabled the automatic SDK handler so AuthProvider is the sole consumer; a regression test protects this configuration. The deployed bundle was confirmed to use the same-origin gateway, and the recovery request itself returns HTTP 200, so the remaining live check is a newly generated link after rollout. Secondary external risks remain: requesting another reset invalidates earlier links, and some email-security scanners can consume one-time links before a person opens them.
 
 ### 2026-08-30 - Password recovery redirect-loop fix
 

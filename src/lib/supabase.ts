@@ -11,5 +11,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        // Recovery callbacks are consumed explicitly by AuthProvider so it can
+        // support PKCE, token-hash, and implicit links in one place. Leaving
+        // the SDK default enabled creates a second, racing one-time-code
+        // exchange and makes a valid reset link appear expired.
+        detectSessionInUrl: false,
+      },
+    })
   : null;
