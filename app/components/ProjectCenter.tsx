@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "./NavigationLink";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { projects as demoProjects } from "../../src/features/projects/mockProjects";
 import type { Project, ProjectStatus } from "../../src/features/projects/project.types";
@@ -69,6 +69,8 @@ export function ProjectCenter() {
   const [debouncedProjectId, setDebouncedProjectId] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -80,10 +82,8 @@ export function ProjectCenter() {
     return () => window.clearTimeout(timer);
   }, [projectIdQuery]);
 
-  useEffect(() => {
-    if (configured && !session?.access_token) return;
-    const controller = new AbortController();
-    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), sortBy: "createdAt", sortDirection: "desc", scope: "mine" });
+  const projectParams = useCallback((requestedPage: number, requestedPageSize: number) => {
+    const params = new URLSearchParams({ page: String(requestedPage), pageSize: String(requestedPageSize), sortBy: "createdAt", sortDirection: "desc", scope: "mine" });
     if (debouncedQuery) params.set("q", debouncedQuery);
     if (debouncedProjectId) params.set("projectId", debouncedProjectId);
     if (client !== "ALL") params.set("client", client);
@@ -92,7 +92,13 @@ export function ProjectCenter() {
     if (type !== "ALL") params.set("type", type);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
+    return params;
+  }, [client, debouncedProjectId, debouncedQuery, from, manager, selectedStatuses, to, type]);
 
+  useEffect(() => {
+    if (configured && !session?.access_token) return;
+    const controller = new AbortController();
+    const params = projectParams(page, pageSize);
     void apiRequest<ProjectsResponse>(`/api/projects?${params}`, {
       signal: controller.signal,
       headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined,
@@ -107,7 +113,7 @@ export function ProjectCenter() {
       setLoadError("Project data could not be loaded. Check the API and Supabase configuration.");
     });
     return () => controller.abort();
-  }, [client, configured, debouncedProjectId, debouncedQuery, from, manager, page, pageSize, selectedStatuses, session?.access_token, to, type]);
+  }, [configured, page, pageSize, projectParams, refreshKey, session?.access_token]);
 
   function resetPageAnd(action: () => void) {
     setPage(1);
@@ -126,17 +132,43 @@ export function ProjectCenter() {
     setPage(1);
   }
 
-  function exportView() {
-    if (projects.length === 0) return;
-    const blob = new Blob(["\uFEFF", projectsToCsv(projects)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `researchops-projects-page-${meta.page}.csv`;
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  function toggleStatus(status: ProjectStatus) {
+    resetPageAnd(() => setSelectedStatuses((current) => current.includes(status) ? current.filter((item) => item !== status) : [...current, status]));
+  }
+
+  function searchNow() {
+    setPage(1);
+    setDebouncedQuery(query.trim());
+    setDebouncedProjectId(projectIdQuery.trim());
+  }
+
+  async function exportView() {
+    if (meta.total === 0 || exporting) return;
+    setExporting(true);
+    try {
+      const exported: Project[] = [];
+      const exportPageSize = 100;
+      const totalPages = Math.max(1, Math.ceil(meta.total / exportPageSize));
+      for (let exportPage = 1; exportPage <= totalPages; exportPage += 1) {
+        const response = await apiRequest<ProjectsResponse>(`/api/projects?${projectParams(exportPage, exportPageSize)}`, {
+          headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined,
+        });
+        exported.push(...response.data);
+      }
+      const blob = new Blob(["\uFEFF", projectsToCsv(exported)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "researchops-projects.csv";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setLoadError("Project CSV could not be generated.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   const counts = meta.summary.statuses;
@@ -152,7 +184,8 @@ export function ProjectCenter() {
           <p className="page-subtitle">Your assigned studies, delivery risk, and fieldwork controls.</p>
         </div>
         <div className="head-actions">
-          <button className="button" type="button" disabled={projects.length === 0} onClick={exportView}>Export current page</button>
+          <button className="button ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button>
+          <button className="button" type="button" disabled={meta.total === 0 || exporting} onClick={() => void exportView()}>{exporting ? "Preparing CSV…" : "Download CSV"}</button>
           {meta.canOperate ? <Link className="button primary" href="/projects/new"><span aria-hidden="true">＋</span> New project</Link> : <span className="status-pill status-PENDING">Read only</span>}
         </div>
       </div>
@@ -170,12 +203,12 @@ export function ProjectCenter() {
           <div className="field"><label htmlFor="to-date">Created to</label><input id="to-date" className="control" type="date" value={to} onChange={(event) => resetPageAnd(() => setTo(event.target.value))} /></div>
           <div className="field"><label htmlFor="client">Client</label><select id="client" className="control" value={client} onChange={(event) => resetPageAnd(() => setClient(event.target.value))}><option value="ALL">All clients</option>{meta.facets.clients.map((item) => <option key={item}>{item}</option>)}</select></div>
           <div className="field"><label htmlFor="manager">Project manager</label><select id="manager" className="control" value={manager} onChange={(event) => resetPageAnd(() => setManager(event.target.value))}><option value="ALL">All managers</option>{meta.facets.managers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
-          <div className="field"><label htmlFor="status">Statuses</label><select id="status" className="control" multiple size={3} value={selectedStatuses} onChange={(event) => resetPageAnd(() => setSelectedStatuses(Array.from(event.target.selectedOptions, (option) => option.value as ProjectStatus)))}>{meta.facets.statuses.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}</select><span className="field-help">Select multiple statuses with Ctrl/⌘ or Shift.</span></div>
+          <div className="field"><span className="field-label">Statuses</span><div className="status-toggle-list" aria-label="Filter by project status">{meta.facets.statuses.map((item) => <button className={`status-toggle ${selectedStatuses.includes(item) ? "selected" : ""}`} type="button" key={item} aria-pressed={selectedStatuses.includes(item)} onClick={() => toggleStatus(item)}>{item.replaceAll("_", " ")}</button>)}</div><span className="field-help">Click one or more statuses to filter.</span></div>
           <div className="field"><label htmlFor="type">Project type</label><select id="type" className="control" value={type} onChange={(event) => resetPageAnd(() => setType(event.target.value))}><option value="ALL">All types</option>{meta.facets.types.map((item) => <option key={item}>{item}</option>)}</select></div>
           <div className="field search-wrap"><label htmlFor="project-id-search">Internal project ID</label><input id="project-id-search" className="control search-control" placeholder="e.g. ROP-1050" value={projectIdQuery} onChange={(event) => resetPageAnd(() => setProjectIdQuery(event.target.value))} /></div>
           <div className="field search-wrap"><label htmlFor="search">General search</label><input id="search" className="control search-control" placeholder="Project name or client PO" value={query} onChange={(event) => resetPageAnd(() => setQuery(event.target.value))} /></div>
         </div>
-        <div className="filter-actions"><button className="button small ghost" type="button" onClick={resetFilters}>Clear filters</button></div>
+        <div className="filter-actions"><button className="button small" type="button" onClick={searchNow}>Search</button><button className="button small ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button><button className="button small ghost" type="button" onClick={resetFilters}>Clear filters</button></div>
       </section>
 
       {loadError ? <div className="form-error data-error" role="alert">{loadError}</div> : null}

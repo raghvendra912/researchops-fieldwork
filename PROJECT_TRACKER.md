@@ -849,3 +849,11 @@ Do not record secret values here. Mark only whether they are available.
 - New Project is now available only to OWNER, ADMIN, and PM roles; analyst/member users receive the same explicit read-only state used across project surfaces.
 - Production build, 10 standard tests, project capability authorization coverage, and lint pass; the runtime was rebuilt and restarted.
 - A new remaining-scope audit found the next safely unblocked gap: Fraud Review still shows Confirm/Dismiss actions to read-only roles even though its API correctly returns 403.
+
+### 2026-08-30 - Project Center filtering and export controls
+
+- Replaced the keyboard-dependent multi-select status field with click-toggle status controls, so several statuses can be chosen directly without Ctrl/Command or Shift.
+- Added explicit Search and Refresh controls. Search immediately applies the entered project name/client PO and internal project ID values; Refresh re-fetches the current result set.
+- Replaced the visible-page-only export with Download CSV, which downloads every project in the currently filtered result set using the existing spreadsheet-safe CSV generator.
+- Verification: lint passes; production build passes; automated suite passes (20 passed, 4 environment-gated tests skipped). No credentials or secrets were added.
+- Current task is deployment of these verified Project Center UX improvements to production.
