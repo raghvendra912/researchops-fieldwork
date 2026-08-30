@@ -334,6 +334,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Password-login session adoption | PASS LOCALLY - the client immediately adopts the session returned by a successful password-token response instead of depending solely on the asynchronous Auth event; lint, 19 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Dashboard password-recovery fallback | PASS LOCALLY - recovery credentials delivered to the configured Site URL root are preserved and moved to `/reset-password` before the protected dashboard redirect; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Password-login full navigation fallback | PASS LOCALLY - after a successful Supabase password-token response, login performs a full dashboard navigation so a stale client-router tree cannot block the saved session; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
+| 2026-08-30 | Password-login full navigation production rollout | PASS - Vercel production deployment `dpl_29wsXoHFJnvBhrbQsQAdQbb2kzx7` is Ready and aliased to `www.asrv.co.in`; the live login bundle uses `location.replace` and the root recovery route returns HTTP 200 |
 
 ## Session log
 
@@ -350,6 +351,7 @@ Do not record secret values here. Mark only whether they are available.
 - Investigated a live password-token HTTP 200 paired with the generic login error. A 200 confirms Supabase accepted the credentials; strengthened the client to use the returned session immediately, rather than relying only on the asynchronous Auth event, and added a specific user-facing diagnosis for browser session-storage blocks. Full local validation passes; live browser confirmation remains next.
 - Diagnosed Supabase Dashboard's administrative password-recovery button landing at login: it uses the project Site URL fallback, while the root page previously redirected straight to protected Dashboard and discarded the recovery callback. The root now detects valid recovery PKCE/implicit credentials and makes a full navigation to `/reset-password` before any workspace route guard runs. Regression coverage preserves the credentials intact; full local validation passes.
 - Confirmed matching Vercel and Supabase password-token HTTP 200 records, which proves the server accepts the credentials. Replaced the remaining client-router handoff with a full navigation after successful login so the dashboard initializes from the persisted session. The first concurrent local rebuild briefly locked `dist`; the subsequent full suite passes (20 tests, 4 credential-gated skips), as do lint and Vercel Build Output validation.
+- Directly deployed the password-login navigation correction after the Git-triggered rollout remained queued. Vercel reports the production deployment Ready and aliased to the permanent domain; live bundle inspection confirms the full-navigation handoff is active.
 
 ### 2026-08-30 - Password recovery redirect-loop fix
 
