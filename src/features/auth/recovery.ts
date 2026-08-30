@@ -23,3 +23,15 @@ export function parseRecoveryCallback(href: string): RecoveryCallback {
 
   return null;
 }
+
+/**
+ * Supabase Dashboard recovery emails use the project's Site URL as their
+ * fallback destination. Preserve valid recovery credentials if they arrive at
+ * the root route, rather than letting the normal root-to-dashboard redirect
+ * discard them before the recovery screen can exchange the one-time code.
+ */
+export function recoveryDestination(href: string): string | null {
+  if (!parseRecoveryCallback(href)) return null;
+  const url = new URL(href);
+  return `/reset-password${url.search}${url.hash}`;
+}
