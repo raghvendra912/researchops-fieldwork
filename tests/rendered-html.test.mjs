@@ -334,7 +334,9 @@ test("forwards Supabase Auth POST bodies without deployment hop-by-hop headers",
   let forwarded;
   globalThis.fetch = async (input, init) => {
     forwarded = { input: String(input), init };
-    return Response.json({ ok: true });
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "content-encoding": "gzip", "content-length": "999", "connection": "keep-alive" },
+    });
   };
   try {
     const response = await request("/supabase/auth/v1/signup", {
@@ -349,6 +351,9 @@ test("forwards Supabase Auth POST bodies without deployment hop-by-hop headers",
     assert.equal(forwarded.init.headers.get("authorization"), "Bearer public-token");
     assert.equal(forwarded.init.headers.has("connection"), false);
     assert.equal(forwarded.init.headers.has("x-forwarded-host"), false);
+    assert.equal(response.headers.has("content-encoding"), false);
+    assert.equal(response.headers.has("content-length"), false);
+    assert.equal(response.headers.has("connection"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }

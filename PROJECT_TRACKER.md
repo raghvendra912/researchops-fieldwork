@@ -336,6 +336,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Password-login full navigation fallback | PASS LOCALLY - after a successful Supabase password-token response, login performs a full dashboard navigation so a stale client-router tree cannot block the saved session; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Password-login full navigation production rollout | PASS - Vercel production deployment `dpl_29wsXoHFJnvBhrbQsQAdQbb2kzx7` is Ready and aliased to `www.asrv.co.in`; the live login bundle uses `location.replace` and the root recovery route returns HTTP 200 |
 | 2026-08-30 | Password-login client error visibility | PASS LOCALLY - non-credential browser session failures now display a bounded safe error description rather than masking the source after a successful Auth HTTP response; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
+| 2026-08-30 | Supabase gateway decoded-body headers | PASS LOCALLY - strips stale compression, length, and connection headers after reading a decoded upstream Auth response; regression coverage proves a browser will not double-decode an HTTP 200 JSON body; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
 
 ## Session log
 
@@ -354,6 +355,7 @@ Do not record secret values here. Mark only whether they are available.
 - Confirmed matching Vercel and Supabase password-token HTTP 200 records, which proves the server accepts the credentials. Replaced the remaining client-router handoff with a full navigation after successful login so the dashboard initializes from the persisted session. The first concurrent local rebuild briefly locked `dist`; the subsequent full suite passes (20 tests, 4 credential-gated skips), as do lint and Vercel Build Output validation.
 - Directly deployed the password-login navigation correction after the Git-triggered rollout remained queued. Vercel reports the production deployment Ready and aliased to the permanent domain; live bundle inspection confirms the full-navigation handoff is active.
 - Live screenshot confirmed a deliberate wrong-password HTTP 400 followed by an accepted password HTTP 200, but no dashboard request. The currently deployed client bundle already includes the full navigation path, so added bounded safe visibility for the exact post-response client error; credentials and tokens remain excluded. Full local validation passes; live retry after deployment is the next diagnostic gate.
+- The safe client error identified the exact root cause as `Failed to fetch` after a Vercel/Supabase HTTP 200. The same-origin gateway was forwarding upstream `content-encoding` and length headers after the runtime had already decoded the response body; browsers then attempted a second gzip decode and rejected valid JSON. The gateway now removes invalid transport headers and has focused regression coverage for this failure mode.
 
 ### 2026-08-30 - Password recovery redirect-loop fix
 

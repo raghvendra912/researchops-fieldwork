@@ -36,6 +36,13 @@ export async function handleSupabaseProxy(request: Request, pathname: string, en
   try {
     const upstream = await fetch(target, init);
     const responseHeaders = new Headers(upstream.headers);
+    // Runtime fetch implementations commonly decode compressed upstream bodies
+    // before exposing arrayBuffer(). Forwarding the original encoding/length
+    // headers would make browsers attempt to decode the plain JSON a second
+    // time, producing a misleading `Failed to fetch` despite HTTP 200.
+    for (const header of ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive"]) {
+      responseHeaders.delete(header);
+    }
     const location = responseHeaders.get("location");
     if (location && location.startsWith(env.SUPABASE_URL)) responseHeaders.set("location", location.replace(env.SUPABASE_URL, "/supabase"));
     responseHeaders.set("cache-control", "private, no-store");
