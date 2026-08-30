@@ -4,7 +4,7 @@
 
 Last updated: 2026-08-30
 Current milestone: External integration and browser/deployment gates
-Overall state: Client redirect-destination separation, email-OTP signup, and password-recovery callback handling are implemented; migration `021` is applied, while a locally verified Supabase Auth POST proxy fix awaits Vercel rollout and live account verification
+Overall state: Client redirect-destination separation, email-OTP signup, password recovery, and the Supabase Auth POST proxy fix are deployed; live password traffic reaches Supabase, while the requested replacement account needs an operator dashboard reset because the email already exists
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Deploy and live-verify the Supabase Auth POST proxy fix, then create and verify the requested replacement account without retaining its password.
+1. Delete and recreate the single requested existing Auth account through the verified Supabase dashboard, then verify password login.
 2. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
@@ -327,6 +327,8 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Recovery callback race hardening | PASS LOCALLY - an already-established session is accepted when automatic URL detection wins the exchange race; lint, 15 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Email OTP token-type compatibility | PASS LOCALLY - verification accepts unified email, new-user signup, and legacy magic-link token types; lint, 17 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Production Supabase Auth POST proxy transport | PASS LOCALLY - outbound requests use an explicit Supabase header allowlist and preserve JSON bodies; lint, 18 standard tests, production build, Vercel Build Output, and diff validation pass; live rollout remains pending |
+| 2026-08-30 | Production Supabase Auth POST proxy rollout | PASS - GitHub commit `c91e1db` reached Vercel and the live password-token endpoint changed from gateway HTTP 502 to the expected Supabase HTTP 400 for invalid credentials |
+| 2026-08-30 | Requested replacement Auth account | OPERATOR ACTION - production signup returns `user_already_exists`; Vercel correctly prevents secret export and browser control is unavailable, so the exact existing user must be deleted/recreated in the authenticated Supabase dashboard |
 
 ## Session log
 
@@ -336,6 +338,8 @@ Do not record secret values here. Mark only whether they are available.
 - Replaced deployment-header forwarding with a narrow Supabase-compatible allowlist and normalized non-GET request bodies for the Vercel Node runtime.
 - Added built-worker regression coverage proving Auth POST bodies, authorization, and API-key headers reach Supabase without hop-by-hop or Vercel forwarding headers.
 - Lint, 18 standard tests, production build, Vercel Build Output, and `git diff --check` pass. Next task is GitHub/Vercel rollout, live POST verification, and creation of the requested replacement account.
+- Pushed commit `c91e1db`; live password-token traffic now reaches Supabase and returns the expected HTTP 400 invalid-credential response instead of HTTP 502.
+- The requested email is already registered. Public signup correctly refuses to overwrite its password; Vercel did not export the encrypted production service-role secret, the temporary environment file was removed, and browser control was unavailable. The remaining safe action is deleting and recreating that exact user in Supabase Authentication > Users, followed by a password-login check.
 
 ### 2026-08-30 - Password recovery redirect-loop fix
 
