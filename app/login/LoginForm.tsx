@@ -41,6 +41,8 @@ export function LoginForm() {
         setError("Your browser blocked secure session storage. Allow site data for this site, then try again.");
       } else if (/did not return a login session/i.test(message)) {
         setError("Your credentials were accepted, but a workspace session was not returned. Please try again once.");
+      } else if (message && !/invalid login credentials/i.test(message)) {
+        setError(`Sign-in session error: ${message.slice(0, 180)}`);
       } else {
         setError("We could not sign you in. Check your email and password and try again.");
       }
