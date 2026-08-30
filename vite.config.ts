@@ -45,6 +45,8 @@ export default defineConfig(async ({ mode }) => {
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
   const environment = loadEnv(mode, process.cwd(), "");
+  const devAutoLoginEnabled =
+    (process.env.DEV_AUTO_LOGIN ?? environment.DEV_AUTO_LOGIN) === "true";
   const workerVariables = Object.fromEntries(Object.entries({
     SUPABASE_URL: environment.SUPABASE_URL || environment.VITE_SUPABASE_URL,
     SUPABASE_ANON_KEY: environment.SUPABASE_ANON_KEY || environment.VITE_SUPABASE_ANON_KEY,
@@ -57,6 +59,11 @@ export default defineConfig(async ({ mode }) => {
   }).filter((entry): entry is [string, string] => Boolean(entry[1])));
 
   return {
+    define: {
+      "import.meta.env.VITE_DEV_AUTO_LOGIN": JSON.stringify(
+        devAutoLoginEnabled ? "true" : "false",
+      ),
+    },
     server: {
       host: "127.0.0.1",
       port: 3001,

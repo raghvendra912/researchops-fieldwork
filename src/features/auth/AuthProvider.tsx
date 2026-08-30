@@ -35,6 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       }
+      if (import.meta.env.VITE_DEV_AUTO_LOGIN !== "true") {
+        setLoading(false);
+        return;
+      }
       try {
         const response = await fetch("/api/testing/auto-login", { method: "POST" });
         if (response.ok) {
