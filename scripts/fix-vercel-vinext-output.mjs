@@ -25,6 +25,14 @@ await writeFile(
   }, null, 2)}\n`,
 );
 
+// Vercel deploys each function as an isolated /var/task directory. Carry the
+// module type into that directory so Node parses Vinext's generated .js bundles
+// as ESM instead of falling back to CommonJS.
+await writeFile(
+  resolve(functionDirectory, "package.json"),
+  `${JSON.stringify({ type: "module" }, null, 2)}\n`,
+);
+
 await writeFile(
   resolve(functionDirectory, "handler.mjs"),
   `import worker from "./index.js";
