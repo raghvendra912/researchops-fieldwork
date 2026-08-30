@@ -4,7 +4,7 @@
 
 Last updated: 2026-08-30
 Current milestone: External integration and browser/deployment gates
-Overall state: Client redirect-destination separation and email-OTP signup are implemented and locally verified; hosted migration, OTP email-template configuration, and the explicitly requested Auth-user reset remain gated by authenticated Supabase dashboard/CLI access
+Overall state: Client redirect-destination separation, email-OTP signup, and password-recovery callback handling are implemented, locally verified, and pushed; migration `021` is user-confirmed applied while Vercel rollout, OTP email-template configuration, and the requested Auth-user reset remain to verify
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Apply hosted migration `021`, configure the Supabase Magic Link email template to expose `{{ .Token }}`, delete all Auth users in the verified project `cmrktkzdptmywrtscalu`, and deploy the locally verified change set.
+1. Verify the Vercel rollout of commit `1242abb`, configure the Supabase Magic Link email template to expose `{{ .Token }}`, and delete all Auth users in the verified project `cmrktkzdptmywrtscalu`.
 2. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
@@ -244,7 +244,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-06` | RESOLVED - hosted migration `020` and Sites version 2 were explicitly approved and deployed. | Monitor the production workflow and retain migration/rollback procedures. |
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
-| `BLK-09` | Hosted migration `021`, OTP template configuration, and deletion of all Auth users require an authenticated Supabase control surface; the browser runtime failed to initialize and local CLI execution is blocked by Windows Application Control. | Use the already signed-in Supabase dashboard to apply migration `021`, place `{{ .Token }}` in the Magic Link email template, and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
+| `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
 
 ## Verification record
 
@@ -323,6 +323,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Deterministic Vercel Build Output | PASS LOCALLY - a build launched with Vercel's environment flag emits the complete fetch worker, Build Output API v3 function/static layout, and HTTP 200 responses for `/api/health` and `/login`; lint passes |
 | 2026-08-30 | Client redirect separation and email OTP signup | PASS LOCALLY - lint, 14 standard tests, production build, Vercel Build Output, and diff validation pass; 4 credential-gated integration suites skip as designed |
 | 2026-08-30 | Password recovery callback handling | PASS LOCALLY - all three supported Supabase recovery callback shapes are covered; lint, 15 standard tests, production build, Vercel Build Output, and diff validation pass |
+| 2026-08-30 | Hosted migration `021` and GitHub rollout | USER-CONFIRMED/PUSHED - migration SQL ran in Supabase and commits `88f0d05` plus `1242abb` were pushed to GitHub main for automatic Vercel deployment |
 
 ## Session log
 
@@ -331,6 +332,7 @@ Do not record secret values here. Mark only whether they are available.
 - Diagnosed that the reset screen depended on an already-restored session and did not explicitly consume recovery credentials returned by Supabase.
 - Added recovery initialization for PKCE `code`, `token_hash` with recovery type, and implicit access/refresh-token links; successful exchange removes sensitive URL material before showing the new-password form.
 - Added callback-shape regression coverage. Lint, 15 standard tests, production build, Vercel Build Output, and `git diff --check` pass; live verification requires deployment and a newly generated recovery link.
+- After the hosted migration was user-confirmed applied, pushed commits `88f0d05` and `1242abb` to GitHub main to trigger the connected Vercel deployment.
 
 ### 2026-08-30 - Client redirect variables and email OTP signup
 
