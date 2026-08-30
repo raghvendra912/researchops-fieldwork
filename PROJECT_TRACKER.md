@@ -333,6 +333,7 @@ Do not record secret values here. Mark only whether they are available.
 - Vercel Node 24 still initialized the function before applying the required React condition; pinned the repository to the supported Node 22 major while retaining the function startup configuration. The Vercel build and lint pass; remote Node 22 runtime verification is next.
 - Confirmed that the remaining failure was a Nitro/Vinext packaging mismatch rather than an application, database, or credential fault: Nitro rebundled the RSC service against the client React export before request handling began.
 - Replaced the failing Nitro function payload with Vinext's self-contained fetch worker while retaining Vercel Build Output routing and Node 22. The generated handler now imports without `NODE_OPTIONS` and returns HTTP 200 for both `/api/health` and `/login`; standard build, 13 tests, and lint pass. The next task is verifying the automatically triggered Vercel production deployment and then removing the obsolete dashboard `NODE_OPTIONS` variable.
+- The first remote worker-package deployment showed that Vercel retained the function entry point but omitted its nested `worker/` payload, producing `ERR_MODULE_NOT_FOUND` before startup. Flattened the Vinext server payload into the `.func` root so its entry and traced server assets follow Vercel's function layout; remote verification is next.
 
 ### 2026-08-30 - Sanitized GitHub source deployment
 
