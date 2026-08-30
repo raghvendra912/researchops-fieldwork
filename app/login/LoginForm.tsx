@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "../components/NavigationLink";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 
@@ -10,7 +10,6 @@ function safeReturnPath(value: string | null) {
 }
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { configured, loading, session, signIn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -18,8 +17,8 @@ export function LoginForm() {
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
 
   useEffect(() => {
-    if (configured && !loading && session) router.replace(returnTo);
-  }, [configured, loading, returnTo, router, session]);
+    if (configured && !loading && session) globalThis.location.replace(returnTo);
+  }, [configured, loading, returnTo, session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +30,10 @@ export function LoginForm() {
     setError("");
     try {
       await signIn(email, password);
-      router.replace(returnTo);
+      // A full navigation avoids leaving a valid Supabase session behind in a
+      // stale client-router tree. The dashboard reloads AuthProvider and reads
+      // the persisted session before applying workspace access rules.
+      globalThis.location.replace(returnTo);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "";
       console.error("Sign-in did not establish a workspace session", cause);
