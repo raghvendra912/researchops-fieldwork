@@ -25,12 +25,13 @@ export async function handleSupabaseProxy(request: Request, pathname: string, en
 
   const source = new URL(request.url);
   const target = new URL(pathname.replace(/^\/supabase/, "") + source.search, env.SUPABASE_URL);
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-  headers.delete("content-length");
-  headers.set("apikey", env.SUPABASE_ANON_KEY);
+  const headers = new Headers({ apikey: env.SUPABASE_ANON_KEY });
+  for (const name of ["accept", "authorization", "content-type", "x-client-info", "x-supabase-api-version"]) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
   const init: RequestInit = { method: request.method, headers, redirect: "manual" };
-  if (!["GET", "HEAD"].includes(request.method)) init.body = await request.arrayBuffer();
+  if (!["GET", "HEAD"].includes(request.method)) init.body = await request.text();
 
   try {
     const upstream = await fetch(target, init);

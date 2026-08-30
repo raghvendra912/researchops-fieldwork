@@ -328,3 +328,28 @@ test("throttles same-origin authentication traffic", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("forwards Supabase Auth POST bodies without deployment hop-by-hop headers", async () => {
+  const originalFetch = globalThis.fetch;
+  let forwarded;
+  globalThis.fetch = async (input, init) => {
+    forwarded = { input: String(input), init };
+    return Response.json({ ok: true });
+  };
+  try {
+    const response = await request("/supabase/auth/v1/signup", {
+      method: "POST",
+      headers: { authorization: "Bearer public-token", "content-type": "application/json", connection: "keep-alive", "x-forwarded-host": "www.asrv.co.in" },
+      body: JSON.stringify({ email: "operator@example.test", password: "not-a-real-secret" }),
+    }, { SUPABASE_URL: "https://project.supabase.co", SUPABASE_ANON_KEY: "public-anon-key" });
+    assert.equal(response.status, 200);
+    assert.equal(forwarded.input, "https://project.supabase.co/auth/v1/signup");
+    assert.equal(forwarded.init.body, JSON.stringify({ email: "operator@example.test", password: "not-a-real-secret" }));
+    assert.equal(forwarded.init.headers.get("apikey"), "public-anon-key");
+    assert.equal(forwarded.init.headers.get("authorization"), "Bearer public-token");
+    assert.equal(forwarded.init.headers.has("connection"), false);
+    assert.equal(forwarded.init.headers.has("x-forwarded-host"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
