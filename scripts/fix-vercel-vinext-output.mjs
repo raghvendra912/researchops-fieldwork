@@ -1,11 +1,43 @@
-import { copyFile, mkdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
-const source = resolve("node_modules/.nitro/vite/services/rsc/vinext-client-assets.js");
-const destination = resolve(
-  ".vercel/output/functions/__server.func/_libs/vinext-client-assets.js",
+const functionDirectory = resolve(".vercel/output/functions/__server.func");
+const workerDirectory = resolve(functionDirectory, "worker");
+
+// Nitro currently rebundles Vinext's RSC service with the client React export,
+// which crashes before the Vercel function can handle a request. The Vinext
+// server output is already a self-contained standard fetch worker and preserves
+// the correct per-environment React bundles, so use it as the function payload.
+await rm(functionDirectory, { recursive: true, force: true });
+await mkdir(workerDirectory, { recursive: true });
+await cp(resolve("dist/server"), workerDirectory, { recursive: true });
+
+await writeFile(
+  resolve(functionDirectory, ".vc-config.json"),
+  `${JSON.stringify({
+    handler: "index.mjs",
+    launcherType: "Nodejs",
+    shouldAddHelpers: false,
+    supportsResponseStreaming: true,
+    runtime: "nodejs22.x",
+  }, null, 2)}\n`,
 );
 
-await mkdir(dirname(destination), { recursive: true });
-await copyFile(source, destination);
-console.log("Included the vinext client-assets sidecar in the Vercel function.");
+await writeFile(
+  resolve(functionDirectory, "index.mjs"),
+  `import worker from "./worker/index.js";
+
+export default {
+  fetch(request, context) {
+    return worker.fetch(request, process.env, {
+      waitUntil(promise) {
+        context?.waitUntil?.(promise);
+      },
+      passThroughOnException() {},
+    });
+  },
+};
+`,
+);
+
+console.log("Packaged the verified Vinext fetch worker for the Vercel function.");

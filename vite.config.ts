@@ -73,11 +73,6 @@ export default defineConfig(async ({ mode }) => {
           vinext(),
           nitro({
             serverDir: "./server",
-            vercel: {
-              functions: {
-                environment: { NODE_OPTIONS: "--conditions=react-server" },
-              },
-            },
           }),
         ]
       : [

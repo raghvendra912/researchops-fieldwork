@@ -317,6 +317,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Vercel adapter build | PARTIAL PASS - Nitro/Vercel Build Output was generated with frontend and ResearchOps middleware/backend included; Windows preview exposed a platform-specific generated-module resolution issue, so Vercel's Linux remote build remains the deployment verification gate |
 | 2026-08-30 | GitHub source security audit | PASS - tracked files and 161 reachable historical blobs contain no high-confidence private-key or provider-token patterns; local environment files and deployment/runtime state remain ignored |
 | 2026-08-30 | Vercel React runtime-condition fix | PASS LOCALLY - the Vercel build completes when the parent deployment environment enables `react-server`, while the Vite subprocess runs without that incompatible condition; standard build, 13 tests, and lint pass |
+| 2026-08-30 | Vercel Vinext worker packaging | PASS LOCALLY - the generated Vercel handler imports without special Node conditions and returns HTTP 200 for `/api/health` and `/login`; standard build, 13 tests, and lint pass |
 
 ## Session log
 
@@ -330,6 +331,8 @@ Do not record secret values here. Mark only whether they are available.
 - The verified-author Git deployment builds successfully, but Vercel ignored both the dashboard and Nitro-generated function environment setting and the runtime still rejected React Server Components before database access.
 - Added the required `react-server` condition to the repository-level Vercel function `env` configuration documented by Vercel; the Vercel build and lint pass, and the next task is remote runtime verification from the automatically triggered production deployment.
 - Vercel Node 24 still initialized the function before applying the required React condition; pinned the repository to the supported Node 22 major while retaining the function startup configuration. The Vercel build and lint pass; remote Node 22 runtime verification is next.
+- Confirmed that the remaining failure was a Nitro/Vinext packaging mismatch rather than an application, database, or credential fault: Nitro rebundled the RSC service against the client React export before request handling began.
+- Replaced the failing Nitro function payload with Vinext's self-contained fetch worker while retaining Vercel Build Output routing and Node 22. The generated handler now imports without `NODE_OPTIONS` and returns HTTP 200 for both `/api/health` and `/login`; standard build, 13 tests, and lint pass. The next task is verifying the automatically triggered Vercel production deployment and then removing the obsolete dashboard `NODE_OPTIONS` variable.
 
 ### 2026-08-30 - Sanitized GitHub source deployment
 
