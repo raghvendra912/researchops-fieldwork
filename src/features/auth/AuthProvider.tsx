@@ -37,13 +37,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const recovery = parseRecoveryCallback(globalThis.location.href);
           if (recovery?.kind === "code") {
             const { error } = await supabase.auth.exchangeCodeForSession(recovery.code);
-            if (error) throw error;
+            if (error) {
+              const existing = await supabase.auth.getSession();
+              if (!existing.data.session) throw error;
+            }
           } else if (recovery?.kind === "token-hash") {
             const { error } = await supabase.auth.verifyOtp({ token_hash: recovery.tokenHash, type: "recovery" });
-            if (error) throw error;
+            if (error) {
+              const existing = await supabase.auth.getSession();
+              if (!existing.data.session) throw error;
+            }
           } else if (recovery?.kind === "implicit") {
             const { error } = await supabase.auth.setSession({ access_token: recovery.accessToken, refresh_token: recovery.refreshToken });
-            if (error) throw error;
+            if (error) {
+              const existing = await supabase.auth.getSession();
+              if (!existing.data.session) throw error;
+            }
           }
           if (recovery) globalThis.history.replaceState({}, "", "/reset-password");
         }
