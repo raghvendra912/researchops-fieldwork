@@ -857,3 +857,9 @@ Do not record secret values here. Mark only whether they are available.
 - Replaced the visible-page-only export with Download CSV, which downloads every project in the currently filtered result set using the existing spreadsheet-safe CSV generator.
 - Verification: lint passes; production build passes; automated suite passes (20 passed, 4 environment-gated tests skipped). No credentials or secrets were added.
 - Current task is deployment of these verified Project Center UX improvements to production.
+
+### 2026-08-30 - Project Center filter layout follow-up
+
+- Kept the complete fixed status catalogue visible after every filter refresh, so a selected status no longer disappears when its result set has no remaining records.
+- Rebalanced the filter grid, widened the status control area, and aligned the decorative search icon inside the search input below its label.
+- Verification: lint and the automated suite pass (20 passed, 4 environment-gated tests skipped). Current task is deployment of this Project Center layout correction to production.
