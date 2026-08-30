@@ -10,6 +10,8 @@ type AuthContextValue = {
   session: Session | null;
   user: User | null;
   signIn: (email: string, password: string) => Promise<void>;
+  requestSignUpOtp: (email: string) => Promise<void>;
+  verifySignUpOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string, redirectTo: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -73,6 +75,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async signIn(email, password) {
       if (!supabase) return;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    },
+    async requestSignUpOtp(email) {
+      if (!supabase) return;
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      });
+      if (error) throw error;
+    },
+    async verifySignUpOtp(email, token) {
+      if (!supabase) return;
+      const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
       if (error) throw error;
     },
     async signOut() {

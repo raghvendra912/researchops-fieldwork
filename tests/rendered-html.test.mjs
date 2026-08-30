@@ -40,6 +40,14 @@ test("server-renders password recovery routes without account disclosure", async
   assert.match(updateHtml, /Secure recovery/i);
 });
 
+test("server-renders email OTP signup", async () => {
+  const response = await request("/signup");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Create your workspace account/i);
+  assert.match(html, /email.*one-time code/i);
+});
+
 test("server-renders persistent directory surfaces", async () => {
   const clients = await request("/clients");
   assert.equal(clients.status, 200);
@@ -200,8 +208,13 @@ test("serves Worker health and project APIs", async () => {
   const clientsBody = await clients.json();
   assert.equal(clientsBody.data.length, 4);
   assert.equal(clientsBody.meta.canOperate, true);
-  const clientCreated = await request("/api/clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "New Client", code: "NEW_CLIENT" }) });
+  const clientCreated = await request("/api/clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "New Client", code: "NEW_CLIENT", redirects: { completeUrl: "https://must-not-be-stored.example/complete" }, redirectVariables: [{ name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true }, { name: "project_id", source: "SYSTEM", defaultValue: "", required: true }] }) });
   assert.equal(clientCreated.status, 201);
+  const createdClientBody = await clientCreated.json();
+  assert.equal(createdClientBody.data.redirects, undefined);
+  assert.equal(createdClientBody.data.redirectVariables.length, 2);
+  assert.match(createdClientBody.data.links.complete, /respondent_id=\{\{respondent_id\}\}/);
+  assert.match(createdClientBody.data.links.complete, /project_id=\{\{project_id\}\}/);
   const clientUpdated = await request("/api/clients/client-northstar", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Northstar Financial", code: "NORTHSTAR_FIN" }) });
   assert.equal(clientUpdated.status, 200);
   assert.equal((await clientUpdated.json()).data.name, "Northstar Financial");

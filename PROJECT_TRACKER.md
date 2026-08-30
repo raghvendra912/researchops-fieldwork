@@ -2,9 +2,9 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 Current milestone: External integration and browser/deployment gates
-Overall state: Transcript-aligned Project Center search/filter, lifecycle, manager history, project-type, and ISO market changes are implemented, hosted, and production-verified; remaining UI evidence and external integrations require the recorded browser, vendor, or commercial inputs
+Overall state: Client redirect-destination separation and email-OTP signup are implemented and locally verified; hosted migration, OTP email-template configuration, and the explicitly requested Auth-user reset remain gated by authenticated Supabase dashboard/CLI access
 
 ## Resume protocol
 
@@ -39,10 +39,10 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
-2. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
-3. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
-4. Keep the public Sites deployment and hosted Supabase project available for cross-device testing.
+1. Apply hosted migration `021`, configure the Supabase Magic Link email template to expose `{{ .Token }}`, delete all Auth users in the verified project `cmrktkzdptmywrtscalu`, and deploy the locally verified change set.
+2. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
+3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
+4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
 
 ### Next - external decision and credential gates
 
@@ -81,6 +81,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `DB-04` | Development seed | DONE | Local seed data is applied and later onboarding creates Auth-linked tenant memberships safely. |
 | `AUTH-01` | Supabase email authentication | READY | Sign in, sign out, session restoration, generic error state, and route protection are implemented; public tunnel signup and authenticated API access are live-verified. |
 | `AUTH-02` | Password recovery | READY | Generic reset request, recovery-session validation, confirmation, update, expired/replayed-link handling, and a disposable live recovery lifecycle pass; production email delivery and browser UI evidence remain gated. |
+| `AUTH-03` | Email OTP signup | READY | Public signup requests account-creating email OTPs, verifies the code, and routes new users into workspace onboarding; hosted email-template configuration and live delivery verification remain. |
 | `ORG-01` | Organization onboarding | READY | Membership gate, onboarding UI/API, OWNER membership transaction, and default supplier creation are implemented; public tunnel creation/read is live-verified. |
 | `ORG-02` | Roles and server authorization | DONE | Worker and database role boundaries are live integration-tested for owner, analyst, and cross-tenant access. |
 | `ORG-03` | Workspace settings | DONE | Owner/admin-controlled organization name and timezone persist through an audited RPC; mandatory security controls are presented as enforced and live update/audit/restore verification passes. |
@@ -103,8 +104,8 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
 | `MKT-02` | ISO market option catalog | READY | Hosted creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; browser interaction evidence remains pending. |
 | `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
-| `CLI-01` | Client directory UI | READY | Admin-only create/edit UI includes contacts, address, four outcome destinations, and copyable opaque client links; other roles receive a read-only directory. |
-| `CLI-02` | Client CRUD | DONE | Live Worker integration proves admin-scoped contact/outcome create/update, persistent reads, opaque token generation, URL/email constraints, and audit records. |
+| `CLI-01` | Client directory UI | READY | Searchable numbered list remains above create/edit; View opens a modal with four same-origin masked links, individual/copy-all actions, and a separate redirect-variable editor; browser evidence remains. |
+| `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
 | `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
 | `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
 | `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing ST/RC/CO/TE/OQ/QT, IR, cost, redirect mode, and copyable project Test/Live links; PAUSED/CLOSED stops live routing. |
@@ -243,6 +244,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-06` | RESOLVED - hosted migration `020` and Sites version 2 were explicitly approved and deployed. | Monitor the production workflow and retain migration/rollback procedures. |
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
+| `BLK-09` | Hosted migration `021`, OTP template configuration, and deletion of all Auth users require an authenticated Supabase control surface; the browser runtime failed to initialize and local CLI execution is blocked by Windows Application Control. | Use the already signed-in Supabase dashboard to apply migration `021`, place `{{ .Token }}` in the Magic Link email template, and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
 
 ## Verification record
 
@@ -319,8 +321,17 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Vercel React runtime-condition fix | PASS LOCALLY - the Vercel build completes when the parent deployment environment enables `react-server`, while the Vite subprocess runs without that incompatible condition; standard build, 13 tests, and lint pass |
 | 2026-08-30 | Vercel Vinext worker packaging | PASS LOCALLY - the generated Vercel handler imports without special Node conditions and returns HTTP 200 for `/api/health` and `/login`; standard build, 13 tests, and lint pass |
 | 2026-08-30 | Deterministic Vercel Build Output | PASS LOCALLY - a build launched with Vercel's environment flag emits the complete fetch worker, Build Output API v3 function/static layout, and HTTP 200 responses for `/api/health` and `/login`; lint passes |
+| 2026-08-30 | Client redirect separation and email OTP signup | PASS LOCALLY - lint, 14 standard tests, production build, Vercel Build Output, and diff validation pass; 4 credential-gated integration suites skip as designed |
 
 ## Session log
+
+### 2026-08-30 - Client redirect variables and email OTP signup
+
+- Reworked the client directory so the searchable numbered list stays above create/edit, View opens a detail modal, and client destination URL fields are no longer accepted, stored, or returned.
+- Added four copyable same-origin masked outcome links carrying `respondent_id` and `project_id` placeholders plus an isolated, validated redirect-variable editor persisted by migration `021`; supplier redirect configuration remains unchanged.
+- Added public email-OTP signup and verification with onboarding handoff, plus a login-to-signup route and server-render coverage.
+- Lint, 14 standard tests, the production build, Vercel Build Output, and `git diff --check` pass; 4 credential-gated suites skip as designed.
+- Hosted operations are not claimed complete: browser control failed to initialize and Windows Application Control blocked the linked Supabase CLI binary, so migration `021`, OTP-template configuration, the requested Auth-user deletion, deployment, and live verification remain the current task under `BLK-09`.
 
 ### 2026-08-30 - Vercel build/runtime condition separated
 

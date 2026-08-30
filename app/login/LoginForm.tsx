@@ -65,6 +65,7 @@ export function LoginForm() {
       <button className="button primary" type="submit" disabled={submitting || loading}>
         {submitting ? "Signing in..." : "Enter workspace →"}
       </button>
+      <div className="login-options"><span>New to ResearchOps?</span><Link href="/signup">Create an account</Link></div>
     </form>
   );
 }

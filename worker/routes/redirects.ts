@@ -90,7 +90,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;
-    const projectCode = clean(url.searchParams.get("project"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent"));
+    const projectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("respondent"));
     if (!projectCode || !respondentRef) return unavailable("Project and respondent are required", 400);
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${clientMatch![1]}&limit=1`); if (!clients[0]) return unavailable("Client link was not found", 404);
     const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);

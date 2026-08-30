@@ -202,6 +202,7 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .login-form { display: grid; gap: 16px; }
 .login-form .control { height: 46px; background: white; }
 .login-form .button { height: 46px; margin-top: 4px; }
+.otp-control { font-size: 20px; letter-spacing: .28em; text-align: center; }
 .login-options { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
 .login-options label { display: flex; gap: 6px; align-items: center; }
 .login-options a { color: var(--brand-dark); font-weight: 700; }
@@ -218,6 +219,16 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .directory-form .section-head { margin-bottom: 14px; }
 .directory-submit { align-self: end; }
 .row-actions { display: flex; gap: 4px; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px; background: rgba(12, 31, 27, .62); }
+.links-modal { width: min(940px, 100%); max-height: calc(100vh - 48px); overflow: auto; padding: 24px; }
+.links-modal .section-head { margin-bottom: 18px; }
+.link-row { grid-template-columns: 120px minmax(0, 1fr) auto; }
+.link-row code { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.variable-box { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.variable-grid { display: grid; gap: 8px; }
+.variable-row { display: grid; grid-template-columns: 1fr 1.1fr 1.2fr auto auto; gap: 8px; align-items: center; }
+.variable-required { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 10px; font-weight: 700; }
 .button:disabled { cursor: not-allowed; opacity: .62; }
 .empty-panel { min-height: 380px; padding: 48px; display: grid; place-items: center; text-align: center; }
 .empty-panel h2 { font: 500 28px Georgia, serif; margin: 0 0 10px; }
@@ -258,6 +269,7 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
   .steps { position: static; display: flex; overflow-x: auto; }
   .step { min-width: 150px; }
   .form-grid, .form-grid.three, .supplier-grid { grid-template-columns: 1fr; }
+  .variable-row { grid-template-columns: 1fr; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
   .detail-hero { align-items: start; flex-direction: column; }
   .login-page { grid-template-columns: 1fr; }
   .login-art { min-height: 400px; padding: 36px 28px; }
