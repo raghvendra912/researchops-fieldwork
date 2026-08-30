@@ -3,6 +3,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { verifyEmailOtp } from "./email-otp";
 import { parseRecoveryCallback } from "./recovery";
 
 type AuthContextValue = {
@@ -111,8 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     async verifySignUpOtp(email, token) {
       if (!supabase) return;
-      const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
-      if (error) throw error;
+      await verifyEmailOtp((type) => supabase.auth.verifyOtp({ email, token, type }));
     },
     async signOut() {
       if (!supabase) return;

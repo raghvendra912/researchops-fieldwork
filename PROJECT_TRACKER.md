@@ -325,6 +325,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Password recovery callback handling | PASS LOCALLY - all three supported Supabase recovery callback shapes are covered; lint, 15 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Hosted migration `021` and GitHub rollout | USER-CONFIRMED/PUSHED - migration SQL ran in Supabase and commits `88f0d05` plus `1242abb` were pushed to GitHub main for automatic Vercel deployment |
 | 2026-08-30 | Recovery callback race hardening | PASS LOCALLY - an already-established session is accepted when automatic URL detection wins the exchange race; lint, 15 standard tests, production build, Vercel Build Output, and diff validation pass |
+| 2026-08-30 | Email OTP token-type compatibility | PASS LOCALLY - verification accepts unified email, new-user signup, and legacy magic-link token types; lint, 17 standard tests, production build, Vercel Build Output, and diff validation pass |
 
 ## Session log
 
@@ -335,6 +336,7 @@ Do not record secret values here. Mark only whether they are available.
 - Added callback-shape regression coverage. Lint, 15 standard tests, production build, Vercel Build Output, and `git diff --check` pass; live verification requires deployment and a newly generated recovery link.
 - After the hosted migration was user-confirmed applied, pushed commits `88f0d05` and `1242abb` to GitHub main to trigger the connected Vercel deployment.
 - Hardened recovery initialization against Supabase automatic URL detection consuming the callback first: an exchange error now falls back to the valid session already established by the SDK instead of incorrectly displaying an expired-link state.
+- Made email OTP verification compatible with Supabase's template-dependent token types (`email`, `signup`, and `magiclink`) so codes issued from either Confirm signup or Magic Link templates can establish the session; regression tests cover fallback and total rejection.
 
 ### 2026-08-30 - Client redirect variables and email OTP signup
 
