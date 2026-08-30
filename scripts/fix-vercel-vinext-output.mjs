@@ -1,22 +1,23 @@
-import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const functionDirectory = resolve(".vercel/output/functions/__server.func");
-const workerEntry = resolve(functionDirectory, "vinext-worker.mjs");
+const outputDirectory = resolve(".vercel/output");
+const functionDirectory = resolve(outputDirectory, "functions/__server.func");
+const staticDirectory = resolve(outputDirectory, "static");
 
-// Nitro currently rebundles Vinext's RSC service with the client React export,
-// which crashes before the Vercel function can handle a request. The Vinext
-// server output is already a self-contained standard fetch worker and preserves
-// the correct per-environment React bundles, so use it as the function payload.
-await rm(functionDirectory, { recursive: true, force: true });
+// Vinext's fetch-worker build is the verified complete application artifact: it
+// includes RSC/SSR rendering and the ResearchOps middleware APIs. Package that
+// artifact directly using Vercel Build Output API v3 instead of asking Nitro to
+// split and rebundle the application into a second runtime representation.
+await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(functionDirectory, { recursive: true });
 await cp(resolve("dist/server"), functionDirectory, { recursive: true });
-await rename(resolve(functionDirectory, "index.js"), workerEntry);
+await cp(resolve("dist/client"), staticDirectory, { recursive: true });
 
 await writeFile(
   resolve(functionDirectory, ".vc-config.json"),
   `${JSON.stringify({
-    handler: "index.mjs",
+    handler: "handler.mjs",
     launcherType: "Nodejs",
     shouldAddHelpers: false,
     supportsResponseStreaming: true,
@@ -25,12 +26,14 @@ await writeFile(
 );
 
 await writeFile(
-  resolve(functionDirectory, "index.mjs"),
-  `import worker from "./vinext-worker.mjs";
+  resolve(functionDirectory, "handler.mjs"),
+  `import worker from "./index.js";
 
 export default {
   fetch(request, context) {
-    return worker.fetch(request, process.env, {
+    const fetchHandler =
+      typeof worker === "function" ? worker : worker.fetch.bind(worker);
+    return fetchHandler(request, process.env, {
       waitUntil(promise) {
         context?.waitUntil?.(promise);
       },
@@ -41,4 +44,19 @@ export default {
 `,
 );
 
-console.log("Packaged the verified Vinext fetch worker for the Vercel function.");
+await writeFile(
+  resolve(outputDirectory, "config.json"),
+  `${JSON.stringify({
+    version: 3,
+    routes: [
+      {
+        src: "/_next/static/(.*)",
+        headers: { "cache-control": "public, max-age=31536000, immutable" },
+      },
+      { handle: "filesystem" },
+      { src: "/(.*)", dest: "/__server" },
+    ],
+  }, null, 2)}\n`,
+);
+
+console.log("Packaged the complete Vinext worker as Vercel Build Output API v3.");

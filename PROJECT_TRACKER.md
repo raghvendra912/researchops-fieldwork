@@ -318,6 +318,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | GitHub source security audit | PASS - tracked files and 161 reachable historical blobs contain no high-confidence private-key or provider-token patterns; local environment files and deployment/runtime state remain ignored |
 | 2026-08-30 | Vercel React runtime-condition fix | PASS LOCALLY - the Vercel build completes when the parent deployment environment enables `react-server`, while the Vite subprocess runs without that incompatible condition; standard build, 13 tests, and lint pass |
 | 2026-08-30 | Vercel Vinext worker packaging | PASS LOCALLY - the generated Vercel handler imports without special Node conditions and returns HTTP 200 for `/api/health` and `/login`; standard build, 13 tests, and lint pass |
+| 2026-08-30 | Deterministic Vercel Build Output | PASS LOCALLY - a build launched with Vercel's environment flag emits the complete fetch worker, Build Output API v3 function/static layout, and HTTP 200 responses for `/api/health` and `/login`; lint passes |
 
 ## Session log
 
@@ -334,6 +335,8 @@ Do not record secret values here. Mark only whether they are available.
 - Confirmed that the remaining failure was a Nitro/Vinext packaging mismatch rather than an application, database, or credential fault: Nitro rebundled the RSC service against the client React export before request handling began.
 - Replaced the failing Nitro function payload with Vinext's self-contained fetch worker while retaining Vercel Build Output routing and Node 22. The generated handler now imports without `NODE_OPTIONS` and returns HTTP 200 for both `/api/health` and `/login`; standard build, 13 tests, and lint pass. The next task is verifying the automatically triggered Vercel production deployment and then removing the obsolete dashboard `NODE_OPTIONS` variable.
 - The first remote worker-package deployment showed that Vercel retained the function entry point but omitted its nested `worker/` payload, producing `ERR_MODULE_NOT_FOUND` before startup. Flattened the Vinext server payload into the `.func` root so its entry and traced server assets follow Vercel's function layout; remote verification is next.
+- The flattened deployment then exposed a build-environment path difference: Vercel/Nitro stages Vinext RSC and SSR output under `node_modules/.nitro/vite/services`, while the local Cloudflare-style build uses `dist/server`. Updated packaging to detect both layouts and preserve the sibling SSR service when running under Nitro; conditioned local build and handler verification are required before the next push.
+- Testing the staged Nitro RSC service proved it renders `/login` but returns 404 for `/api/health`, because ResearchOps middleware routes live outside that service. Replaced the environment-dependent Nitro packaging path with a deterministic build of the complete Vinext fetch worker and direct Vercel Build Output API v3 emission, retaining UI, APIs, authentication, and Supabase behavior in one function.
 
 ### 2026-08-30 - Sanitized GitHub source deployment
 

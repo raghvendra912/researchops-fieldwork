@@ -6,6 +6,11 @@ import { resolve } from "node:path";
 // server-only export map too early and prevents the Vinext config from loading.
 const buildEnvironment = { ...process.env };
 delete buildEnvironment.NODE_OPTIONS;
+// Produce Vinext's complete fetch-worker output. The Nitro Vercel service split
+// separates RSC rendering from ResearchOps middleware routes, so it cannot be
+// used as the deployable application payload.
+delete buildEnvironment.VERCEL;
+delete buildEnvironment.NITRO_PRESET;
 
 const viteResult = spawnSync(
   process.execPath,
