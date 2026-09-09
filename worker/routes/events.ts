@@ -31,6 +31,7 @@ export async function ingestNormalizedEvent(body: NormalizedEvent, env: EventEnv
     const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/ingest_survey_event`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }, body: JSON.stringify({ p_organization_id: organizationId, p_project_code: projectCode, p_supplier_id: body.supplierId || null, p_respondent_ref: respondentRef, p_event_type: eventType, p_provider_transaction_id: body.providerTransactionId || null, p_occurred_at: body.occurredAt || null, p_metadata: body.metadata ?? {} }) });
     if (!response.ok) throw new Error("Event RPC failed");
     const rows = await response.json() as Array<{ session_id: string; event_id: string; created: boolean }>;
+    if (rows[0]?.session_id && !rows[0]?.event_id) return Response.json({ error: "The respondent already has a different terminal outcome" }, { status: 409 });
     return Response.json({ data: { sessionId: rows[0]?.session_id, eventId: rows[0]?.event_id, created: rows[0]?.created, eventType }, meta: { source: "supabase" } }, { status: rows[0]?.created ? 201 : 200 });
   } catch { return Response.json({ error: "Event ingestion failed" }, { status: 502 }); }
 }

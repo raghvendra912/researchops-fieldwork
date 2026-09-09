@@ -2,9 +2,9 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-08-30
+Last updated: 2026-09-09
 Current milestone: External integration and browser/deployment gates
-Overall state: Client redirect-destination separation, email-OTP signup, password recovery, and the Supabase Auth POST proxy fix are deployed; recovery-code double consumption is fixed locally and awaiting Vercel rollout plus a new live reset-link verification
+Overall state: Production Supabase now includes durable respondent outcome tracking, terminal-state protection, per-session outcome links, and abandonment reconciliation; the dashboard and project detail surfaces expose the live funnel and are ready for the corresponding Vercel rollout.
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - M8 verification and external integrations
 
-1. Deploy the recovery-code ownership fix, request one new password-reset email, complete it once, then verify password login for the existing requested account.
+1. Deploy the verified respondent-tracking dashboard application and smoke-test the production funnel/API against migration `022`.
 2. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
@@ -118,12 +118,12 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `EVT-01` | Survey session schema | DONE | Live Worker integration persists five respondent sessions and all seven planned immutable event types. |
 | `EVT-02` | Append-only event ingestion service | DONE | Live timestamped HMAC requests invoke the service-role-only RPC for every planned event type. |
 | `EVT-03` | Duplicate transaction handling | DONE | Live replay returns the original event with `created: false`; metrics remain single-counted. |
-| `MET-01` | Metrics aggregation service | DONE | Live views correctly aggregate starts, reached-client, complete, terminate, over-quota, quality terminate, abandon/conversion rates, supplier cost, and average respondent duration. |
+| `MET-01` | Metrics aggregation service | DONE | Live views aggregate starts, reached-client, in-progress, complete, terminate, over-quota, quality terminate, abandon/conversion/drop-off rates, last activity, supplier cost, and average respondent duration. |
 | `MET-02` | Live Project Center metrics | DONE | Live tenant-scoped list/detail responses return the persisted five starts and one complete. |
 | `MET-03` | Supplier comparison metrics | DONE | Live assignment delivery returns five starts, one complete, and the expected 8.75 supplier cost. |
 | `RSP-01` | Respondent/session explorer | DONE | Project filter/search returns normalized chronological timelines with supplier CPI and duration; a formula-safe per-project/all-project CSV export supports up to 1,000 rows. |
 | `ANA-01` | Analytics UI | READY | Date controls, source comparisons, supplier conversion/IR/cost indicators, and formula-safe portfolio/supplier/client/market CSV export are implemented with demo fallback. |
-| `ANA-02` | Persistent analytics API | DONE | Live date-bounded tenant analytics returns the expected portfolio events and supplier cost from persisted data. |
+| `ANA-02` | Persistent analytics API | DONE | Date-bounded tenant analytics returns the respondent funnel, terminal outcomes, in-progress/abandonment totals, last activity, and supplier cost from persisted data. |
 
 ### M5 - Provider integrations and callbacks
 
@@ -136,7 +136,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `CBK-01` | Callback routing | DONE | Live signed CPX, BitLabs, and PureSpectrum test callbacks normalize and persist through dedicated provider routes. |
 | `CBK-02` | Fast callback acknowledgement | DONE | Live callback paths perform only signature validation, normalization, and the atomic event write before returning success. |
 | `CBK-03` | Callback observability | DONE | Live provider responses carry request IDs; structured records cover provider, outcome, rejection, throttling, status, and latency without sensitive identifiers. |
-| `RDR-01` | Opaque live respondent routing | DONE | Live verification proves opaque supplier links enforce active state/quota, record events, apply fraud/security checks, mask all client callbacks, redirect into the project survey, and return the final outcome to the supplier destination. |
+| `RDR-01` | Opaque live respondent routing | DONE | Opaque supplier links enforce active state/quota, record events, apply fraud/security checks, issue unique per-session outcome callbacks, preserve the first terminal outcome, and return it to the supplier destination. |
 
 ### M6 - Security and fraud controls
 
@@ -863,3 +863,14 @@ Do not record secret values here. Mark only whether they are available.
 - Kept the complete fixed status catalogue visible after every filter refresh, so a selected status no longer disappears when its result set has no remaining records.
 - Rebalanced the filter grid, widened the status control area, and aligned the decorative search icon inside the search input below its label.
 - Verification: lint and the automated suite pass (20 passed, 4 environment-gated tests skipped). Current task is deployment of this Project Center layout correction to production.
+
+### 2026-09-09 - Respondent outcome tracking and live dashboard funnel
+
+- Added migration `022_survey_session_tracking.sql` with per-session opaque outcome tokens, activity and terminal timestamps, first-terminal-outcome protection, and service-role abandonment reconciliation after 24 hours of inactivity.
+- Expanded project and portfolio aggregation with reached-survey, in-progress, terminate, quota-full, quality-reject, abandoned, conversion, drop-off, and last-event measures.
+- Replaced shared client outcome callbacks in newly launched survey sessions with unique session callbacks while keeping the legacy callback route for existing live links.
+- Added 30-second and manual refresh to Overview and project detail, a visible respondent funnel/outcome breakdown, and direct project-filtered access to the respondent ledger.
+- Added common provider outcome aliases and PureSpectrum numeric status normalization; official CPX, BitLabs, and PureSpectrum sandbox certification remains dependent on vendor specifications and credentials.
+- Applied production migrations `021` and `022` through the linked Supabase migration history. No credentials or secret values were added to the repository.
+- Verification: `git diff --check`, lint, production build, and automated suite pass (21 passed, 4 environment-gated tests skipped); the focused provider normalization suite passes 4/4.
+- Current task is the Vercel production rollout and hosted smoke test. Next task is official provider sandbox certification when vendor access is supplied.

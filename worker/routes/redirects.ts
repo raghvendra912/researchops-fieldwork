@@ -22,9 +22,9 @@ function expand(template: string, project: string, respondent: string) { return 
 function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
 function unavailable(message: string, status = 400) { return new Response(`<!doctype html><html><body><h1>ResearchOps routing</h1><p>${message}</p></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } }); }
 
-async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string) {
+async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect") {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
-  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, metadata }, env);
+  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, metadata: { ...metadata, source } }, env);
 }
 
 async function supplierByToken(env: RedirectEnv, token: string) {
@@ -35,7 +35,8 @@ async function supplierByToken(env: RedirectEnv, token: string) {
 export async function handleRedirectApi(request: Request, pathname: string, env: RedirectEnv): Promise<Response | null> {
   const supplierMatch = pathname.match(/^\/r\/supplier\/([0-9a-f-]{36})\/(test|live)$/i);
   const clientMatch = pathname.match(/^\/r\/client\/([0-9a-f-]{36})\/(complete|terminate|quota-full|security-terminate)$/i);
-  if (!supplierMatch && !clientMatch) return null;
+  const outcomeMatch = pathname.match(/^\/r\/outcome\/([0-9a-f-]{36})\/(complete|terminate|quota-full|security-terminate)$/i);
+  if (!supplierMatch && !clientMatch && !outcomeMatch) return null;
   if (request.method !== "GET") return unavailable("Method not allowed", 405);
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return unavailable("Routing is not configured", 503);
 
@@ -76,8 +77,12 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
         if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE"); return supplier.security_terminate_url ? redirect(expand(supplier.security_terminate_url, projectCode, respondentRef)) : unavailable("The respondent did not pass security checks", 403); }
       }
-      const client = first(project.clients); if (!client?.redirect_token) return unavailable("Client routing is not configured", 422);
-      const callback = (outcome: Outcome) => `${url.origin}/r/client/${client.redirect_token}/${outcome}?project=${encodeURIComponent(projectCode)}&respondent=${encodeURIComponent(respondentRef)}`;
+      const sessionId = startBody?.data?.sessionId;
+      if (!sessionId) return unavailable("The respondent session could not be secured", 502);
+      const sessionRows = await serviceRows<{ outcome_token: string }>(env, `/rest/v1/survey_sessions?select=outcome_token&id=eq.${encodeURIComponent(sessionId)}&limit=1`);
+      const outcomeToken = sessionRows[0]?.outcome_token;
+      if (!outcomeToken) return unavailable("The respondent outcome route could not be created", 502);
+      const callback = (outcome: Outcome) => `${url.origin}/r/outcome/${outcomeToken}/${outcome}`;
       const survey = project.survey_url.replaceAll("{{respondent_id}}", encodeURIComponent(respondentRef)).replaceAll("{{project_id}}", encodeURIComponent(projectCode)).replaceAll("{{complete_url}}", encodeURIComponent(callback("complete"))).replaceAll("{{terminate_url}}", encodeURIComponent(callback("terminate"))).replaceAll("{{quota_full_url}}", encodeURIComponent(callback("quota-full"))).replaceAll("{{security_terminate_url}}", encodeURIComponent(callback("security-terminate")));
       const surveyUrl = new URL(survey);
       if (!surveyUrl.searchParams.has("rid")) surveyUrl.searchParams.set("rid", respondentRef);
@@ -87,6 +92,20 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!surveyUrl.searchParams.has("security_terminate_url")) surveyUrl.searchParams.set("security_terminate_url", callback("security-terminate"));
       await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT");
       return redirect(surveyUrl.toString());
+    }
+
+    if (outcomeMatch) {
+      const outcome = outcomeMatch[2].toLowerCase() as Outcome;
+      const sessions = await serviceRows<{ respondent_ref: string; status: string; projects: { project_code: string } | { project_code: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=respondent_ref,status,projects!inner(project_code),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&outcome_token=eq.${outcomeMatch[1]}&limit=1`);
+      const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
+      if (!session || !project || !supplier) return unavailable("Respondent routing session was not found", 404);
+      const terminalStatuses = new Set(["COMPLETE", "TERMINATE", "QUOTA_FULL", "QUALITY_TERMINATE", "ABANDON"]);
+      const expectedEvent = outcomes[outcome].eventType;
+      if (terminalStatuses.has(session.status) && session.status !== expectedEvent) return unavailable(`This respondent is already recorded as ${session.status.toLowerCase().replaceAll("_", " ")}`, 409);
+      const result = await recordEvent(request, env, supplier, project.project_code, session.respondent_ref, expectedEvent);
+      if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
+      const target = supplier[outcomes[outcome].field];
+      return typeof target === "string" && target ? redirect(expand(target, project.project_code, session.respondent_ref)) : unavailable(`${outcome} redirect is not configured`, 422);
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;

@@ -16,6 +16,8 @@ export interface Project {
   terminates: number;
   overQuota: number;
   qualityTerm: number;
+  abandons?: number;
+  inProgress?: number;
   abandonRate: number;
   incidenceRate: number;
   conversionRate: number;
@@ -29,4 +31,5 @@ export interface Project {
   securityTerminateUrl?: string;
   averageDurationSeconds?: number;
   lastComplete: string;
+  lastEventAt?: string;
 }

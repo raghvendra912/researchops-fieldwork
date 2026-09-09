@@ -4,8 +4,9 @@ import { isSupabaseConfigured, supabaseJson, supabaseRequest, type SupabaseEnv }
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { canTransition } from "../domain/project-lifecycle";
 import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
+import { reconcileAbandoned } from "./analytics";
 
-export type ProjectApiEnv = SupabaseEnv;
+export type ProjectApiEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
 
 type DatabaseProject = {
   id: string;
@@ -33,7 +34,7 @@ type ProjectSortKey = "createdAt" | "code" | "name" | "status" | "cpi";
 type SortDirection = "asc" | "desc";
 type ProjectMarket = { id?: string; countryCode: string; languageCode: string; targetQuota: number; expectedLoiMinutes: number; expectedIr: number };
 type SupplierAssignment = { id?: string; supplierId: string; supplierName?: string; supplierProjectId: string; supplierCpi: number; targetQuota: number; status: "PENDING" | "ACTIVE" | "PAUSED" | "CLOSED" };
-type ProjectMetrics = { project_code: string; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; completes_l24: number; incidence_rate: number | string | null; conversion_rate: number | string | null; abandon_rate: number | string | null; average_duration_seconds: number | null; last_complete_at: string | null };
+type ProjectMetrics = { project_code: string; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; abandons: number; in_progress: number; completes_l24: number; incidence_rate: number | string | null; conversion_rate: number | string | null; abandon_rate: number | string | null; average_duration_seconds: number | null; last_event_at: string | null; last_complete_at: string | null };
 
 type ProjectListQuery = {
   q: string;
@@ -126,6 +127,8 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     terminates: metrics?.terminates ?? 0,
     overQuota: metrics?.over_quota ?? 0,
     qualityTerm: metrics?.quality_term ?? 0,
+    abandons: metrics?.abandons ?? 0,
+    inProgress: metrics?.in_progress ?? 0,
     abandonRate: Number(metrics?.abandon_rate ?? 0),
     incidenceRate: Number(metrics?.incidence_rate ?? 0),
     conversionRate: Number(metrics?.conversion_rate ?? 0),
@@ -139,6 +142,7 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     securityTerminateUrl: row.security_terminate_url ?? undefined,
     averageDurationSeconds: metrics?.average_duration_seconds ?? 0,
     lastComplete: metrics?.last_complete_at ? new Date(metrics.last_complete_at).toISOString() : "Not started",
+    lastEventAt: metrics?.last_event_at ? new Date(metrics.last_event_at).toISOString() : undefined,
   };
 }
 
@@ -392,6 +396,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (pathname === "/api/projects" && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
+      await reconcileAbandoned(env);
       const result = await supabaseList(env, access.authorization, readListQuery(request), workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM"), access.membership.user_id ?? "");
       return Response.json(result, { headers: { "cache-control": "private, no-store" } });
     }
@@ -409,6 +414,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (detailMatch && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
+      await reconcileAbandoned(env);
       const code = encodeURIComponent(detailMatch[1]);
       const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,clients(name),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
