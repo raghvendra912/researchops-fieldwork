@@ -472,7 +472,8 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       const changed = rows[0];
       return Response.json({ data: { id: changed?.project_code, previousStatus: changed?.previous_status, status: changed?.status }, meta: { source: "supabase" } });
     }
-  } catch {
+  } catch (error) {
+    console.error("project_database_request_failed", { pathname, message: error instanceof Error ? error.message : "Unknown error" });
     return Response.json({ error: "The project database request failed" }, { status: 502 });
   }
   return null;

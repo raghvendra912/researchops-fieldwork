@@ -12,13 +12,19 @@ const demo = {
 
 export async function reconcileAbandoned(env: AnalyticsEnv) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
-  const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/reconcile_abandoned_sessions`, {
-    method: "POST",
-    headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ p_timeout_minutes: 1440 }),
-  });
-  await response.arrayBuffer();
-  return response.ok;
+  try {
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/reconcile_abandoned_sessions`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ p_timeout_minutes: 1440 }),
+    });
+    await response.arrayBuffer();
+    if (!response.ok) console.warn("abandonment_reconciliation_failed", { status: response.status });
+    return response.ok;
+  } catch (error) {
+    console.warn("abandonment_reconciliation_failed", { message: error instanceof Error ? error.message : "Unknown error" });
+    return false;
+  }
 }
 
 export async function handleAnalyticsApi(request: Request, pathname: string, env: AnalyticsEnv): Promise<Response | null> {
@@ -34,7 +40,8 @@ export async function handleAnalyticsApi(request: Request, pathname: string, env
     const reconciled = await reconcileAbandoned(env);
     const data = await supabaseJson(env, "/rest/v1/rpc/analytics_snapshot", access.authorization, { method: "POST", body: JSON.stringify({ p_from: `${from}T00:00:00Z`, p_to: `${to}T23:59:59.999Z` }) });
     return Response.json({ data, meta: { source: "supabase", from, to, reconciled } }, { headers: { "cache-control": "private, no-store" } });
-  } catch {
+  } catch (error) {
+    console.error("analytics_snapshot_failed", { message: error instanceof Error ? error.message : "Unknown error" });
     return Response.json({ error: "Analytics could not be loaded" }, { status: 502 });
   }
 }

@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-09
 Current milestone: External integration and browser/deployment gates
-Overall state: Production Supabase now includes durable respondent outcome tracking, terminal-state protection, per-session outcome links, and abandonment reconciliation; the dashboard and project detail surfaces expose the live funnel and are ready for the corresponding Vercel rollout.
+Overall state: Production Supabase and Vercel include respondent outcome tracking and the live funnel; a production 502 caused by optional abandonment reconciliation aborting dashboard reads is fixed locally and awaiting the Git-triggered Vercel rollout.
 
 ## Resume protocol
 
@@ -874,3 +874,11 @@ Do not record secret values here. Mark only whether they are available.
 - Applied production migrations `021` and `022` through the linked Supabase migration history. No credentials or secret values were added to the repository.
 - Verification: `git diff --check`, lint, production build, and automated suite pass (21 passed, 4 environment-gated tests skipped); the focused provider normalization suite passes 4/4.
 - Current task is the Vercel production rollout and hosted smoke test. Next task is official provider sandbox certification when vendor access is supplied.
+
+### 2026-09-10 - Dashboard 502 isolation and fail-open maintenance fix
+
+- Confirmed the new dashboard assets are live, while authenticated `/api/projects` and `/api/analytics` calls return HTTP 502 together.
+- Isolated the common new failure boundary: the optional service-role abandonment reconciliation request could throw before either primary read was attempted.
+- Made reconciliation fail open with a status-only warning so maintenance failure cannot interrupt project or analytics reads, and added secret-safe error diagnostics for the primary Supabase operations.
+- Verification: lint, production build, `git diff --check`, and the standard suite pass (21 passed, 4 environment-gated tests skipped).
+- Current task is deploying the fix and confirming authenticated project and analytics requests return HTTP 200. If either remains 502, the new production diagnostic identifies the exact Supabase operation/status without exposing credentials.
