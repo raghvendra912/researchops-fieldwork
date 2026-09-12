@@ -56,3 +56,10 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
     expect(value).toContain("project={{project_id}}");
   }
 });
+
+test("supplier delivery separates test starts from live metrics", async ({ page }) => {
+  await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Supplier delivery" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "TST" })).toHaveAttribute("title", /excluded from live metrics/i);
+  await expect(page.getByText("Test hits are separated from live delivery and cost.")).toBeVisible();
+});

@@ -77,7 +77,7 @@ Client handoff displays four compact outcome URLs with `rid={{respondent_id}}` a
 
 Supported events are `START`, `REACHED_CLIENT`, `COMPLETE`, `TERMINATE`, `QUOTA_FULL`, `QUALITY_TERMINATE`, and `ABANDON`. The first terminal outcome wins. Replays with the same provider transaction ID are idempotent.
 
-The Project Supplier `Test` action creates a unique `ROP-TEST-*` respondent reference and opens a countable test-mode path. Test mode requires a real supplier assignment but may run before the project is LIVE, bypasses production quota enforcement, and records `START` before validating the onward survey URL. A valid survey handoff then records `REACHED_CLIENT`; a missing survey URL returns a branded test-result page while retaining the counted start. `Live` copies the reusable production supplier template containing `{{respondent_id}}` and continues to enforce active project, assignment, and quota gates.
+The Project Supplier `Test` action creates a unique `ROP-TEST-*` respondent reference and opens a countable test-mode path. Test mode requires a real supplier assignment but may run before the project is LIVE, bypasses production quota enforcement, and records `START` before validating the onward survey URL. Migration `023` persists this as `is_test`; the Supplier delivery table exposes a separate `TST` count while production ST/RC/outcomes, incidence, conversion, quota, and cost exclude test sessions. A valid survey handoff records `REACHED_CLIENT`; a missing survey URL returns a branded test-result page while retaining the counted test start. `Live` copies the reusable production supplier template containing `{{respondent_id}}` and continues to enforce active project, assignment, and quota gates.
 
 ## 5. Architecture
 
@@ -239,7 +239,7 @@ npm test
 npm run test:e2e
 ```
 
-Apply migrations in filename order through `022`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.
+Apply migrations in filename order through `023`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.
 
 The repository is pushed to GitHub, but the current Sites URL has not consistently consumed Git pushes automatically. A green Git push is therefore not deployment proof; verify the visible version, `/api/health`, `/api/readiness`, authentication, project reads, and an end-to-end respondent outcome.
 

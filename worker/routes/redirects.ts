@@ -24,9 +24,9 @@ function redirect(url: string) { return new Response(null, { status: 302, header
 function routingPage(title: string, message: string, status = 400, tone: "success" | "error" = "error") { return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} | ResearchOps</title><style>body{margin:0;background:#f4f1eb;color:#17221d;font:16px/1.5 system-ui,-apple-system,sans-serif}.card{max-width:560px;margin:12vh auto;padding:42px;border:1px solid #d8d5cd;border-radius:22px;background:#fff;box-shadow:0 18px 60px #17221d12}.mark{display:inline-block;padding:6px 10px;border-radius:999px;background:${tone === "success" ? "#dff4ed;color:#087761" : "#fae7df;color:#a53f25"};font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1{margin:18px 0 8px;font-size:30px}p{margin:0;color:#59665f}.hint{margin-top:24px;padding-top:18px;border-top:1px solid #e5e2db;font-size:14px}</style></head><body><main class="card"><span class="mark">${tone === "success" ? "Test recorded" : "Routing unavailable"}</span><h1>${title}</h1><p>${message}</p><p class="hint">You can close this tab and return to the ResearchOps project workspace.</p></main></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } }); }
 function unavailable(message: string, status = 400) { return routingPage("We could not continue this respondent", message, status); }
 
-async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect") {
+async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false) {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
-  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, metadata: { ...metadata, source } }, env);
+  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest } }, env);
 }
 
 async function supplierByToken(env: RedirectEnv, token: string) {
@@ -73,7 +73,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL");
         return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("Supplier quota is full", 409);
       }
-      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START");
+      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) return unavailable("The respondent session could not be started", 502);
       if (!project.survey_url) return isTest
@@ -96,7 +96,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!surveyUrl.searchParams.has("terminate_url")) surveyUrl.searchParams.set("terminate_url", callback("terminate"));
       if (!surveyUrl.searchParams.has("quota_full_url")) surveyUrl.searchParams.set("quota_full_url", callback("quota-full"));
       if (!surveyUrl.searchParams.has("security_terminate_url")) surveyUrl.searchParams.set("security_terminate_url", callback("security-terminate"));
-      await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT");
+      await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT", isTest ? "test-redirect" : "redirect", isTest);
       return redirect(surveyUrl.toString());
     }
 

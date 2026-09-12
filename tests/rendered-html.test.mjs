@@ -134,7 +134,9 @@ test("serves Worker health and project APIs", async () => {
 
   const assignments = await request("/api/projects/PRJ-1048/suppliers");
   assert.equal(assignments.status, 200);
-  assert.equal((await assignments.json()).data[0].supplierName, "CPX Research");
+  const assignmentBody = await assignments.json();
+  assert.equal(assignmentBody.data[0].supplierName, "CPX Research");
+  assert.equal(assignmentBody.data[0].testStarts, 0);
   const assignmentsUpdated = await request("/api/projects/PRJ-1048/suppliers", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ assignments: [{ supplierId: "supplier-cpx", supplierProjectId: "CPX-NEW", supplierCpi: 7.75, targetQuota: 300, status: "ACTIVE" }] }) });
   assert.equal(assignmentsUpdated.status, 200);
   assert.equal((await assignmentsUpdated.json()).data[0].targetQuota, 300);

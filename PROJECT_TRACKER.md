@@ -108,7 +108,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
 | `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
 | `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
-| `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing ST/RC/CO/TE/OQ/QT, IR, cost, redirect mode, and copyable project Test/Live links; PAUSED/CLOSED stops live routing. |
+| `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing separate TST plus production ST/RC/CO/TE/OQ/QT, IR, cost, redirect mode, and copyable Test/Live links; PAUSED/CLOSED stops live routing. |
 | `SUP-04` | Persistent supplier assignment | DONE | Live Worker integration proves atomic assignment replacement for supplier project ID, CPI, quota, status, tenant authorization, and audit history. |
 
 ### M4 - Sessions, events, and operational metrics
@@ -950,4 +950,11 @@ Do not record secret values here. Mark only whether they are available.
 - Kept the four clean outcome URLs and their individual/copy-all actions. Existing backend redirect alias compatibility remains intact for integrations already sending respondent and project identifiers.
 - Verification: production build passes; Chromium suite passes 4/4; focused Worker/API suite passes 1/1 with the exact respondent/project placeholder URL shape; `git diff --check` passes. Current task is commit and push. Next task remains hosted deployment uptake and authenticated respondent-flow verification.
 - Clarification applied during verification: the editable variable-management form remains removed, while every copied outcome URL now carries `rid={{respondent_id}}` and `project={{project_id}}` so the survey platform can return each unique respondent to the correct ResearchOps session and project.
+
+### 2026-09-12 - Separate UAT traffic from production delivery
+
+- Added migration `023_test_traffic_separation.sql` with a durable `survey_sessions.is_test` dimension and a backward-compatible nine-argument event-ingestion RPC.
+- Project and supplier metric views now expose `test_starts` separately and exclude test sessions from production starts, reached, outcomes, incidence, conversion, abandonment, quota consumption, duration, and supplier cost.
+- Routing propagates `mode=test` into START and REACHED_CLIENT event ingestion; a session remains test-scoped for its full lifecycle. Supplier delivery now shows a dedicated `TST` column and explains that it is excluded from live delivery and cost.
+- Verification: production build passes; lint passes; focused business/security tests pass 8/8; focused Worker/API regression passes 1/1; Chromium suite passes 5/5 including the visible TST separation; `git diff --check` passes. Current task is commit/push and staging migration application. Next task is excluding test sessions from the portfolio analytics snapshot, proving the full hosted test/live outcome flow, then implementing eligibility and advanced quota cells.
 - Current task is deployment followed by authenticated supplier Test → session → metrics → outcome verification on the hosted revision.
