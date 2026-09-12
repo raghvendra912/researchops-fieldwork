@@ -143,6 +143,7 @@ The Respondents page supports project filtering and CSV export with respondent d
 ```powershell
 npm run build
 npm test
+npm run test:e2e
 ```
 
 Complete product and technical behavior is documented in [docs/PRODUCT_AND_TECHNICAL_GUIDE.md](docs/PRODUCT_AND_TECHNICAL_GUIDE.md). The target user hierarchy and prioritized market-research gap analysis are in [docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md](docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md). Operational procedures are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

@@ -234,6 +234,7 @@ Verification:
 npm run lint
 npm run build
 npm test
+npm run test:e2e
 ```
 
 Apply migrations in filename order through `022`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.

@@ -59,6 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [organizationStatus, setOrganizationStatus] = useState<"checking" | "ready" | "missing" | "error">(configured ? "checking" : "ready");
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarReady, setSidebarReady] = useState(false);
   const title = titleForPath(pathname);
   const email = user?.email ?? "Demo workspace";
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "DM";
@@ -67,7 +68,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const buildStamp = formatBuildStamp(buildTime);
 
   useEffect(() => {
-    const initial = window.setTimeout(() => setSidebarCollapsed(window.localStorage.getItem("researchops-sidebar-collapsed") === "true"), 0);
+    const initial = window.setTimeout(() => {
+      setSidebarCollapsed(window.localStorage.getItem("researchops-sidebar-collapsed") === "true");
+      setSidebarReady(true);
+    }, 0);
     return () => window.clearTimeout(initial);
   }, []);
 
@@ -144,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={`app-frame${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="sidebar-header"><div className="brand-stack"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><div className="build-version" title={buildTime ? `Built ${new Date(buildTime).toLocaleString()}` : "Local development build"}>v.{appVersion} ({buildStamp})</div></div><button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
+        <div className="sidebar-header"><div className="brand-stack"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><div className="build-version" title={buildTime ? `Built ${new Date(buildTime).toLocaleString()}` : "Local development build"}>v.{appVersion} ({buildStamp})</div></div><button className="sidebar-toggle" type="button" disabled={!sidebarReady} onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
         <div className="nav-caption">Workspace</div>
         <nav className="nav-list" aria-label="Primary navigation">
           {primaryNavigation.map((item) => <NavLink key={item.href} {...item} />)}

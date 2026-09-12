@@ -40,7 +40,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 ### Now - M8 verification and external integrations
 
 1. Deploy the verified respondent-tracking dashboard application and smoke-test the production funnel/API against migration `022`.
-2. Complete browser-driven keyboard, responsive, authenticated-flow, and hosted health/readiness verification for `TST-04`/`TST-05` when a supported browser runtime is available.
+2. Extend the working Playwright Chromium suite from public/local shell coverage to the authenticated project, supplier-routing, respondent-outcome, keyboard, and contrast flows when hosted test credentials are available.
 3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
 4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
 
@@ -53,7 +53,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Browser verification gate
 
-- Connect the supported in-app/external browser surface, then run authenticated keyboard, responsive, and critical-flow verification for `TST-04`/`TST-05`.
+- Playwright Chromium is installed and local desktop/mobile shell plus hosted health/readiness checks pass. Hosted authentication credentials are still required for the protected routing and respondent-outcome vertical slice.
 
 ## Feature board
 
@@ -168,8 +168,8 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `TST-01` | Unit/business-rule tests | DONE | Lifecycle, rate-limit, safe CSV, authorization, signatures, mappings, URL validation, auth throttling, disposable password recovery, live idempotency, metrics, fraud, callbacks, directories, and notifications coverage pass; financial tests belong to the blocked financial model. |
 | `TST-02` | Database/RLS integration tests | DONE | Live local Supabase test covers three users, two tenants, owner/analyst roles, cross-tenant denial, atomic project creation, and event replay idempotency. |
 | `TST-03` | Provider contract tests | BLOCKED | Test-mode adapter fixtures pass; recorded official/sandbox fixtures require vendor contracts and credentials. |
-| `TST-04` | Playwright E2E vertical slice | BLOCKED | The authenticated stack and test-user creation are ready, but the supported browser-control runtime cannot initialize its trusted dependency in this environment. |
-| `TST-05` | Accessibility and responsive QA | BLOCKED | Static JSX accessibility lint passes; keyboard, focus, contrast, and viewport evidence requires the blocked supported browser-control runtime. |
+| `TST-04` | Playwright E2E vertical slice | READY | Playwright/Chromium is installed; local health/readiness and desktop/mobile product shell tests pass, and hosted health/readiness passes. Protected project/routing/outcome coverage needs hosted test credentials. |
+| `TST-05` | Accessibility and responsive QA | READY | Static JSX accessibility lint plus Playwright desktop sidebar and 390×844 mobile navigation checks pass; full authenticated keyboard, focus, and contrast evidence remains. |
 | `OPS-01` | Structured logging and error tracking | BLOCKED | Request IDs and sanitized structured logs are implemented and verified; selecting and credentialing an external error-tracking sink remains a product/operations decision. |
 | `OPS-02` | Backup/recovery procedure | DONE | Procedures are documented and an isolated scoped dump/restore drill validated organizations, projects, sessions, events, audits, fraud, notifications, and migration `015`, then removed all temporary artifacts. |
 | `DEP-01` | Cloudflare configuration | DONE | Public/server-only variables, runtime bindings, secret boundaries, staging/promotion gates, named-tunnel requirements, monitoring, rollback, and a working Wrangler tunnel launcher are documented and verified locally. |
@@ -209,7 +209,7 @@ Do not record secret values here. Mark only whether they are available.
 | Research Defender credentials | MISSING | Integration decision and credentials not supplied. |
 | Sites deployment access | AVAILABLE | A private ResearchOps Sites project and source repository were created on 2026-08-29. |
 | Hosted Supabase access | AVAILABLE | The ResearchOps Free project is deployed in `ap-south-1`; schema, authentication users, and application data were migrated on 2026-08-29. |
-| Supported browser-control surface | UNAVAILABLE | Browser discovery returned no connected in-app, Chrome, or Edge surface; required for `TST-04`/`TST-05`. |
+| Supported browser-control surface | PARTIAL | Playwright Chromium 153 is installed and operational; protected hosted flows remain gated by test credentials rather than browser availability. |
 
 ## Architecture decisions
 
@@ -927,3 +927,11 @@ Do not record secret values here. Mark only whether they are available.
 - The baseline follows common provider patterns documented by BitLabs and PureSpectrum, while provider-specific status codes/signatures remain gated on official sandbox certification.
 - Verification: focused business-rule suite passes 5/5, including parameter preservation and `QUALITY_TERMINATE` normalization; `git diff --check` passes. No schema migration or secret change is required.
 - Current task is deployment and a hosted end-to-end respondent return smoke test. Deterministic Sites deployment and official provider sandbox credentials remain external blockers.
+
+### 2026-09-12 - Playwright Chromium browser coverage
+
+- Installed `@playwright/test` and Chromium 153, added a reusable Playwright configuration, and added desktop/mobile shell plus health/readiness browser tests under `tests/e2e`.
+- Browser evidence exposed a real hydration race: the sidebar toggle could appear before its React handler was ready, losing an early click. The control now remains disabled until stored sidebar state has loaded and hydration is ready.
+- Verification: focused redirect business rules pass 5/5; the full local Playwright suite passes 3/3 (health/readiness, desktop collapse/version/persistence, and 390×844 mobile navigation); hosted Playwright health/readiness passes 1/1.
+- `TST-04` and `TST-05` move from BLOCKED to READY because the browser runtime now works. Hosted authenticated project/routing/outcome, full keyboard/focus, and contrast evidence still require protected test credentials.
+- Current task is deployment followed by authenticated supplier Test → session → metrics → outcome verification on the hosted revision.

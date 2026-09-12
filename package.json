@@ -13,6 +13,7 @@
     "tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1",
     "tunnel:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1 -Mode development -Port 3001",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
+    "test:e2e": "playwright test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vercel",
     "db:generate": "drizzle-kit generate"
   },
@@ -26,6 +27,7 @@
     "@cloudflare/vite-plugin": "1.37.1",
     "@eslint/js": "9.39.4",
     "@next/eslint-plugin-next": "16.2.6",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
