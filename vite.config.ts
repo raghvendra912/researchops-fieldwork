@@ -1,6 +1,7 @@
 import vinext from "vinext";
 import { nitro } from "nitro/vite";
 import { defineConfig, loadEnv } from "vite";
+import { execFileSync } from "node:child_process";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
@@ -45,13 +46,11 @@ export default defineConfig(async ({ mode }) => {
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
   const environment = loadEnv(mode, process.cwd(), "");
-  const appVersion = (
-    process.env.VERCEL_GIT_COMMIT_SHA ??
-    process.env.CF_PAGES_COMMIT_SHA ??
-    process.env.GITHUB_SHA ??
-    environment.VITE_APP_VERSION ??
-    "dev"
-  ).slice(0, 7);
+  let commitCount = "1";
+  try {
+    commitCount = execFileSync("git", ["rev-list", "--count", "HEAD"], { encoding: "utf8" }).trim();
+  } catch { /* Source archives without Git metadata use the first release number. */ }
+  const appVersion = environment.VITE_APP_VERSION || `0.${commitCount.padStart(3, "0")}`;
   const buildTime = new Date().toISOString();
   const devAutoLoginEnabled =
     (process.env.DEV_AUTO_LOGIN ?? environment.DEV_AUTO_LOGIN) === "true";

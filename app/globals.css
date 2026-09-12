@@ -29,19 +29,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-frame { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
 .sidebar { position: sticky; top: 0; height: 100vh; padding: 24px 16px 18px; background: #1d2a26; color: #f8f5ed; display: flex; flex-direction: column; z-index: 20; }
 .sidebar-header { display: flex; align-items: flex-start; gap: 6px; }
-.sidebar-header .brand-lockup { flex: 1; min-width: 0; }
+.brand-stack { flex: 1; min-width: 0; }
+.sidebar-header .brand-lockup { padding-bottom: 0; }
 .sidebar-toggle { width: 26px; height: 26px; flex: 0 0 26px; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; background: rgba(255,255,255,.06); color: #bac6c1; font-size: 19px; line-height: 1; }
 .sidebar-toggle:hover { background: rgba(255,255,255,.12); color: white; }
 .app-frame.sidebar-collapsed { grid-template-columns: 76px minmax(0, 1fr); }
 .sidebar-collapsed .sidebar { padding-inline: 12px; }
 .sidebar-collapsed .brand-lockup { padding-inline: 9px; }
-.sidebar-collapsed .brand-lockup > span:last-child, .sidebar-collapsed .nav-caption, .sidebar-collapsed .nav-link > span:last-child, .sidebar-collapsed .user-meta { display: none; }
+.sidebar-collapsed .brand-lockup > span:last-child, .sidebar-collapsed .build-version, .sidebar-collapsed .nav-caption, .sidebar-collapsed .nav-link > span:last-child, .sidebar-collapsed .user-meta { display: none; }
 .sidebar-collapsed .nav-link { justify-content: center; padding-inline: 0; }
 .sidebar-collapsed .sidebar-foot { justify-content: center; padding-inline: 0; }
 .sidebar-collapsed .sidebar-foot .button { display: none; }
 .sidebar-collapsed .sidebar-header { display: grid; justify-items: center; }
-.build-version { margin-top: 12px; color: #8fa29b; font-size: 10px; text-align: center; letter-spacing: .04em; }
-.build-version span { display: block; margin-top: 2px; font-size: 9px; }
+.build-version { margin: 5px 0 24px 53px; color: #8fa29b; font-size: 9px; line-height: 1.2; white-space: nowrap; letter-spacing: .015em; }
 .brand-lockup { display: flex; align-items: center; gap: 11px; padding: 0 8px 28px; font-weight: 750; letter-spacing: -0.03em; font-size: 19px; }
 .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: white; background: var(--brand); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); font-family: Georgia, serif; font-style: italic; font-size: 22px; }
 .nav-caption, .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }

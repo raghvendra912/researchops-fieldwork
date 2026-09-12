@@ -883,6 +883,15 @@ Do not record secret values here. Mark only whether they are available.
 - Verification: lint, production build, `git diff --check`, and the standard suite pass (21 passed, 4 environment-gated tests skipped).
 - Current task is deploying the fix and confirming authenticated project and analytics requests return HTTP 200. If either remains 502, the new production diagnostic identifies the exact Supabase operation/status without exposing credentials.
 
+### 2026-09-12 - Visible deployment version and timestamp
+
+- Moved deployment metadata directly below the ResearchOps sidebar logo in the compact format `v.0.048 (12-09-26,5:47pm)`.
+- The release number is generated from the Git commit count and advances with each committed release; the build timestamp is generated during deployment and displayed in India Standard Time.
+- Preserved the collapsed and mobile navigation layouts by hiding the metadata where the logo itself is condensed or omitted.
+- Corrected two lint regressions present after synchronizing the latest Git changes: deferred sidebar preference restoration and replaced render-sensitive timestamp generation in test respondent IDs with a UUID.
+- Verification: production build, lint, and the standard suite pass (22 passed, 4 environment-gated tests skipped).
+- Current task is deploying the visible release metadata. Next task remains hosted authenticated verification and the external provider certification gates.
+
 ### 2026-09-12 - Countable supplier live-test links and metric refresh
 
 - Changed the Project Supplier `Live` copy action to materialize a unique test respondent ID instead of copying an unresolved `{{respondent_id}}` placeholder, so opening each copied link creates a distinct countable live session.

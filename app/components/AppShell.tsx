@@ -29,6 +29,18 @@ function titleForPath(pathname: string) {
   return [...primaryNavigation, ...secondaryNavigation].find((item) => pathname.startsWith(item.href))?.label ?? "Workspace";
 }
 
+function formatBuildStamp(value?: string) {
+  if (!value) return "local";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "local";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata", day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("day")}-${part("month")}-${part("year")},${part("hour")}:${part("minute")}${part("dayPeriod").toLowerCase()}`;
+}
+
 function NavLink({ href, label, glyph, secondary = false }: { href: string; label: string; glyph: string; secondary?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
@@ -52,9 +64,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "DM";
   const appVersion = import.meta.env.VITE_APP_VERSION ?? "dev";
   const buildTime = import.meta.env.VITE_BUILD_TIME;
+  const buildStamp = formatBuildStamp(buildTime);
 
   useEffect(() => {
-    setSidebarCollapsed(window.localStorage.getItem("researchops-sidebar-collapsed") === "true");
+    const initial = window.setTimeout(() => setSidebarCollapsed(window.localStorage.getItem("researchops-sidebar-collapsed") === "true"), 0);
+    return () => window.clearTimeout(initial);
   }, []);
 
   function toggleSidebar() {
@@ -130,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={`app-frame${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="sidebar-header"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
+        <div className="sidebar-header"><div className="brand-stack"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><div className="build-version" title={buildTime ? `Built ${new Date(buildTime).toLocaleString()}` : "Local development build"}>v.{appVersion} ({buildStamp})</div></div><button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
         <div className="nav-caption">Workspace</div>
         <nav className="nav-list" aria-label="Primary navigation">
           {primaryNavigation.map((item) => <NavLink key={item.href} {...item} />)}
@@ -147,7 +161,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {configured ? <button className="button ghost small" type="button" onClick={handleSignOut} aria-label="Sign out">Exit</button> : null}
         </div>
-        <div className="build-version" title={buildTime ? `Built ${new Date(buildTime).toLocaleString()}` : "Local development build"}>v {appVersion}<span>{buildTime ? new Date(buildTime).toLocaleDateString() : "local"}</span></div>
       </aside>
       <main className="app-main">
         <header className="topbar">
