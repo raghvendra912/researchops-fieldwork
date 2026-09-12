@@ -342,6 +342,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Supabase gateway decoded-body headers | PASS LOCALLY - strips stale compression, length, and connection headers after reading a decoded upstream Auth response; regression coverage proves a browser will not double-decode an HTTP 200 JSON body; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Supabase gateway decoded-body production rollout | PASS - direct Vercel production deployment `dpl_2vy7vHKyGrjyzosnDoYTypi7VYNy` is Ready and aliased to `www.asrv.co.in`; live Auth response inspection confirms stale compression headers are absent |
 | 2026-09-13 | Advanced quota code-ready verification | PASS LOCALLY - lint passes; production build passes; quota/eligibility business rules pass 7/7; focused Worker API passes 1/1 including quota CRUD validation; Chromium confirms the new quota editor. The full 7-test browser run has two pre-existing/flaky shell/eligibility readiness failures while 5/7, including the new quota test, pass; database migration/concurrency proof remains environment-gated. |
+| 2026-09-13 | Commit `3bf16d7` push and hosted uptake check | PUSHED / NOT DEPLOYED - `origin/main` accepted the atomic-quota revision. Public health and readiness return HTTP 200 with Supabase configured, but none of nine referenced JavaScript assets contains the quota API/reservation build markers; the Sites host has not consumed this revision. |
 
 ## Session log
 
@@ -351,6 +352,7 @@ Do not record secret values here. Mark only whether they are available.
 - Added protected `GET/PUT /api/projects/{code}/quota-cells`, strict validation, demo behavior, and a project-workspace editor for prioritized multi-variable interlocks.
 - Live supplier routing now evaluates eligibility, selects matching cells, atomically reserves all applicable hard-capacity scopes, releases failed launches, and keeps Test traffic outside quota. Terminal completes consume reservations; terminate, quota-full, quality-reject, and abandon release them.
 - Updated README and product/gap documentation through migration `026`. Verification: lint PASS; production build PASS; focused business rules 7/7 PASS; focused Worker/API 1/1 PASS; new Chromium quota editor test PASS. Local Supabase status timed out because no Docker/Supabase process was available, so SQL execution/concurrency and hosted end-to-end proof are not claimed.
+- Committed the milestone as `3bf16d7` and pushed it to `origin/main`. The subsequent public smoke check returned healthy/ready with Supabase configured, but inspected nine loaded JavaScript assets and found no `quota-cells` or reservation marker. Deployment uptake remains external under `BLK-10`; the running public version is still older than this commit.
 - Current task is applying migrations `023`-`026` and deploying the matching Worker revision. Next task is persistent concurrent reservation proof plus authenticated Test/Live routing and metric verification, followed by scoped authorization/UAT/monitoring/reconciliation gaps.
 
 ### 2026-08-30 - Production Supabase Auth POST proxy fix
