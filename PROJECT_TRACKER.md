@@ -886,6 +886,8 @@ Do not record secret values here. Mark only whether they are available.
 ### 2026-09-12 - Countable supplier live-test links and metric refresh
 
 - Changed the Project Supplier `Live` copy action to materialize a unique test respondent ID instead of copying an unresolved `{{respondent_id}}` placeholder, so opening each copied link creates a distinct countable live session.
+- Follow-up corrected the routing labels: `Test` now copies the unique countable live-flow URL, while `Live` retains the reusable supplier template containing `{{respondent_id}}`; the old redirect-only test URL did not create sessions or metrics.
+- `Test` now generates a ResearchOps-owned `ROP-TEST-*` respondent reference and immediately opens the countable route in a new tab (also copying it), causing the backend to create the internal survey session on a successful active live route.
 - Connected project-detail manual and 30-second refreshes to the supplier-delivery query, allowing ST, RC, outcomes, IR, and cost to update without leaving the page.
 - Live routing still intentionally requires both project `LIVE` and supplier assignment `ACTIVE`; `PENDING`, `PAUSED`, and `CLOSED` traffic remains blocked.
 - Verification is environment-blocked: `npm run lint` could not find ESLint because dependencies were absent, and two approved `npm install` attempts timed out in the current environment. No credentials or secrets were added.
