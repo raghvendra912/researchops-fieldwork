@@ -72,3 +72,15 @@ test("project eligibility rules are visible and editable", async ({ page }) => {
   await expect(page.getByLabel("Eligibility variable 1")).toHaveValue("country");
   await expect(page.getByRole("button", { name: "Save rules" })).toBeVisible();
 });
+
+test("interlocked quota cells are visible and editable", async ({ page }) => {
+  await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Interlocked quota cells" })).toBeVisible();
+  await expect(page.getByText("India · age 21–34", { exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Filled" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Reserved" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Remaining" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit quotas" }).click();
+  await expect(page.getByLabel("Quota cell name 1")).toHaveValue("India · age 21–34");
+  await expect(page.getByRole("button", { name: "Save quota cells" })).toBeVisible();
+});

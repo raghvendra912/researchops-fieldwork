@@ -120,7 +120,7 @@ Critical PM gaps:
 
 1. The API can return PM scope, but tenant-wide readable data is still broadly accessible.
 2. No research brief/SOW, questionnaire metadata, sample plan, feasibility, or launch checklist.
-3. Quotas are only market totals; no age/gender/region/custom/interlocking quota cells.
+3. Age/gender/region/custom interlocked quota cells and atomic hard reservations are code-ready; hosted migration/proof, soft-close/overage tolerance, and rule version history remain.
 4. No supplier allocation algorithm, daily caps, schedule, pacing forecast, or auto-pause controls.
 5. No project documents, comments, tasks, approval trail, or change requests.
 6. No respondent ID reconciliation workspace or accepted/rejected/billable disposition.
@@ -220,7 +220,7 @@ Supplier outcome redirects now use a provider-neutral baseline (`respondent_id`,
 | Gap | Recommended capability |
 |---|---|
 | Research brief and SOW | Objectives, methodology, audience, sample source, questionnaire version, deliverables, assumptions, and amendments |
-| Advanced quotas | Nested/interlocking quota cells, qualification conditions, soft/hard close, overage tolerance, and atomic reservation |
+| Advanced quotas | Atomic hard project/supplier/interlocked-cell reservation is code-ready; add hosted proof, nested aggregate cells, soft close, overage tolerance, and versioned amendments |
 | Pacing and forecasting | Daily targets, remaining completes, projected close, supplier velocity, alert thresholds, and automatic traffic action with approval |
 | Supplier governance | Rate cards, capabilities, countries, SLAs, compliance documents, scorecards, contacts by role, and contract dates |
 | Source transparency | Original panel/source, sub-supplier, router/blend information, recruitment method, and respondent source lineage |
@@ -266,10 +266,10 @@ Before contractual use, stakeholders must define and version:
 2. **Conversion:** clarify whether starts, reached-survey, or qualified entries form the denominator.
 3. **Billable complete:** separate recorded `COMPLETE` from client-approved/billable complete.
 4. **Cost:** current supplier cost is CPI × recorded completes; it does not model rejected IDs, tiered rates, minimums, taxes, currencies, or adjustments.
-5. **Quota concurrency:** completion-based quota checks can overrun under concurrent respondents; introduce reservation/tolerance rules where strict quotas matter.
+5. **Quota concurrency:** migration `026` serializes live project/supplier/cell reservations to prevent completion-based race overruns; hosted concurrency proof and configurable tolerance/soft-close policy remain.
 6. **Abandonment:** the fixed 24-hour timeout should be configurable and versioned by project or client.
 7. **Duration:** define exclusions, pause behavior, duplicate starts, and acceptable LOI bands.
-8. **Test traffic:** store an explicit `is_test` dimension so UAT never contaminates production counts, costs, or reconciliation.
+8. **Test traffic:** migration `023` stores `is_test`; production metrics, costs, analytics, and quota reservation exclude UAT traffic. Hosted vertical-slice proof remains.
 
 ## 8. Recommended delivery sequence
 

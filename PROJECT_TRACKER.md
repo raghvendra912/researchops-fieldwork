@@ -2,9 +2,9 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-12
-Current milestone: External integration and browser/deployment gates
-Overall state: Production Supabase and Vercel include respondent outcome tracking and the live funnel; a production 502 caused by optional abandonment reconciliation aborting dashboard reads is fixed locally and awaiting the Git-triggered Vercel rollout.
+Last updated: 2026-09-13
+Current milestone: Dependable respondent routing vertical slice
+Overall state: Test/live separation, eligibility, and atomic project/supplier/interlocked quota reservation are code-ready through migration `026`; local build, rule, API, and quota-editor browser checks pass. Hosted migrations and deterministic deployment uptake remain unverified, so the public URL is not claimed to run this revision.
 
 ## Resume protocol
 
@@ -37,12 +37,12 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
-### Now - M8 verification and external integrations
+### Now - routing, quota, and deployment proof
 
-1. Deploy the verified respondent-tracking dashboard application and smoke-test the production funnel/API against migration `022`.
-2. Extend the working Playwright Chromium suite from public/local shell coverage to the authenticated project, supplier-routing, respondent-outcome, keyboard, and contrast flows when hosted test credentials are available.
-3. Replace provider fixtures with official sandbox contract tests when vendor credentials are supplied.
-4. Resolve the remaining financial rules before implementing financial accounting beyond the approved `ID_SUBMITTED` and `INVOICED` operational states.
+1. Apply migrations `023` through `026` to the target Supabase environment before deploying the matching Worker revision.
+2. Prove an authenticated supplier Test → TST-only metric and Live → reservation → ST/RC → terminal outcome → supplier return flow against persistent data, including concurrent capacity boundaries.
+3. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
+4. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
 
 ### Next - external decision and credential gates
 
@@ -104,6 +104,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
 | `MKT-02` | ISO market option catalog | READY | Hosted creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; browser interaction evidence remains pending. |
 | `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
+| `QTA-02` | Atomic interlocked quota cells | READY | Operators configure prioritized multi-condition cells and see filled/reserved/remaining capacity. Migration `026` atomically reserves project, supplier, and matching cell capacity for live respondents; completes consume, non-complete terminals/launch failures release, stale reservations expire, and test traffic is excluded. Hosted migration and concurrency proof remain. |
 | `ELG-01` | Project eligibility rules | READY | Operators can manage up to 30 versionable URL-variable rules using categorical and numeric operators; Test/Live routing records the start, evaluates all active required rules, and terminates ineligible respondents before survey handoff. Migration `025` and hosted end-to-end proof remain. |
 | `CLI-01` | Client directory UI | READY | Searchable numbered list remains above create/edit; View opens a compact modal with four same-origin outcome links carrying respondent/project placeholders and individual/copy-all actions; browser evidence passes. |
 | `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
@@ -246,6 +247,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
+| `BLK-10` | The Sites host has not demonstrably consumed recent pushed revisions, and this workspace has no linked Supabase project/local running stack for migrations `023`-`026`. | Apply migrations in order through `026`, trigger the supported host deployment, and verify the visible build identity plus authenticated routing data before production claims. |
 
 ## Verification record
 
@@ -339,8 +341,17 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Password-login client error visibility | PASS LOCALLY - non-credential browser session failures now display a bounded safe error description rather than masking the source after a successful Auth HTTP response; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Supabase gateway decoded-body headers | PASS LOCALLY - strips stale compression, length, and connection headers after reading a decoded upstream Auth response; regression coverage proves a browser will not double-decode an HTTP 200 JSON body; lint, 20 standard tests, production build, Vercel Build Output, and diff validation pass |
 | 2026-08-30 | Supabase gateway decoded-body production rollout | PASS - direct Vercel production deployment `dpl_2vy7vHKyGrjyzosnDoYTypi7VYNy` is Ready and aliased to `www.asrv.co.in`; live Auth response inspection confirms stale compression headers are absent |
+| 2026-09-13 | Advanced quota code-ready verification | PASS LOCALLY - lint passes; production build passes; quota/eligibility business rules pass 7/7; focused Worker API passes 1/1 including quota CRUD validation; Chromium confirms the new quota editor. The full 7-test browser run has two pre-existing/flaky shell/eligibility readiness failures while 5/7, including the new quota test, pass; database migration/concurrency proof remains environment-gated. |
 
 ## Session log
+
+### 2026-09-13 - Atomic interlocked quota reservation
+
+- Added migration `026_advanced_quota_reservations.sql` with tenant-scoped quota cells, project/supplier/cell capacity indexes, a service-only atomic reservation RPC, release/expiry/consume lifecycle, and filled/reserved/remaining metrics.
+- Added protected `GET/PUT /api/projects/{code}/quota-cells`, strict validation, demo behavior, and a project-workspace editor for prioritized multi-variable interlocks.
+- Live supplier routing now evaluates eligibility, selects matching cells, atomically reserves all applicable hard-capacity scopes, releases failed launches, and keeps Test traffic outside quota. Terminal completes consume reservations; terminate, quota-full, quality-reject, and abandon release them.
+- Updated README and product/gap documentation through migration `026`. Verification: lint PASS; production build PASS; focused business rules 7/7 PASS; focused Worker/API 1/1 PASS; new Chromium quota editor test PASS. Local Supabase status timed out because no Docker/Supabase process was available, so SQL execution/concurrency and hosted end-to-end proof are not claimed.
+- Current task is applying migrations `023`-`026` and deploying the matching Worker revision. Next task is persistent concurrent reservation proof plus authenticated Test/Live routing and metric verification, followed by scoped authorization/UAT/monitoring/reconciliation gaps.
 
 ### 2026-08-30 - Production Supabase Auth POST proxy fix
 

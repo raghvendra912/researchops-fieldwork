@@ -15,6 +15,7 @@ import { handleSupabaseProxy } from "./routes/supabase-proxy";
 import { handleDevAuthApi } from "./routes/dev-auth";
 import { handleRedirectApi } from "./routes/redirects";
 import { handleEligibilityApi } from "./routes/eligibility";
+import { handleQuotaCellsApi } from "./routes/quota-cells";
 
 interface Env {
   ASSETS: Fetcher;
@@ -103,6 +104,8 @@ const worker = {
     }
 
     if (url.pathname.startsWith("/api/projects")) {
+      const quotaCellsResponse = await handleQuotaCellsApi(request, url.pathname, projectEnv);
+      if (quotaCellsResponse) return observed(quotaCellsResponse);
       const eligibilityResponse = await handleEligibilityApi(request, url.pathname, projectEnv);
       if (eligibilityResponse) return observed(eligibilityResponse);
       const apiResponse = await handleProjectsApi(request, url.pathname, projectEnv);

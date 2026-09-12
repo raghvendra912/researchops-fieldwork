@@ -85,7 +85,7 @@ npx supabase stop
 
 Copy `.env.example` to `.env.local`, then supply your public Supabase URL and anon key. Never expose the service-role or provider secrets through a `VITE_` variable.
 
-Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, respondent outcome tracking, test/live traffic separation, and versioned eligibility rules. Always apply through the highest numbered migration (currently `025`) before live verification.
+Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, respondent outcome tracking, test/live traffic separation, versioned eligibility rules, and atomic project/supplier/interlocked quota reservations. Always apply through the highest numbered migration (currently `026`) before live verification.
 
 Add your local and deployed `/reset-password` URLs to the Supabase Auth redirect allowlist before testing password recovery.
 
@@ -104,6 +104,7 @@ npx supabase start
 - `GET /api/projects`
 - `GET /api/projects/:projectId`
 - `GET/PUT /api/projects/:projectId/eligibility`
+- `GET/PUT /api/projects/:projectId/quota-cells`
 - `POST /api/projects`
 - `GET /api/organizations/current`
 - `POST /api/organizations`
@@ -126,7 +127,7 @@ Without Supabase configuration, these endpoints return demo data. With `SUPABASE
 
 `GET /api/projects` supports `q`, `client`, `manager`, `status`, `type`, `from`, `to`, `page`, `pageSize`, `sortBy`, `sortDirection`, and `scope`. Project Center uses `scope=mine`; Overview uses organization-wide `scope=all`. Responses include total results, total pages, filter options, and portfolio status counts.
 
-Client records are administered by OWNER/ADMIN roles and contain contact and outcome configuration. Supplier records contain contacts, STATIC/DYNAMIC redirect mode, outcome destinations, and opaque Test/Live links. Live links enforce project/supplier state, assignment quota, event ingestion, duplicate/fraud controls, masked client callbacks, and security termination before sending a respondent to the configured project survey URL.
+Client records are administered by OWNER/ADMIN roles and contain contact and outcome configuration. Supplier records contain contacts, STATIC/DYNAMIC redirect mode, outcome destinations, and opaque Test/Live links. Live links enforce project/supplier state, atomically reserve project/supplier and matching interlocked quota capacity, apply eligibility and fraud controls, record events, inject masked client callbacks, and return terminal outcomes to the supplier. Test links are counted separately and never reserve production quota.
 
 The Respondents page supports project filtering and CSV export with respondent duration and supplier CPI. Analytics supports date-scoped CSV export across portfolio, supplier, client, and market sources.
 

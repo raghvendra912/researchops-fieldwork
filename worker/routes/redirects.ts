@@ -4,12 +4,15 @@ import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
 import { requestId, safeLog } from "../lib/observability";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
+import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
 
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
 type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: { id: string; project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] } | { id: string; project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] }[] };
 type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
+type QuotaCellRow = { id: string; name: string; target_quota: number; priority: number; active: boolean; conditions: unknown };
+type QuotaReservationRow = { reservation_id: string | null; quota_cell_id: string | null; allowed: boolean; reason: string; reserved_until: string | null };
 
 const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }> = {
   complete: { eventType: "COMPLETE", field: "complete_url" },
@@ -20,6 +23,7 @@ const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }>
 
 function serviceHeaders(env: RedirectEnv) { return { apikey: env.SUPABASE_SERVICE_ROLE_KEY!, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }; }
 async function serviceRows<T>(env: RedirectEnv, path: string): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}${path}`, { headers: serviceHeaders(env) }); if (!response.ok) throw new Error("Redirect lookup failed"); return response.json() as Promise<T[]>; }
+async function serviceRpc<T>(env: RedirectEnv, name: string, body: Record<string, unknown>): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body) }); if (!response.ok) throw new Error("Routing reservation failed"); return response.json() as Promise<T[]>; }
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
 function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
@@ -71,22 +75,34 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : unavailable("Project traffic is not active", 409);
       }
       const eligibilityRows = await serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=sort_order.asc`);
-      const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), eligibilityAnswers(url.searchParams));
-      const metricRows = isTest ? [] : await serviceRows<{ completes: number }>(env, `/rest/v1/project_supplier_event_metrics?select=completes&project_supplier_id=eq.${assignment.id}&limit=1`);
-      if (!isTest && Number(metricRows[0]?.completes ?? 0) >= assignment.target_quota) {
-        await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL");
-        return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("Supplier quota is full", 409);
-      }
-      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
-      const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
-      if (!start.ok) return unavailable("The respondent session could not be started", 502);
+      const answers = eligibilityAnswers(url.searchParams);
+      const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), answers);
       if (!eligibility.eligible) {
+        const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
+        if (!start.ok) return unavailable("The respondent session could not be started", 502);
         await recordEvent(request, env, supplier, projectCode, respondentRef, "TERMINATE", `eligibility:${eligibility.failedRule ?? "rule"}`, isTest);
         return supplier.terminate_url ? redirect(standardSupplierRedirect(supplier.terminate_url, projectCode, respondentRef, "TERMINATE")) : unavailable(eligibility.reason ?? "The respondent is not eligible for this study", 200);
       }
-      if (!project.survey_url) return isTest
-        ? routingPage("The test hit was recorded", "ST has been added to supplier metrics. Add a valid client survey URL to test the onward redirect and RC metric.", 200, "success")
-        : unavailable("The client survey URL is not configured", 422);
+      let reservationId: string | null = null;
+      if (!isTest) {
+        const quotaRows = await serviceRows<QuotaCellRow>(env, `/rest/v1/project_quota_cells?select=id,name,target_quota,priority,active,conditions&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=priority.asc,name.asc`);
+        const quotaCells: QuotaCell[] = quotaRows.map((cell) => ({ id: cell.id, name: cell.name, targetQuota: cell.target_quota, priority: cell.priority, active: cell.active, conditions: (Array.isArray(cell.conditions) ? cell.conditions : []).map((condition) => { const value = condition as Record<string, unknown>; return { variableKey: String(value.variable_key ?? ""), operator: String(value.operator ?? "EQ") as EligibilityRule["operator"], values: Array.isArray(value.values) ? value.values.map(String) : [], required: value.required !== false, active: true }; }) }));
+        const reservations = await serviceRpc<QuotaReservationRow>(env, "reserve_project_quota", { p_organization_id: supplier.organization_id, p_project_code: projectCode, p_supplier_id: supplier.id, p_respondent_ref: respondentRef, p_matching_cell_ids: matchingQuotaCellIds(quotaCells, answers) });
+        if (!reservations[0]?.allowed) {
+          await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL", `quota:${reservations[0]?.reason ?? "full"}`);
+          return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("The requested quota is full", 409);
+        }
+        reservationId = reservations[0].reservation_id;
+      }
+      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
+      const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
+      if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return unavailable("The respondent session could not be started", 502); }
+      if (!project.survey_url) {
+        if (!isTest && reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
+        return isTest
+          ? routingPage("The test hit was recorded", "ST has been added to supplier metrics. Add a valid client survey URL to test the onward redirect and RC metric.", 200, "success")
+          : unavailable("The client survey URL is not configured", 422);
+      }
       if (startBody?.data?.sessionId) {
         const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
         if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE"); return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : unavailable("The respondent did not pass security checks", 403); }

@@ -63,9 +63,9 @@ GET /r/supplier/{supplier-token}/live?project=ROP-123&respondent=ABC-123
 
 The router:
 
-1. validates the supplier, project, assignment, status, quota, and rate limit;
-2. creates or reuses a respondent session through the event-ingestion RPC;
-3. records `START` and evaluates server-side duplicate/device/speed rules;
+1. validates the supplier, project, assignment, status, eligibility, and rate limit;
+2. atomically reserves project, supplier, and the first matching interlocked quota cell for live traffic;
+3. creates or reuses a respondent session, records `START`, and evaluates server-side duplicate/device/speed rules;
 4. creates opaque per-session outcome callback URLs;
 5. injects respondent, project, and outcome variables into the survey URL;
 6. records `REACHED_CLIENT` and redirects to the questionnaire;
@@ -78,6 +78,8 @@ Client handoff displays four compact outcome URLs with `rid={{respondent_id}}` a
 Supported events are `START`, `REACHED_CLIENT`, `COMPLETE`, `TERMINATE`, `QUOTA_FULL`, `QUALITY_TERMINATE`, and `ABANDON`. The first terminal outcome wins. Replays with the same provider transaction ID are idempotent.
 
 The Project Supplier `Test` action creates a unique `ROP-TEST-*` respondent reference and opens a countable test-mode path. Test mode requires a real supplier assignment but may run before the project is LIVE, bypasses production quota enforcement, and records `START` before validating the onward survey URL. Migration `023` persists this as `is_test`; the Supplier delivery table exposes a separate `TST` count while production ST/RC/outcomes, incidence, conversion, quota, and cost exclude test sessions. A valid survey handoff records `REACHED_CLIENT`; a missing survey URL returns a branded test-result page while retaining the counted test start. `Live` copies the reusable production supplier template containing `{{respondent_id}}` and continues to enforce active project, assignment, and quota gates.
+
+Migration `026` adds strict live-capacity reservations. Each respondent is checked against overall project and supplier allocation, then assigned to the first eligible active quota cell by priority. Conditions reuse the eligibility operators and may interlock multiple URL variables such as country, age, gender, or region. Reservations are consumed by `COMPLETE`, released by other terminal outcomes or launch failures, and expire after two hours if no terminal result arrives. The quota editor exposes target, filled, reserved, and remaining counts. Test sessions never create reservations.
 
 ## 5. Architecture
 
@@ -127,6 +129,8 @@ Supabase PostgreSQL is the system of record. Main entities are:
 | `projects` | Commercial/operational project record and lifecycle |
 | `project_markets` | Country/language quota and expected LOI/IR |
 | `project_suppliers` | Supplier project ID, CPI, target, and traffic status |
+| `project_quota_cells` | Prioritized interlocked demographic/custom quota definitions |
+| `survey_quota_reservations` | Atomic live respondent capacity reservation and outcome state |
 | `survey_sessions` | One project/respondent session and current outcome |
 | `survey_events` | Append-only respondent event ledger |
 | `project_quality_policies` | Project-level quality rule configuration |
@@ -158,6 +162,8 @@ Derived views/functions provide project metrics, supplier metrics, analytics sna
 | `/api/projects/{code}` | `GET`, `PATCH` | Project detail and core update |
 | `/api/projects/{code}/transitions` | `POST` | Controlled lifecycle transition |
 | `/api/projects/{code}/markets` | `GET`, `PUT` | Atomic market/quota replacement |
+| `/api/projects/{code}/eligibility` | `GET`, `PUT` | Ordered respondent eligibility rules |
+| `/api/projects/{code}/quota-cells` | `GET`, `PUT` | Interlocked quota configuration and capacity metrics |
 | `/api/projects/{code}/suppliers` | `GET`, `PUT` | Atomic supplier assignment replacement |
 | `/api/clients` | `GET`, `POST` | Client directory |
 | `/api/clients/{id}` | `PATCH` | Client/status/redirect-variable update |
@@ -239,7 +245,7 @@ npm test
 npm run test:e2e
 ```
 
-Apply migrations in filename order through `025`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.
+Apply migrations in filename order through `026`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.
 
 The repository is pushed to GitHub, but the current Sites URL has not consistently consumed Git pushes automatically. A green Git push is therefore not deployment proof; verify the visible version, `/api/health`, `/api/readiness`, authentication, project reads, and an end-to-end respondent outcome.
 

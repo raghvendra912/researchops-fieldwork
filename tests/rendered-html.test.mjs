@@ -141,6 +141,17 @@ test("serves Worker health and project APIs", async () => {
   const invalidEligibility = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: [{ variableKey: "Age!", operator: "BETWEEN", values: ["25"], required: true }] }) });
   assert.equal(invalidEligibility.status, 400);
 
+  const quotaCells = await request("/api/projects/PRJ-1048/quota-cells");
+  assert.equal(quotaCells.status, 200);
+  const quotaCellBody = await quotaCells.json();
+  assert.equal(quotaCellBody.data[0].name, "India · age 21–34");
+  assert.deepEqual([quotaCellBody.data[0].completes, quotaCellBody.data[0].reserved, quotaCellBody.data[0].remaining], [47, 3, 70]);
+  const quotaCellsUpdated = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ cells: [{ name: "Women 25–44", targetQuota: 80, priority: 10, active: true, conditions: [{ variableKey: "gender", operator: "EQ", values: ["female"], required: true }, { variableKey: "age", operator: "BETWEEN", values: ["25", "44"], required: true }] }] }) });
+  assert.equal(quotaCellsUpdated.status, 200);
+  assert.equal((await quotaCellsUpdated.json()).data[0].targetQuota, 80);
+  const invalidQuotaCells = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ cells: [{ name: "Bad", targetQuota: 0, conditions: [] }] }) });
+  assert.equal(invalidQuotaCells.status, 400);
+
   const assignments = await request("/api/projects/PRJ-1048/suppliers");
   assert.equal(assignments.status, 200);
   const assignmentBody = await assignments.json();
