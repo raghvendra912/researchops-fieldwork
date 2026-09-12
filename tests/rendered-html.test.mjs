@@ -213,8 +213,7 @@ test("serves Worker health and project APIs", async () => {
   const createdClientBody = await clientCreated.json();
   assert.equal(createdClientBody.data.redirects, undefined);
   assert.equal(createdClientBody.data.redirectVariables.length, 2);
-  assert.match(createdClientBody.data.links.complete, /\/r\/client\/[^/]+\/complete$/);
-  assert.equal(createdClientBody.data.links.complete.includes("?"), false);
+  assert.match(createdClientBody.data.links.complete, /\/r\/client\/[^/]+\/complete\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/);
   const clientUpdated = await request("/api/clients/client-northstar", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Northstar Financial", code: "NORTHSTAR_FIN" }) });
   assert.equal(clientUpdated.status, 200);
   assert.equal((await clientUpdated.json()).data.name, "Northstar Financial");

@@ -6,28 +6,23 @@ import { apiRequest } from "../../src/lib/api";
 
 type DirectoryKind = "clients" | "suppliers";
 type Redirects = { completeUrl: string; terminateUrl: string; quotaFullUrl: string; securityTerminateUrl: string };
-type RedirectVariable = { name: string; source: "URL_PARAM" | "SYSTEM" | "DATABASE_FIELD"; defaultValue: string; required: boolean };
 type DirectoryRecord = {
   id: string; name: string; code: string; status: "ACTIVE" | "INACTIVE"; projectCount: number;
   contactName: string; address: string; contactEmail: string; phone: string; redirectMode?: "STATIC" | "DYNAMIC";
-  redirects: Redirects; redirectVariables?: RedirectVariable[];
+  redirects: Redirects;
   links?: { complete?: string; terminate?: string; quotaFull?: string; securityTerminate?: string; test?: string; live?: string };
 };
 
 const emptyRedirects: Redirects = { completeUrl: "", terminateUrl: "", quotaFullUrl: "", securityTerminateUrl: "" };
-const defaultVariables: RedirectVariable[] = [
-  { name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true },
-  { name: "project_id", source: "SYSTEM", defaultValue: "", required: true },
-];
 const demoRecords: Record<DirectoryKind, DirectoryRecord[]> = {
-  clients: [{ id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE", projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", redirects: emptyRedirects, redirectVariables: defaultVariables }],
+  clients: [{ id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE", projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", redirects: emptyRedirects }],
   suppliers: [{ id: "supplier-cpx", name: "CPX Research", code: "CPX", status: "ACTIVE", projectCount: 3, contactName: "Supply team", address: "Remote", contactEmail: "supply@cpx.example", phone: "+1 000 000 0000", redirectMode: "STATIC", redirects: emptyRedirects }],
 };
 
 export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind: DirectoryKind; eyebrow: string; title: string; subtitle: string; action: string }) {
   const { configured, session } = useAuth();
   const [records, setRecords] = useState<DirectoryRecord[]>(() => configured ? [] : demoRecords[kind]);
-  const [query, setQuery] = useState(""); const [formOpen, setFormOpen] = useState(false); const [editing, setEditing] = useState<DirectoryRecord | null>(null); const [linkRecord, setLinkRecord] = useState<DirectoryRecord | null>(null); const [variables, setVariables] = useState<RedirectVariable[]>(defaultVariables); const [error, setError] = useState(""); const [source, setSource] = useState<"mock" | "supabase">("mock"); const [canOperate, setCanOperate] = useState(!configured); const [copied, setCopied] = useState(""); const [savingVariables, setSavingVariables] = useState(false);
+  const [query, setQuery] = useState(""); const [formOpen, setFormOpen] = useState(false); const [editing, setEditing] = useState<DirectoryRecord | null>(null); const [linkRecord, setLinkRecord] = useState<DirectoryRecord | null>(null); const [error, setError] = useState(""); const [source, setSource] = useState<"mock" | "supabase">("mock"); const [canOperate, setCanOperate] = useState(!configured); const [copied, setCopied] = useState("");
   const accessToken = session?.access_token;
 
   useEffect(() => {
@@ -39,7 +34,7 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
   const filtered = useMemo(() => { const term = query.trim().toLowerCase(); return records.filter((record) => !term || [record.name, record.code, record.contactEmail].some((value) => value.toLowerCase().includes(term))); }, [query, records]);
   function openCreate() { setEditing(null); setFormOpen(true); setError(""); }
   function openEdit(record: DirectoryRecord) { setEditing(record); setFormOpen(true); setError(""); }
-  function openLinks(record: DirectoryRecord) { setLinkRecord(record); setVariables(record.redirectVariables?.map((item) => ({ ...item })) ?? defaultVariables.map((item) => ({ ...item }))); setCopied(""); }
+  function openLinks(record: DirectoryRecord) { setLinkRecord(record); setCopied(""); }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget);
@@ -52,15 +47,6 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
       setRecords((current) => editing ? current.map((record) => record.id === editing.id ? { ...record, ...response.data } : record) : [...current, response.data].sort((a, b) => a.name.localeCompare(b.name)));
       setFormOpen(false); setEditing(null); setError("");
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : `${title} could not be saved.`); }
-  }
-
-  async function saveVariables() {
-    if (!linkRecord) return; setSavingVariables(true);
-    try {
-      const response = await apiRequest<{ data: DirectoryRecord }>(`/api/clients/${encodeURIComponent(linkRecord.id)}`, { method: "PATCH", headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined, body: JSON.stringify({ redirectVariables: variables }) });
-      setRecords((current) => current.map((record) => record.id === linkRecord.id ? { ...record, ...response.data } : record)); setLinkRecord((current) => current ? { ...current, ...response.data } : current); setError("");
-    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Redirect variables could not be saved."); }
-    finally { setSavingVariables(false); }
   }
 
   async function toggleStatus(record: DirectoryRecord) {
@@ -88,11 +74,9 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
         <div className="field full directory-submit"><button className="button primary" type="submit">{editing ? "Save changes" : action}</button></div>
       </form>
     </section> : null}
-    {linkRecord ? <div className="modal-backdrop"><section aria-modal="true" className="panel links-modal" role="dialog" aria-label={`${linkRecord.name} links`}><div className="section-head"><div><div className="eyebrow">Client handoff</div><h2>{linkRecord.name} redirect links</h2><p>Copy these clean outcome URLs into the survey platform, then map its respondent and project parameters below.</p></div><button className="button small ghost" type="button" onClick={() => setLinkRecord(null)}>Close</button></div>
+    {linkRecord ? <div className="modal-backdrop"><section aria-modal="true" className="panel links-modal" role="dialog" aria-label={`${linkRecord.name} links`}><div className="section-head"><div><div className="eyebrow">Client handoff</div><h2>{linkRecord.name} redirect links</h2><p>Copy these outcome URLs into the survey platform. It must replace the respondent and project placeholders on every return.</p></div><button className="button small ghost" type="button" onClick={() => setLinkRecord(null)}>Close</button></div>
       <div className="info-list">{Object.entries(linkRecord.links ?? {}).map(([label, link]) => link ? <div className="info-row link-row" key={label}><span>{humanize(label)}</span><code>{link}</code><button className="button small ghost" type="button" onClick={() => void copyLink(label, link)}>{copied === label ? "Copied" : "Copy"}</button></div> : null)}</div><div className="modal-actions"><button className="button primary" type="button" onClick={() => void copyAll()}>{copied === "all" ? "Copied all" : "Copy all 4 links"}</button></div>
-      {kind === "clients" ? <section className="variable-box"><div className="section-head"><div><h3>Redirect variables</h3><p>Configure the survey platform to append these values when it sends a respondent back. Common aliases such as transaction_id, rid, uid, project, and survey_id are accepted.</p></div>{canOperate ? <button className="button small ghost" type="button" onClick={() => setVariables((current) => [...current, { name: "client_id", source: "SYSTEM", defaultValue: "", required: false }])} disabled={variables.length >= 8}>Add variable</button> : null}</div>
-        <div className="variable-grid">{variables.map((variable, index) => <div className="variable-row" key={`${index}-${variable.name}`}><input aria-label="Variable name" className="control" value={variable.name} disabled={!canOperate} onChange={(event) => setVariables((current) => current.map((item, position) => position === index ? { ...item, name: event.target.value } : item))} /><select aria-label="Variable source" className="control" value={variable.source} disabled={!canOperate} onChange={(event) => setVariables((current) => current.map((item, position) => position === index ? { ...item, source: event.target.value as RedirectVariable["source"] } : item))}><option value="URL_PARAM">URL parameter</option><option value="SYSTEM">System value</option><option value="DATABASE_FIELD">Database field</option></select><input aria-label="Default value" className="control" placeholder="Optional default" value={variable.defaultValue} disabled={!canOperate} onChange={(event) => setVariables((current) => current.map((item, position) => position === index ? { ...item, defaultValue: event.target.value } : item))} /><label className="variable-required"><input type="checkbox" checked={variable.required} disabled={!canOperate} onChange={(event) => setVariables((current) => current.map((item, position) => position === index ? { ...item, required: event.target.checked } : item))} /> Required</label>{canOperate ? <button className="button small ghost" type="button" disabled={variables.length === 1} onClick={() => setVariables((current) => current.filter((_, position) => position !== index))}>Remove</button> : null}</div>)}</div>{canOperate ? <div className="modal-actions"><button className="button" type="button" disabled={savingVariables} onClick={() => void saveVariables()}>{savingVariables ? "Saving…" : "Save variables"}</button></div> : null}
-      </section> : null}</section></div> : null}
+    </section></div> : null}
   </>;
 }
 

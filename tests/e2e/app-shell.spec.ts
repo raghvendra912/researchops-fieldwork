@@ -39,15 +39,20 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Redirect variables")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Add variable" })).toHaveCount(0);
   const links = dialog.locator(".link-row code");
   await expect(links).toHaveCount(4);
 
   const values = await links.allTextContents();
   expect(values).toEqual(expect.arrayContaining([
-    expect.stringMatching(/\/r\/client\/[^/?]+\/complete$/),
-    expect.stringMatching(/\/r\/client\/[^/?]+\/terminate$/),
-    expect.stringMatching(/\/r\/client\/[^/?]+\/quota-full$/),
-    expect.stringMatching(/\/r\/client\/[^/?]+\/security-terminate$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/complete\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/terminate\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/quota-full\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/security-terminate\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
   ]));
-  for (const value of values) expect(value).not.toContain("?");
+  for (const value of values) {
+    expect(value).toContain("rid={{respondent_id}}");
+    expect(value).toContain("project={{project_id}}");
+  }
 });

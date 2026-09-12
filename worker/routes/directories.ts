@@ -38,7 +38,7 @@ function generatedLinks(kind: DirectoryKind, token: unknown, request: Request, a
   const origin = new URL(request.url).origin;
   const base = `${origin}/r/${kind === "clients" ? "client" : "supplier"}/${token}`;
   return kind === "clients"
-    ? { complete: `${base}/complete`, terminate: `${base}/terminate`, quotaFull: `${base}/quota-full`, securityTerminate: `${base}/security-terminate` }
+    ? { complete: `${base}/complete?rid={{respondent_id}}&project={{project_id}}`, terminate: `${base}/terminate?rid={{respondent_id}}&project={{project_id}}`, quotaFull: `${base}/quota-full?rid={{respondent_id}}&project={{project_id}}`, securityTerminate: `${base}/security-terminate?rid={{respondent_id}}&project={{project_id}}` }
     : { test: `${base}/test`, live: `${base}/live` };
 }
 
