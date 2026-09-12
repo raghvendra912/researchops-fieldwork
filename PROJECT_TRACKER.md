@@ -957,4 +957,10 @@ Do not record secret values here. Mark only whether they are available.
 - Project and supplier metric views now expose `test_starts` separately and exclude test sessions from production starts, reached, outcomes, incidence, conversion, abandonment, quota consumption, duration, and supplier cost.
 - Routing propagates `mode=test` into START and REACHED_CLIENT event ingestion; a session remains test-scoped for its full lifecycle. Supplier delivery now shows a dedicated `TST` column and explains that it is excluded from live delivery and cost.
 - Verification: production build passes; lint passes; focused business/security tests pass 8/8; focused Worker/API regression passes 1/1; Chromium suite passes 5/5 including the visible TST separation; `git diff --check` passes. Current task is commit/push and staging migration application. Next task is excluding test sessions from the portfolio analytics snapshot, proving the full hosted test/live outcome flow, then implementing eligibility and advanced quota cells.
+
+### 2026-09-12 - Production-only portfolio analytics
+
+- Added migration `024_production_analytics_scope.sql`; `analytics_snapshot` now builds portfolio, supplier, client, market, in-progress, conversion, drop-off, and cost results exclusively from non-test sessions.
+- The analytics response exposes `portfolio.testStarts` separately so UAT activity remains observable without contaminating contractual delivery.
+- Verification: production build passes; focused Worker/API regression passes 1/1 and asserts the separate test-start response; `git diff --check` passes. Current task is commit and push. Applying migrations `023` and `024` plus authenticated hosted routing remains the deployment gate; eligibility and advanced quota cells follow this invariant work.
 - Current task is deployment followed by authenticated supplier Test → session → metrics → outcome verification on the hosted revision.

@@ -174,6 +174,7 @@ test("serves Worker health and project APIs", async () => {
   assert.equal(analytics.status, 200);
   const analyticsBody = await analytics.json();
   assert.equal(analyticsBody.data.portfolio.completes, 1994);
+  assert.equal(analyticsBody.data.portfolio.testStarts, 24);
   assert.equal(analyticsBody.data.suppliers.length, 3);
   const invalidAnalytics = await request("/api/analytics?from=2026-09-01&to=2026-08-01");
   assert.equal(invalidAnalytics.status, 400);

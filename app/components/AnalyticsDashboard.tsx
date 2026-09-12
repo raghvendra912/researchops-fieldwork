@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
-type Snapshot = { portfolio: { starts: number; completes: number; qualityTerminates: number; abandons: number; conversionRate: number }; suppliers: Array<{ name: string; starts: number; completes: number; incidenceRate: number; cost: number }>; clients: Array<{ name: string; completes: number }>; markets: Array<{ countryCode: string; completes: number }> };
-const empty: Snapshot = { portfolio: { starts: 0, completes: 0, qualityTerminates: 0, abandons: 0, conversionRate: 0 }, suppliers: [], clients: [], markets: [] };
+type Snapshot = { portfolio: { testStarts: number; starts: number; completes: number; qualityTerminates: number; abandons: number; conversionRate: number }; suppliers: Array<{ name: string; starts: number; completes: number; incidenceRate: number; cost: number }>; clients: Array<{ name: string; completes: number }>; markets: Array<{ countryCode: string; completes: number }> };
+const empty: Snapshot = { portfolio: { testStarts: 0, starts: 0, completes: 0, qualityTerminates: 0, abandons: 0, conversionRate: 0 }, suppliers: [], clients: [], markets: [] };
 function csv(value: unknown) { let text = String(value ?? ""); if (/^[=+\-@]/.test(text)) text = `'${text}`; return `"${text.replaceAll('"', '""')}"`; }
 export function AnalyticsDashboard() {
   const { configured, session } = useAuth(); const [data, setData] = useState(empty); const [error, setError] = useState(""); const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10)); const [from, setFrom] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)); const token = session?.access_token;

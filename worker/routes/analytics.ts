@@ -4,7 +4,7 @@ import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/sup
 type AnalyticsEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
 
 const demo = {
-  portfolio: { starts: 5377, reached: 4920, completes: 1994, terminates: 2028, overQuota: 516, qualityTerminates: 224, abandons: 387, inProgress: 228, conversionRate: 37.1, dropOffRate: 7.2, lastEventAt: new Date().toISOString() },
+  portfolio: { testStarts: 24, starts: 5377, reached: 4920, completes: 1994, terminates: 2028, overQuota: 516, qualityTerminates: 224, abandons: 387, inProgress: 228, conversionRate: 37.1, dropOffRate: 7.2, lastEventAt: new Date().toISOString() },
   suppliers: [{ name: "CPX Research", starts: 2100, completes: 840, incidenceRate: 44.2, cost: 7140 }, { name: "BitLabs", starts: 1740, completes: 631, incidenceRate: 39.8, cost: 5994.5 }, { name: "PureSpectrum", starts: 1537, completes: 523, incidenceRate: 37.4, cost: 4968.5 }],
   clients: [{ name: "Northstar Bank", completes: 818 }, { name: "Arc Technologies", completes: 612 }],
   markets: [{ countryCode: "IN", completes: 740 }, { countryCode: "US", completes: 631 }],

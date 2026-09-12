@@ -239,7 +239,7 @@ npm test
 npm run test:e2e
 ```
 
-Apply migrations in filename order through `023`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.
+Apply migrations in filename order through `024`. Runtime secrets belong only in the hosting secret manager. The visible sidebar build badge uses `VERCEL_GIT_COMMIT_SHA`, `CF_PAGES_COMMIT_SHA`, or `GITHUB_SHA`, with `VITE_APP_VERSION`/`dev` as fallback.
 
 The repository is pushed to GitHub, but the current Sites URL has not consistently consumed Git pushes automatically. A green Git push is therefore not deployment proof; verify the visible version, `/api/health`, `/api/readiness`, authentication, project reads, and an end-to-end respondent outcome.
 
