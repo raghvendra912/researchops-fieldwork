@@ -104,6 +104,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
 | `MKT-02` | ISO market option catalog | READY | Hosted creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; browser interaction evidence remains pending. |
 | `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
+| `ELG-01` | Project eligibility rules | READY | Operators can manage up to 30 versionable URL-variable rules using categorical and numeric operators; Test/Live routing records the start, evaluates all active required rules, and terminates ineligible respondents before survey handoff. Migration `025` and hosted end-to-end proof remain. |
 | `CLI-01` | Client directory UI | READY | Searchable numbered list remains above create/edit; View opens a compact modal with four same-origin outcome links carrying respondent/project placeholders and individual/copy-all actions; browser evidence passes. |
 | `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
 | `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
@@ -963,4 +964,13 @@ Do not record secret values here. Mark only whether they are available.
 - Added migration `024_production_analytics_scope.sql`; `analytics_snapshot` now builds portfolio, supplier, client, market, in-progress, conversion, drop-off, and cost results exclusively from non-test sessions.
 - The analytics response exposes `portfolio.testStarts` separately so UAT activity remains observable without contaminating contractual delivery.
 - Verification: production build passes; focused Worker/API regression passes 1/1 and asserts the separate test-start response; `git diff --check` passes. Current task is commit and push. Applying migrations `023` and `024` plus authenticated hosted routing remains the deployment gate; eligibility and advanced quota cells follow this invariant work.
+
+### 2026-09-13 - Eligibility rule engine and project editor
+
+- Added a deterministic eligibility engine supporting equals/not-equals, inclusion/exclusion, minimum/maximum, and inclusive numeric range rules with required-value failure reasons.
+- Added migration `025_eligibility_rules.sql` with tenant RLS, operator-only replacement RPC, validation, rule ordering, and a 30-rule project limit.
+- Added protected `GET/PUT /api/projects/{code}/eligibility`, a project-workspace rule editor, and live/test routing enforcement using supplier URL variables before client survey handoff.
+- Ineligible respondents receive START then TERMINATE for an auditable incidence trail and return through the supplier terminate destination; qualifying respondents continue to the existing secure per-session outcome flow.
+- Verification: eligibility business rules pass as part of 6/6 focused rules; production build passes; focused Worker/API test passes 1/1 including valid/invalid CRUD; Chromium passes 6/6 including editor interaction; `git diff --check` passes.
+- Current task is commit/push. Next task is atomic advanced/interlocking quota cells and reservation, followed by migrations `023`-`025` and authenticated hosted vertical-slice proof.
 - Current task is deployment followed by authenticated supplier Test → session → metrics → outcome verification on the hosted revision.

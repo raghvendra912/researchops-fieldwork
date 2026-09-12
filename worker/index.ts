@@ -14,6 +14,7 @@ import { requestId, safeLog } from "./lib/observability";
 import { handleSupabaseProxy } from "./routes/supabase-proxy";
 import { handleDevAuthApi } from "./routes/dev-auth";
 import { handleRedirectApi } from "./routes/redirects";
+import { handleEligibilityApi } from "./routes/eligibility";
 
 interface Env {
   ASSETS: Fetcher;
@@ -102,6 +103,8 @@ const worker = {
     }
 
     if (url.pathname.startsWith("/api/projects")) {
+      const eligibilityResponse = await handleEligibilityApi(request, url.pathname, projectEnv);
+      if (eligibilityResponse) return observed(eligibilityResponse);
       const apiResponse = await handleProjectsApi(request, url.pathname, projectEnv);
       if (apiResponse) return observed(apiResponse);
     }

@@ -85,7 +85,7 @@ npx supabase stop
 
 Copy `.env.example` to `.env.local`, then supply your public Supabase URL and anon key. Never expose the service-role or provider secrets through a `VITE_` variable.
 
-Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, respondent outcome tracking, and test/live traffic separation across operational and portfolio analytics. Always apply through the highest numbered migration (currently `024`) before live verification.
+Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, respondent outcome tracking, test/live traffic separation, and versioned eligibility rules. Always apply through the highest numbered migration (currently `025`) before live verification.
 
 Add your local and deployed `/reset-password` URLs to the Supabase Auth redirect allowlist before testing password recovery.
 
@@ -103,6 +103,7 @@ npx supabase start
 - `GET /api/readiness`
 - `GET /api/projects`
 - `GET /api/projects/:projectId`
+- `GET/PUT /api/projects/:projectId/eligibility`
 - `POST /api/projects`
 - `GET /api/organizations/current`
 - `POST /api/organizations`

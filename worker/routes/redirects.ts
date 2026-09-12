@@ -3,11 +3,13 @@ import { riskMetadata } from "../lib/fraud";
 import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
 import { requestId, safeLog } from "../lib/observability";
+import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
-type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: { project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] } | { project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] }[] };
+type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: { id: string; project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] } | { id: string; project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] }[] };
+type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
 
 const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }> = {
   complete: { eventType: "COMPLETE", field: "complete_url" },
@@ -61,13 +63,15 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const projectCode = clean(url.searchParams.get("project"), 40).toUpperCase();
       const respondentRef = clean(url.searchParams.get("respondent"));
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
-      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(project_code,status,survey_url,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : unavailable("Project traffic is not active", 409);
       }
+      const eligibilityRows = await serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=sort_order.asc`);
+      const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), eligibilityAnswers(url.searchParams));
       const metricRows = isTest ? [] : await serviceRows<{ completes: number }>(env, `/rest/v1/project_supplier_event_metrics?select=completes&project_supplier_id=eq.${assignment.id}&limit=1`);
       if (!isTest && Number(metricRows[0]?.completes ?? 0) >= assignment.target_quota) {
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL");
@@ -76,6 +80,10 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) return unavailable("The respondent session could not be started", 502);
+      if (!eligibility.eligible) {
+        await recordEvent(request, env, supplier, projectCode, respondentRef, "TERMINATE", `eligibility:${eligibility.failedRule ?? "rule"}`, isTest);
+        return supplier.terminate_url ? redirect(standardSupplierRedirect(supplier.terminate_url, projectCode, respondentRef, "TERMINATE")) : unavailable(eligibility.reason ?? "The respondent is not eligible for this study", 200);
+      }
       if (!project.survey_url) return isTest
         ? routingPage("The test hit was recorded", "ST has been added to supplier metrics. Add a valid client survey URL to test the onward redirect and RC metric.", 200, "success")
         : unavailable("The client survey URL is not configured", 422);

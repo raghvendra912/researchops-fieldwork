@@ -132,6 +132,15 @@ test("serves Worker health and project APIs", async () => {
   const duplicateMarkets = await request("/api/projects/PRJ-1048/markets", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }, { countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }] }) });
   assert.equal(duplicateMarkets.status, 400);
 
+  const eligibility = await request("/api/projects/PRJ-1048/eligibility");
+  assert.equal(eligibility.status, 200);
+  assert.equal((await eligibility.json()).data.length, 2);
+  const eligibilityUpdated = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: [{ variableKey: "age", operator: "BETWEEN", values: ["25", "55"], required: true }] }) });
+  assert.equal(eligibilityUpdated.status, 200);
+  assert.equal((await eligibilityUpdated.json()).data[0].variableKey, "age");
+  const invalidEligibility = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: [{ variableKey: "Age!", operator: "BETWEEN", values: ["25"], required: true }] }) });
+  assert.equal(invalidEligibility.status, 400);
+
   const assignments = await request("/api/projects/PRJ-1048/suppliers");
   assert.equal(assignments.status, 200);
   const assignmentBody = await assignments.json();
