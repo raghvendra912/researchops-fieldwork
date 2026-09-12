@@ -910,3 +910,11 @@ Do not record secret values here. Mark only whether they are available.
 - Corrected documentation drift by recording migration `022` as the current highest hosted/application migration and linking the new guides from README.
 - Verification: source links and repository-relative document links were reviewed, `git diff --check` passes, and documentation claims were reconciled against Worker authorization/routes and migrations `001` through `022`. No runtime code or secrets changed in this documentation session.
 - Current task remains restoring deterministic Sites deployment from Git and completing hosted authenticated/browser smoke tests. The next product-design task should be P0 membership/scoped authorization and privacy/reconciliation rules before expanding finance or research analytics.
+
+### 2026-09-12 - Provider-neutral supplier return redirects
+
+- Normalized every configured supplier outcome destination to carry `respondent_id`, `project_id`, `transaction_id`, and a portable status value while preserving existing custom query parameters and placeholder templates.
+- Applied the same behavior to complete, terminate, quota-full, quality-reject, inactive-traffic, and redirect-configuration test paths; immutable event ingestion and first-terminal-outcome behavior are unchanged.
+- The baseline follows common provider patterns documented by BitLabs and PureSpectrum, while provider-specific status codes/signatures remain gated on official sandbox certification.
+- Verification: focused business-rule suite passes 5/5, including parameter preservation and `QUALITY_TERMINATE` normalization; `git diff --check` passes. No schema migration or secret change is required.
+- Current task is deployment and a hosted end-to-end respondent return smoke test. Deterministic Sites deployment and official provider sandbox credentials remain external blockers.

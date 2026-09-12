@@ -71,6 +71,8 @@ The router:
 6. records `REACHED_CLIENT` and redirects to the questionnaire;
 7. accepts a terminal outcome and redirects to the supplier destination.
 
+Every supplier return redirect now preserves configured custom query values and guarantees four portable fields: `respondent_id`, `project_id`, `transaction_id`, and normalized `status` (`complete`, `terminate`, `quota-full`, or `quality-terminate`). Existing `{{respondent_id}}` and `{{project_id}}` templates remain backward-compatible.
+
 Supported events are `START`, `REACHED_CLIENT`, `COMPLETE`, `TERMINATE`, `QUOTA_FULL`, `QUALITY_TERMINATE`, and `ABANDON`. The first terminal outcome wins. Replays with the same provider transaction ID are idempotent.
 
 The Project Supplier `Test` action creates a unique `ROP-TEST-*` respondent reference and opens the same countable live path. `Live` copies the reusable supplier template containing `{{respondent_id}}`.
@@ -245,4 +247,3 @@ The repository is pushed to GitHub, but the current Sites URL has not consistent
 - `docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md`: target organization model and prioritized gaps
 - `docs/OPERATIONS.md`: backup, recovery, incidents, and secret rotation
 - `docs/DEPLOYMENT.md`: environment and promotion checklist
-

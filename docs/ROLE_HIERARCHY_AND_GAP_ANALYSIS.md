@@ -213,6 +213,8 @@ Implementation recommendation: store capabilities separately from role labels an
 | Reconciliation definitions | Operational events are not sufficient for payment decisions | Accepted/rejected/billable statuses, reason codes, versioned rules, locked reconciliation batch |
 | Production browser QA | Core authenticated experience lacks trusted E2E evidence | Desktop/mobile, keyboard, focus, error, auth, routing, and outcome automated evidence |
 
+Supplier outcome redirects now use a provider-neutral baseline (`respondent_id`, `project_id`, `transaction_id`, and normalized `status`). Provider-specific codes, signatures, and reconciliation semantics still require the official provider certification item above.
+
 ### P1 — required for a strong fieldwork operations product
 
 | Gap | Recommended capability |
@@ -316,4 +318,3 @@ Before contractual use, stakeholders must define and version:
 - **Respondent:** receives a transparent, secure, reliable journey with appropriate privacy, support, and fair outcome handling.
 - **Client:** receives traceable delivery, agreed metric definitions, quality disclosures, and reproducible reports.
 - **Supplier:** receives stable links, clear outcome mappings, test evidence, traffic controls, reconciliation reasons, and payment transparency.
-
