@@ -104,7 +104,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
 | `MKT-02` | ISO market option catalog | READY | Hosted creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; browser interaction evidence remains pending. |
 | `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
-| `CLI-01` | Client directory UI | READY | Searchable numbered list remains above create/edit; View opens a modal with four same-origin masked links, individual/copy-all actions, and a separate redirect-variable editor; browser evidence remains. |
+| `CLI-01` | Client directory UI | READY | Searchable numbered list remains above create/edit; View opens a modal with four clean same-origin outcome links (without placeholder query strings), individual/copy-all actions, and a separate redirect-variable editor; browser evidence remains. |
 | `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
 | `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
 | `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
@@ -934,4 +934,13 @@ Do not record secret values here. Mark only whether they are available.
 - Browser evidence exposed a real hydration race: the sidebar toggle could appear before its React handler was ready, losing an early click. The control now remains disabled until stored sidebar state has loaded and hydration is ready.
 - Verification: focused redirect business rules pass 5/5; the full local Playwright suite passes 3/3 (health/readiness, desktop collapse/version/persistence, and 390×844 mobile navigation); hosted Playwright health/readiness passes 1/1.
 - `TST-04` and `TST-05` move from BLOCKED to READY because the browser runtime now works. Hosted authenticated project/routing/outcome, full keyboard/focus, and contrast evidence still require protected test credentials.
+
+### 2026-09-12 - Complete test-routing and clean client redirects
+
+- Replaced client handoff URLs containing visible `{{respondent_id}}` and `{{project_id}}` query templates with four clean fixed same-origin outcome endpoints.
+- Expanded legacy client outcome compatibility to accept respondent aliases `respondent_id`, `transaction_id`, `respondent`, `rid`, and `uid`, plus project aliases `project_id`, `project`, and `survey_id`.
+- Preserved `mode=test` from the Project Supplier Test button through the backend. Test mode now uses a real unique `ROP-TEST-*` respondent, requires a valid supplier/project assignment, bypasses production lifecycle/quota gates, and records `START` before onward-survey validation.
+- When a test has no configured survey URL, its ST metric remains counted and the browser receives a branded successful test-result page explaining that RC needs a valid survey URL. Routing failures now use a professional no-index page and emit a sanitized `redirect_failed` log instead of exposing the raw fallback HTML.
+- Verification: production build passes; business rules pass 5/5; focused Worker/API regression passes 1/1; local Chromium suite passes 4/4 including clean client handoff URLs; `git diff --check` passes. The full Node suite still has three pre-existing SSR expectation failures caused by authenticated/demo rendering differing from stale assertions; the redirect/API-focused case passes.
+- Current task is pushing this revision and confirming hosted health/readiness plus deployment uptake. Next task is an authenticated hosted Test click proving the persisted ST/RC metric and terminal outcome using the configured project.
 - Current task is deployment followed by authenticated supplier Test → session → metrics → outcome verification on the hosted revision.

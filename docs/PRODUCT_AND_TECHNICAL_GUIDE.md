@@ -45,7 +45,7 @@ Transitions are validated in the database and recorded in the audit log.
 | Overview | Organization-level project count, respondent funnel, supplier delivery/cost, and notifications |
 | Project Center | PM-scoped project listing, filters, pagination, status summary, CSV export, and create access |
 | Project workspace | Core configuration, lifecycle, funnel/outcomes, markets, supplier assignments, routing links, and respondent ledger link |
-| Clients | Search, create/edit, contact data, status, masked outcome links, and redirect-variable definitions |
+| Clients | Search, create/edit, contact data, status, clean same-origin outcome links, and redirect-variable definitions |
 | Suppliers | Search, create/edit, contacts, redirect mode, outcome destinations, and opaque routing links |
 | Respondents | Project/search filters, session status, immutable timeline, duration, supplier CPI, and CSV export |
 | Fraud review | Duplicate, speeding, and quality flags with explainable evidence and operator decisions |
@@ -73,9 +73,11 @@ The router:
 
 Every supplier return redirect now preserves configured custom query values and guarantees four portable fields: `respondent_id`, `project_id`, `transaction_id`, and normalized `status` (`complete`, `terminate`, `quota-full`, or `quality-terminate`). Existing `{{respondent_id}}` and `{{project_id}}` templates remain backward-compatible.
 
+Client handoff uses clean fixed outcome URLs such as `/r/client/{token}/complete`; placeholder query strings are not displayed or copied. The survey platform appends its runtime identifiers when returning a respondent. Client outcome routes accept `respondent_id`, `transaction_id`, `respondent`, `rid`, or `uid` for the respondent and `project_id`, `project`, or `survey_id` for the project. Per-session `/r/outcome/{session-token}/{outcome}` callbacks remain the preferred live-flow mechanism because ResearchOps injects them automatically.
+
 Supported events are `START`, `REACHED_CLIENT`, `COMPLETE`, `TERMINATE`, `QUOTA_FULL`, `QUALITY_TERMINATE`, and `ABANDON`. The first terminal outcome wins. Replays with the same provider transaction ID are idempotent.
 
-The Project Supplier `Test` action creates a unique `ROP-TEST-*` respondent reference and opens the same countable live path. `Live` copies the reusable supplier template containing `{{respondent_id}}`.
+The Project Supplier `Test` action creates a unique `ROP-TEST-*` respondent reference and opens a countable test-mode path. Test mode requires a real supplier assignment but may run before the project is LIVE, bypasses production quota enforcement, and records `START` before validating the onward survey URL. A valid survey handoff then records `REACHED_CLIENT`; a missing survey URL returns a branded test-result page while retaining the counted start. `Live` copies the reusable production supplier template containing `{{respondent_id}}` and continues to enforce active project, assignment, and quota gates.
 
 ## 5. Architecture
 
@@ -120,7 +122,7 @@ Supabase PostgreSQL is the system of record. Main entities are:
 | `organizations` | Tenant/workspace boundary |
 | `organization_members` | User membership and role |
 | `user_profiles` | Tenant-visible display identity |
-| `clients` | Client directory and masked routing identity |
+| `clients` | Client directory and opaque routing identity |
 | `suppliers` | Sample supplier configuration and outcome destinations |
 | `projects` | Commercial/operational project record and lifecycle |
 | `project_markets` | Country/language quota and expected LOI/IR |

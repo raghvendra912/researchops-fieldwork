@@ -2,6 +2,7 @@ import { ingestNormalizedEvent, type EventEnv } from "./events";
 import { riskMetadata } from "../lib/fraud";
 import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
+import { requestId, safeLog } from "../lib/observability";
 
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
@@ -20,7 +21,8 @@ async function serviceRows<T>(env: RedirectEnv, path: string): Promise<T[]> { co
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
 function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
-function unavailable(message: string, status = 400) { return new Response(`<!doctype html><html><body><h1>ResearchOps routing</h1><p>${message}</p></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } }); }
+function routingPage(title: string, message: string, status = 400, tone: "success" | "error" = "error") { return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} | ResearchOps</title><style>body{margin:0;background:#f4f1eb;color:#17221d;font:16px/1.5 system-ui,-apple-system,sans-serif}.card{max-width:560px;margin:12vh auto;padding:42px;border:1px solid #d8d5cd;border-radius:22px;background:#fff;box-shadow:0 18px 60px #17221d12}.mark{display:inline-block;padding:6px 10px;border-radius:999px;background:${tone === "success" ? "#dff4ed;color:#087761" : "#fae7df;color:#a53f25"};font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1{margin:18px 0 8px;font-size:30px}p{margin:0;color:#59665f}.hint{margin-top:24px;padding-top:18px;border-top:1px solid #e5e2db;font-size:14px}</style></head><body><main class="card"><span class="mark">${tone === "success" ? "Test recorded" : "Routing unavailable"}</span><h1>${title}</h1><p>${message}</p><p class="hint">You can close this tab and return to the ResearchOps project workspace.</p></main></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } }); }
+function unavailable(message: string, status = 400) { return routingPage("We could not continue this respondent", message, status); }
 
 async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect") {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
@@ -53,6 +55,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         return typeof target === "string" && target ? redirect(standardSupplierRedirect(target, "TEST-PROJECT", "TEST-RESPONDENT", configuration.eventType)) : unavailable(`${outcome} redirect is not configured`, 422);
       }
 
+      const isTest = url.searchParams.get("mode") === "test";
       const limited = checkRateLimit(`supplier-live:${supplier.id}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 120, 60);
       if (!limited.allowed) return rateLimitResponse(limited);
       const projectCode = clean(url.searchParams.get("project"), 40).toUpperCase();
@@ -60,19 +63,22 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
       const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(project_code,status,survey_url,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
-      if (!assignment || !project || assignment.status !== "ACTIVE" || project.status !== "LIVE") {
+      if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
+      if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : unavailable("Project traffic is not active", 409);
       }
-      const metricRows = await serviceRows<{ completes: number }>(env, `/rest/v1/project_supplier_event_metrics?select=completes&project_supplier_id=eq.${assignment.id}&limit=1`);
-      if (Number(metricRows[0]?.completes ?? 0) >= assignment.target_quota) {
+      const metricRows = isTest ? [] : await serviceRows<{ completes: number }>(env, `/rest/v1/project_supplier_event_metrics?select=completes&project_supplier_id=eq.${assignment.id}&limit=1`);
+      if (!isTest && Number(metricRows[0]?.completes ?? 0) >= assignment.target_quota) {
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL");
         return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("Supplier quota is full", 409);
       }
-      if (!project.survey_url) return unavailable("The client survey URL is not configured", 422);
       const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START");
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) return unavailable("The respondent session could not be started", 502);
+      if (!project.survey_url) return isTest
+        ? routingPage("The test hit was recorded", "ST has been added to supplier metrics. Add a valid client survey URL to test the onward redirect and RC metric.", 200, "success")
+        : unavailable("The client survey URL is not configured", 422);
       if (startBody?.data?.sessionId) {
         const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
         if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE"); return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : unavailable("The respondent did not pass security checks", 403); }
@@ -109,7 +115,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;
-    const projectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("respondent"));
+    const projectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project") ?? url.searchParams.get("survey_id"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("transaction_id") ?? url.searchParams.get("respondent") ?? url.searchParams.get("rid") ?? url.searchParams.get("uid"));
     if (!projectCode || !respondentRef) return unavailable("Project and respondent are required", 400);
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${clientMatch![1]}&limit=1`); if (!clients[0]) return unavailable("Client link was not found", 404);
     const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
@@ -117,5 +123,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return unavailable("Respondent routing session was not found", 404);
     const result = await recordEvent(request, env, supplier, projectCode, respondentRef, outcomes[outcome].eventType); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
     const target = supplier[outcomes[outcome].field]; return typeof target === "string" && target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType)) : unavailable(`${outcome} redirect is not configured`, 422);
-  } catch { return unavailable("The redirect could not be completed", 502); }
+  } catch (error) {
+    safeLog("error", "redirect_failed", { requestId: requestId(request), path: pathname, error: error instanceof Error ? error.message : "Unknown redirect failure" });
+    return unavailable("The routing configuration could not be completed. The operations team can use the request log to identify the failed step.", 502);
+  }
 }

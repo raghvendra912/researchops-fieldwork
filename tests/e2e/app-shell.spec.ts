@@ -32,3 +32,22 @@ test("mobile navigation remains usable without the desktop toggle", async ({ pag
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   await expect(page.getByRole("button", { name: /sidebar/i })).toBeHidden();
 });
+
+test("client handoff exposes clean outcome URLs", async ({ page }) => {
+  await page.goto("/clients", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "View links" }).first().click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const links = dialog.locator(".link-row code");
+  await expect(links).toHaveCount(4);
+
+  const values = await links.allTextContents();
+  expect(values).toEqual(expect.arrayContaining([
+    expect.stringMatching(/\/r\/client\/[^/?]+\/complete$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/terminate$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/quota-full$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/security-terminate$/),
+  ]));
+  for (const value of values) expect(value).not.toContain("?");
+});
