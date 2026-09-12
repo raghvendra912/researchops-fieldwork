@@ -882,3 +882,11 @@ Do not record secret values here. Mark only whether they are available.
 - Made reconciliation fail open with a status-only warning so maintenance failure cannot interrupt project or analytics reads, and added secret-safe error diagnostics for the primary Supabase operations.
 - Verification: lint, production build, `git diff --check`, and the standard suite pass (21 passed, 4 environment-gated tests skipped).
 - Current task is deploying the fix and confirming authenticated project and analytics requests return HTTP 200. If either remains 502, the new production diagnostic identifies the exact Supabase operation/status without exposing credentials.
+
+### 2026-09-12 - Countable supplier live-test links and metric refresh
+
+- Changed the Project Supplier `Live` copy action to materialize a unique test respondent ID instead of copying an unresolved `{{respondent_id}}` placeholder, so opening each copied link creates a distinct countable live session.
+- Connected project-detail manual and 30-second refreshes to the supplier-delivery query, allowing ST, RC, outcomes, IR, and cost to update without leaving the page.
+- Live routing still intentionally requires both project `LIVE` and supplier assignment `ACTIVE`; `PENDING`, `PAUSED`, and `CLOSED` traffic remains blocked.
+- Verification is environment-blocked: `npm run lint` could not find ESLint because dependencies were absent, and two approved `npm install` attempts timed out in the current environment. No credentials or secrets were added.
+- Current task remains deploying the dashboard 502 fix together with this supplier-link usability change, then smoke-testing authenticated project/analytics reads and a live supplier hit. Next task remains official provider sandbox certification when vendor access is supplied.
