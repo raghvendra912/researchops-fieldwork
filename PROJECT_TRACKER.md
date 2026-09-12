@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-09
+Last updated: 2026-09-12
 Current milestone: External integration and browser/deployment gates
 Overall state: Production Supabase and Vercel include respondent outcome tracking and the live funnel; a production 502 caused by optional abandonment reconciliation aborting dashboard reads is fixed locally and awaiting the Git-triggered Vercel rollout.
 
@@ -901,3 +901,12 @@ Do not record secret values here. Mark only whether they are available.
 - Verification: `git diff --check` passes. The production build transformed 273 modules successfully but final packaging exceeded the five-minute environment timeout; ESLint likewise started successfully but exceeded the timeout without producing a diagnostic.
 - Current task is pushing this UI/build-identification revision and verifying that the hosting platform consumes the new commit. Hosted authenticated/browser verification remains externally gated.
 - Deployment result: revision `9120187` was pushed to `origin/main`; hosted `/api/health` remains HTTP 200, but repeated client-asset inspection still does not find the collapse control. The Sites project is not consuming Git pushes automatically, and no hosting credential/CLI binding is available in this workspace; manual Sites deployment remains the blocker.
+
+### 2026-09-12 - Complete product documentation and role-based gap analysis
+
+- Added `docs/PRODUCT_AND_TECHNICAL_GUIDE.md` covering product scope, workflows, lifecycle, modules, respondent routing, architecture, schema, API catalogue, authorization, security, metrics, development, and deployment truth.
+- Added `docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md` with the current and target OWNER/ADMIN/PM/ANALYST/MEMBER hierarchy, capability matrix, stakeholder definitions of done, and a P0/P1/P2 market-research roadmap.
+- Benchmarked gaps against current official ISO 20252, ICC/ESOMAR, Insights Association, participant-rights, and European Commission GDPR guidance; documentation explicitly avoids claiming certification or legal advice.
+- Corrected documentation drift by recording migration `022` as the current highest hosted/application migration and linking the new guides from README.
+- Verification: source links and repository-relative document links were reviewed, `git diff --check` passes, and documentation claims were reconciled against Worker authorization/routes and migrations `001` through `022`. No runtime code or secrets changed in this documentation session.
+- Current task remains restoring deterministic Sites deployment from Git and completing hosted authenticated/browser smoke tests. The next product-design task should be P0 membership/scoped authorization and privacy/reconciliation rules before expanding finance or research analytics.

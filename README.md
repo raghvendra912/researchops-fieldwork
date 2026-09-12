@@ -85,7 +85,7 @@ npx supabase stop
 
 Copy `.env.example` to `.env.local`, then supply your public Supabase URL and anon key. Never expose the service-role or provider secrets through a `VITE_` variable.
 
-Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, and durable project-manager display history. Always apply through the highest numbered migration (currently `020`) before live verification.
+Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, client redirect variables, and respondent outcome tracking. Always apply through the highest numbered migration (currently `022`) before live verification.
 
 Add your local and deployed `/reset-password` URLs to the Supabase Auth redirect allowlist before testing password recovery.
 
@@ -145,4 +145,4 @@ npm run build
 npm test
 ```
 
-Operational procedures are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Complete product and technical behavior is documented in [docs/PRODUCT_AND_TECHNICAL_GUIDE.md](docs/PRODUCT_AND_TECHNICAL_GUIDE.md). The target user hierarchy and prioritized market-research gap analysis are in [docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md](docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md). Operational procedures are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
