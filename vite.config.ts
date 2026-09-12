@@ -45,6 +45,14 @@ export default defineConfig(async ({ mode }) => {
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
   const environment = loadEnv(mode, process.cwd(), "");
+  const appVersion = (
+    process.env.VERCEL_GIT_COMMIT_SHA ??
+    process.env.CF_PAGES_COMMIT_SHA ??
+    process.env.GITHUB_SHA ??
+    environment.VITE_APP_VERSION ??
+    "dev"
+  ).slice(0, 7);
+  const buildTime = new Date().toISOString();
   const devAutoLoginEnabled =
     (process.env.DEV_AUTO_LOGIN ?? environment.DEV_AUTO_LOGIN) === "true";
   const workerVariables = Object.fromEntries(Object.entries({
@@ -60,6 +68,8 @@ export default defineConfig(async ({ mode }) => {
 
   return {
     define: {
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
+      "import.meta.env.VITE_BUILD_TIME": JSON.stringify(buildTime),
       "import.meta.env.VITE_DEV_AUTO_LOGIN": JSON.stringify(
         devAutoLoginEnabled ? "true" : "false",
       ),

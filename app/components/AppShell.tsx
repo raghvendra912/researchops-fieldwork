@@ -46,9 +46,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { configured, loading, user, session, signOut } = useAuth();
   const [organizationStatus, setOrganizationStatus] = useState<"checking" | "ready" | "missing" | "error">(configured ? "checking" : "ready");
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const title = titleForPath(pathname);
   const email = user?.email ?? "Demo workspace";
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "DM";
+  const appVersion = import.meta.env.VITE_APP_VERSION ?? "dev";
+  const buildTime = import.meta.env.VITE_BUILD_TIME;
+
+  useEffect(() => {
+    setSidebarCollapsed(window.localStorage.getItem("researchops-sidebar-collapsed") === "true");
+  }, []);
+
+  function toggleSidebar() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem("researchops-sidebar-collapsed", String(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (configured && !loading && !user) {
@@ -113,12 +128,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="app-frame">
+    <div className={`app-frame${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home">
-          <span className="brand-mark">r</span>
-          <span>ResearchOps</span>
-        </Link>
+        <div className="sidebar-header"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
         <div className="nav-caption">Workspace</div>
         <nav className="nav-list" aria-label="Primary navigation">
           {primaryNavigation.map((item) => <NavLink key={item.href} {...item} />)}
@@ -135,6 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {configured ? <button className="button ghost small" type="button" onClick={handleSignOut} aria-label="Sign out">Exit</button> : null}
         </div>
+        <div className="build-version" title={buildTime ? `Built ${new Date(buildTime).toLocaleString()}` : "Local development build"}>v {appVersion}<span>{buildTime ? new Date(buildTime).toLocaleDateString() : "local"}</span></div>
       </aside>
       <main className="app-main">
         <header className="topbar">

@@ -893,3 +893,10 @@ Do not record secret values here. Mark only whether they are available.
 - Verification is environment-blocked: `npm run lint` could not find ESLint because dependencies were absent, and two approved `npm install` attempts timed out in the current environment. No credentials or secrets were added.
 - Current task remains deploying the dashboard 502 fix together with this supplier-link usability change, then smoke-testing authenticated project/analytics reads and a live supplier hit. Next task remains official provider sandbox certification when vendor access is supplied.
 - Deployment attempt: commit `c29a467` was pushed to `origin/main`; hosted health/readiness return HTTP 200, but the Sites project route still serves the previous client bundle and does not contain the new `ROP-TEST` behavior. The Git-to-Sites deployment connection/queue requires external inspection before the live smoke test can proceed.
+
+### 2026-09-12 - Collapsible sidebar and visible build identity
+
+- Added a compact sidebar collapse/expand control with the preference retained in browser storage; the existing mobile bottom navigation remains unchanged.
+- Added a sidebar build badge showing the deployed Git commit prefix and build date, with the full local build timestamp available on hover. Vercel, Cloudflare Pages, and GitHub build SHA variables are supported, with an explicit `dev` fallback.
+- Verification: `git diff --check` passes. The production build transformed 273 modules successfully but final packaging exceeded the five-minute environment timeout; ESLint likewise started successfully but exceeded the timeout without producing a diagnostic.
+- Current task is pushing this UI/build-identification revision and verifying that the hosting platform consumes the new commit. Hosted authenticated/browser verification remains externally gated.
