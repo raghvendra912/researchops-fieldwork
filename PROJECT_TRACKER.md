@@ -346,8 +346,17 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Advanced quota code-ready verification | PASS LOCALLY - lint passes; production build passes; quota/eligibility business rules pass 7/7; focused Worker API passes 1/1 including quota CRUD validation; Chromium confirms the new quota editor. The full 7-test browser run has two pre-existing/flaky shell/eligibility readiness failures while 5/7, including the new quota test, pass; database migration/concurrency proof remains environment-gated. |
 | 2026-09-13 | Commit `3bf16d7` push and hosted uptake check | PUSHED / NOT DEPLOYED - `origin/main` accepted the atomic-quota revision. Public health and readiness return HTTP 200 with Supabase configured, but none of nine referenced JavaScript assets contains the quota API/reservation build markers; the Sites host has not consumed this revision. |
 | 2026-09-13 | Supplier link dialog and current branch regression | PASS LOCALLY - lint and production build pass; 19 business/server-rendered tests pass; focused Chromium passes against a fresh production server and visual evidence confirms separate bordered Test/Live cards with copy actions. The first two dev-server attempts failed from stale/cold navigation and were not counted as product failures. |
+| 2026-09-13 | Routing vertical-slice integration harness and resumed regression | PASS LOCALLY / ENVIRONMENT-GATED - added a persistent-data test covering Test isolation, eligibility, one-slot concurrent quota admission, terminal completion, supplier return, metrics, quota consumption, specifications, and audit evidence. Lint, production build, and 27 standard tests pass; 5 Supabase/Docker-gated tests skip because Docker is unavailable in this environment. A stale long-running Vinext server prevented a reliable fresh full Chromium rerun; the already-recorded focused Chromium checks remain valid. |
 
 ## Session log
+
+### 2026-09-13 - Resumed migration 027-028 and routing proof
+
+- Preserved commit `6073014` containing project-scoped access, configurable Test/Live survey destinations and parameters, supplier link separation, authorization updates, and migrations `027`-`028`.
+- Added an environment-gated persistent routing test that creates its own tenant/client/supplier/project and proves Test traffic remains TST-only, eligibility terminates mismatches, concurrent one-slot quota admission is atomic, completion returns to the supplier, and final metrics/capacity are correct.
+- Hardened the new-project country/language controls against pre-hydration input and retained deterministic India-time rendering for build and created-date labels.
+- Verification: `npm run lint` PASS; `npm run build` PASS; standard Node suite 27/27 PASS with 5 environment-gated tests skipped; `git diff --check` PASS. Local Supabase proof cannot run because Docker/Podman is unavailable, and hosted migrations/deployment still require the owning Sites/Supabase context described in `BLK-10`.
+- Current task is commit/push followed by hosted build-identity inspection. Next remains applying migrations `023`-`028` and executing the new authenticated routing test against persistent hosted data.
 
 ### 2026-09-13 - Separated supplier Test/Live link dialog
 

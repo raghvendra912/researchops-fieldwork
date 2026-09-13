@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "./NavigationLink";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
 import { countryOptions, languageOptions, languageOptionsForCountry } from "../../src/lib/market-options";
@@ -10,12 +10,16 @@ const projectTypes = ["B2C", "B2B", "Healthcare", "Recontact", "Tracker", "Quali
 const categories = ["None", "Business & Professionals", "General Household", "Financial Technology", "Consumer Goods", "Healthcare", "Automotive", "Other"];
 const steps = [["1", "Project info", "Core setup"], ["2", "Market", "Audience & quota"], ["3", "Suppliers", "Source allocation"], ["4", "Survey & security", "Live routing"]];
 const createdDate = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata" }).format(new Date());
+const subscribeToHydration = () => () => {};
+const clientHydrated = () => true;
+const serverNotHydrated = () => false;
 
 export function CreateProjectForm() {
   const { configured, session } = useAuth();
   const [createdId, setCreatedId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const hydrated = useSyncExternalStore(subscribeToHydration, clientHydrated, serverNotHydrated);
   const [canOperate, setCanOperate] = useState(!configured);
   const [clients, setClients] = useState(["Northstar Bank", "Arc Technologies", "Halo Consumer", "Aperture Auto"]);
   const [suppliers, setSuppliers] = useState(["CPX Research", "BitLabs", "PureSpectrum"]);
@@ -73,8 +77,8 @@ export function CreateProjectForm() {
           <div className="field"><label htmlFor="client-cpi">Client CPI (USD)</label><input className="control" id="client-cpi" name="clientCpi" type="number" min="0" step="0.01" required /></div>
         </div></section>
         <section className="form-section"><div className="section-head"><div><h2>Market & quota</h2><p>Define the first audience. More markets can be added after creation.</p></div></div><div className="form-grid three">
-          <div className="field"><label htmlFor="country">Country</label><select className="control" id="country" name="country" value={country} onChange={(event) => { const next = event.target.value; setCountry(next); setLanguage(languageOptionsForCountry(next)[0]?.code ?? "en"); }}>{countryOptions.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</select></div>
-          <div className="field"><label htmlFor="language">Language</label><select className="control" id="language" name="language" value={language} onChange={(event) => setLanguage(event.target.value)}><optgroup label={`Common in ${countryOptions.find((option) => option.code === country)?.name ?? country}`}>{preferredLanguages.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</optgroup><optgroup label="All other languages">{otherLanguages.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</optgroup></select></div>
+          <div className="field"><label htmlFor="country">Country</label><select className="control" id="country" name="country" value={country} disabled={!hydrated} onInput={(event) => { const next = event.currentTarget.value; setCountry(next); setLanguage(languageOptionsForCountry(next)[0]?.code ?? "en"); }}>{countryOptions.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</select></div>
+          <div className="field"><label htmlFor="language">Language</label><select className="control" id="language" name="language" value={language} disabled={!hydrated} onChange={(event) => setLanguage(event.target.value)}><optgroup label={`Common in ${countryOptions.find((option) => option.code === country)?.name ?? country}`}>{preferredLanguages.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</optgroup><optgroup label="All other languages">{otherLanguages.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</optgroup></select></div>
           <div className="field"><label htmlFor="quota">Target completes</label><input className="control" id="quota" name="quota" type="number" min="1" required /></div>
           <div className="field"><label htmlFor="loi">Expected LOI (minutes)</label><input className="control" id="loi" name="loi" type="number" min="1" /></div>
           <div className="field"><label htmlFor="ir">Expected incidence (%)</label><input className="control" id="ir" name="incidence" type="number" min="0" max="100" /></div>

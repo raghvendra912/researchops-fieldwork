@@ -12,11 +12,12 @@ const providerSecrets = {
 const enabled = Boolean(baseUrl);
 const run = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-async function call(path, { token, method = "GET", body, headers = {} } = {}) {
+async function call(path, { token, method = "GET", body, headers = {}, redirect = "follow" } = {}) {
   let response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
       method,
+      redirect,
       signal: AbortSignal.timeout(60_000),
       headers: {
         accept: "application/json",
@@ -33,6 +34,21 @@ async function call(path, { token, method = "GET", body, headers = {} } = {}) {
   let data;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   return { response, data };
+}
+
+function materializeSupplierLink(template, respondentRef, parameters = {}) {
+  const target = new URL(template.replace("{{respondent_id}}", encodeURIComponent(respondentRef)));
+  for (const [name, value] of Object.entries(parameters)) target.searchParams.set(name, value);
+  return `${target.pathname}${target.search}`;
+}
+
+function expectRedirect(result, expectedPath) {
+  assert.equal(result.response.status, 302, JSON.stringify(result.data));
+  const location = result.response.headers.get("location");
+  assert.ok(location, "Expected a Location header");
+  const target = new URL(location);
+  assert.equal(target.pathname, expectedPath);
+  return target;
 }
 
 function expectStatus(result, status) {
@@ -242,4 +258,185 @@ test("Worker and Supabase persist operator, event, fraud, and provider workflows
     assert.ok(actions.has(action), `Missing audit action ${action}`);
   }
   if (eventSecret) assert.ok(actions.has("FRAUD_FLAG_RESOLVED"));
+});
+
+test("latest routing migrations isolate UAT, enforce eligibility, and reserve quota atomically", { skip: !enabled }, async () => {
+  const signup = expectStatus(await call("/supabase/auth/v1/signup", {
+    method: "POST",
+    body: { email: `routing-${run}@example.test`, password: "LocalRouting!2026" },
+  }), 200);
+  const token = signup.access_token;
+  assert.ok(token);
+
+  const organization = expectStatus(await call("/api/organizations", {
+    token, method: "POST", body: { name: `Routing verification ${run}` },
+  }), 201).data;
+  const client = expectStatus(await call("/api/clients", {
+    token,
+    method: "POST",
+    body: { name: `Routing client ${run}`, code: `RC${Date.now()}`, contactName: "Routing owner", contactEmail: `routing-client-${run}@example.test` },
+  }), 201).data;
+  assert.ok(client.id);
+  const supplier = expectStatus(await call("/api/suppliers", {
+    token,
+    method: "POST",
+    body: {
+      name: `Routing supplier ${run}`,
+      code: `RS${Date.now()}`,
+      redirectMode: "STATIC",
+      contactName: "Routing supplier owner",
+      redirects: {
+        completeUrl: "https://supplier.example.test/complete",
+        terminateUrl: "https://supplier.example.test/terminate",
+        quotaFullUrl: "https://supplier.example.test/quota",
+        securityTerminateUrl: "https://supplier.example.test/security",
+      },
+    },
+  }), 201).data;
+
+  const parameters = [
+    { name: "PID", value: "{{project_id}}" },
+    { name: "RID", value: "{{respondent_id}}" },
+    { name: "SID", value: "{{session_id}}" },
+    { name: "COUNTRY", value: "{{country}}" },
+    { name: "COMPLETE", value: "{{complete_url}}" },
+  ];
+  const project = expectStatus(await call("/api/projects", {
+    token,
+    method: "POST",
+    body: {
+      projectName: `Atomic routing ${run}`,
+      client: `Routing client ${run}`,
+      clientPo: "ROUTING-E2E",
+      type: "B2C",
+      category: "Integration",
+      clientCpi: 9.5,
+      quota: 10,
+      countryCode: "US",
+      languageCode: "en",
+      loi: 10,
+      incidence: 50,
+      supplierAssignments: [{ name: `Routing supplier ${run}`, supplierCpi: 4.25 }],
+      surveyUrl: "https://survey.example.test/live",
+      testSurveyUrl: "https://survey.example.test/test",
+      surveyParameters: parameters,
+    },
+  }), 201).data;
+
+  const setup = expectStatus(await call(`/api/projects/${project.id}/survey-setup`, { token }), 200);
+  assert.equal(setup.data.liveUrl, "https://survey.example.test/live");
+  assert.equal(setup.data.testUrl, "https://survey.example.test/test");
+  assert.deepEqual(setup.data.parameters, parameters);
+
+  const savedEligibility = expectStatus(await call(`/api/projects/${project.id}/eligibility`, {
+    token,
+    method: "PUT",
+    body: { rules: [{ variableKey: "country", operator: "EQ", values: ["US"], required: true, active: true }] },
+  }), 200).data;
+  assert.equal(savedEligibility.length, 1);
+  const savedCells = expectStatus(await call(`/api/projects/${project.id}/quota-cells`, {
+    token,
+    method: "PUT",
+    body: { cells: [{ name: "US completes", targetQuota: 1, priority: 10, active: true, conditions: [{ variableKey: "country", operator: "EQ", values: ["US"], required: true }] }] },
+  }), 200).data;
+  assert.equal(savedCells[0].remaining, 1);
+
+  const assignments = expectStatus(await call(`/api/projects/${project.id}/suppliers`, { token }), 200).data;
+  assert.equal(assignments.length, 1);
+  const assignment = assignments[0];
+  assert.ok(assignment.testLink);
+  assert.ok(assignment.liveLink);
+  expectStatus(await call(`/api/projects/${project.id}/suppliers`, {
+    token,
+    method: "PUT",
+    body: { assignments: [{ supplierId: supplier.id, supplierProjectId: "ROUTING-SUP", supplierCpi: 4.25, targetQuota: 10, status: "ACTIVE" }] },
+  }), 200);
+  expectStatus(await call(`/api/projects/${project.id}/transitions`, {
+    token, method: "POST", body: { status: "LIVE" },
+  }), 200);
+
+  const testRef = `ROP-TEST-${run}`;
+  const testLaunch = await call(materializeSupplierLink(assignment.testLink, testRef, { country: "US" }), {
+    redirect: "manual", headers: { "cf-connecting-ip": "203.0.113.21" },
+  });
+  const testSurvey = expectRedirect(testLaunch, "/test");
+  assert.equal(testSurvey.searchParams.get("PID"), project.id);
+  assert.equal(testSurvey.searchParams.get("RID"), testRef);
+  assert.equal(testSurvey.searchParams.get("COUNTRY"), "US");
+  assert.ok(testSurvey.searchParams.get("SID"));
+  const testComplete = new URL(testSurvey.searchParams.get("COMPLETE"));
+  expectRedirect(await call(`${testComplete.pathname}${testComplete.search}`, {
+    redirect: "manual", headers: { "cf-connecting-ip": "203.0.113.21" },
+  }), "/complete");
+
+  const afterTest = expectStatus(await call(`/api/projects/${project.id}/suppliers`, { token }), 200).data[0];
+  assert.equal(afterTest.testStarts, 1);
+  assert.equal(afterTest.starts, 0);
+  assert.equal(afterTest.reached, 0);
+  assert.equal(afterTest.completes, 0);
+  assert.equal(afterTest.cost, 0);
+  const cellsAfterTest = expectStatus(await call(`/api/projects/${project.id}/quota-cells`, { token }), 200).data;
+  assert.equal(cellsAfterTest[0].reserved, 0);
+  assert.equal(cellsAfterTest[0].remaining, 1);
+
+  const ineligibleRef = `LIVE-INELIGIBLE-${run}`;
+  expectRedirect(await call(materializeSupplierLink(assignment.liveLink, ineligibleRef, { country: "CA" }), {
+    redirect: "manual", headers: { "cf-connecting-ip": "203.0.113.22" },
+  }), "/terminate");
+
+  const contenders = [
+    { respondentRef: `LIVE-A-${run}`, ip: "203.0.113.23" },
+    { respondentRef: `LIVE-B-${run}`, ip: "203.0.113.24" },
+  ];
+  const launches = await Promise.all(contenders.map((contender) => call(
+    materializeSupplierLink(assignment.liveLink, contender.respondentRef, { country: "US" }),
+    { redirect: "manual", headers: { "cf-connecting-ip": contender.ip } },
+  )));
+  const routed = launches.map((result, index) => ({ result, contender: contenders[index], location: new URL(result.response.headers.get("location")) }));
+  assert.ok(routed.every(({ result }) => result.response.status === 302));
+  const admitted = routed.filter(({ location }) => location.pathname === "/live");
+  const rejected = routed.filter(({ location }) => location.pathname === "/quota");
+  assert.equal(admitted.length, 1, "Exactly one concurrent respondent must reserve the one-slot cell");
+  assert.equal(rejected.length, 1, "The other concurrent respondent must be quota-full");
+  assert.equal(admitted[0].location.searchParams.get("RID"), admitted[0].contender.respondentRef);
+  assert.equal(admitted[0].location.searchParams.get("COUNTRY"), "US");
+
+  const liveComplete = new URL(admitted[0].location.searchParams.get("COMPLETE"));
+  const supplierReturn = expectRedirect(await call(`${liveComplete.pathname}${liveComplete.search}`, {
+    redirect: "manual", headers: { "cf-connecting-ip": admitted[0].contender.ip },
+  }), "/complete");
+  assert.equal(supplierReturn.searchParams.get("respondent_id"), admitted[0].contender.respondentRef);
+  assert.equal(supplierReturn.searchParams.get("project_id"), project.id);
+  assert.equal(supplierReturn.searchParams.get("status"), "complete");
+
+  expectRedirect(await call(materializeSupplierLink(assignment.liveLink, `LIVE-C-${run}`, { country: "US" }), {
+    redirect: "manual", headers: { "cf-connecting-ip": "203.0.113.25" },
+  }), "/quota");
+
+  const finalSupplier = expectStatus(await call(`/api/projects/${project.id}/suppliers`, { token }), 200).data[0];
+  assert.equal(finalSupplier.testStarts, 1);
+  assert.equal(finalSupplier.starts, 2);
+  assert.equal(finalSupplier.reached, 1);
+  assert.equal(finalSupplier.completes, 1);
+  assert.equal(finalSupplier.terminates, 1);
+  assert.equal(finalSupplier.overQuota, 2);
+  assert.equal(finalSupplier.cost, 4.25);
+  const finalCells = expectStatus(await call(`/api/projects/${project.id}/quota-cells`, { token }), 200).data;
+  assert.equal(finalCells[0].completes, 1);
+  assert.equal(finalCells[0].reserved, 0);
+  assert.equal(finalCells[0].remaining, 0);
+
+  const specification = expectStatus(await call(`/api/projects/specifications?codes=${project.id}`, { token }), 200).data[0];
+  assert.equal(specification.projectCode, project.id);
+  assert.equal(specification.testSurveyUrl, "https://survey.example.test/test");
+  assert.deepEqual(specification.surveyParameters, parameters);
+  assert.equal(specification.eligibilityRules.length, 1);
+  assert.equal(specification.quotaCells.length, 1);
+
+  const audit = expectStatus(await call(`/supabase/rest/v1/audit_logs?organization_id=eq.${organization.id}&select=action`, { token }), 200);
+  const actions = new Set(audit.map((row) => row.action));
+  for (const action of ["PROJECT_CREATED", "PROJECT_ELIGIBILITY_REPLACED", "PROJECT_QUOTA_CELLS_REPLACED", "PROJECT_SURVEY_SETUP_UPDATED"]) {
+    if (action === "PROJECT_SURVEY_SETUP_UPDATED") continue;
+    assert.ok(actions.has(action), `Missing latest-routing audit action ${action}`);
+  }
 });
