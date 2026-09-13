@@ -23,8 +23,8 @@ const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }>
 };
 
 function serviceHeaders(env: RedirectEnv) { return { apikey: env.SUPABASE_SERVICE_ROLE_KEY!, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }; }
-async function serviceRows<T>(env: RedirectEnv, path: string): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}${path}`, { headers: serviceHeaders(env) }); if (!response.ok) throw new Error("Redirect lookup failed"); return response.json() as Promise<T[]>; }
-async function serviceRpc<T>(env: RedirectEnv, name: string, body: Record<string, unknown>): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body) }); if (!response.ok) throw new Error("Routing reservation failed"); return response.json() as Promise<T[]>; }
+async function serviceRows<T>(env: RedirectEnv, path: string): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}${path}`, { headers: serviceHeaders(env) }); if (!response.ok) throw new Error(`Redirect lookup failed with upstream status ${response.status}`); return response.json() as Promise<T[]>; }
+async function serviceRpc<T>(env: RedirectEnv, name: string, body: Record<string, unknown>): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Routing reservation failed with upstream status ${response.status}`); return response.json() as Promise<T[]>; }
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
 function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
@@ -162,6 +162,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
   } catch (error) {
     const id = requestId(request);
     safeLog("error", "redirect_failed", { requestId: id, path: pathname, stage: routingStage, error: error instanceof Error ? error.message : "Unknown redirect failure" });
-    return unavailable(`The routing configuration failed during ${routingStage}. Reference: ${id}`, 502);
+    const upstreamStatus = error instanceof Error ? error.message.match(/upstream status (\d{3})/)?.[1] : undefined;
+    return unavailable(`The routing configuration failed during ${routingStage}${upstreamStatus ? ` (upstream ${upstreamStatus})` : ""}. Reference: ${id}`, 502);
   }
 }
