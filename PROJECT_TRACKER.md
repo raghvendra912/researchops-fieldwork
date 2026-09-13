@@ -1011,3 +1011,10 @@ Do not record secret values here. Mark only whether they are available.
 - Verification: eligibility business rules pass as part of 6/6 focused rules; production build passes; focused Worker/API test passes 1/1 including valid/invalid CRUD; Chromium passes 6/6 including editor interaction; `git diff --check` passes.
 - Current task is commit/push. Next task is atomic advanced/interlocking quota cells and reservation, followed by migrations `023`-`025` and authenticated hosted vertical-slice proof.
 - Current task is deployment followed by authenticated supplier Test → session → metrics → outcome verification on the hosted revision.
+
+### 2026-09-13 - Migration 023 view compatibility fix
+
+- Corrected migration `023_test_traffic_separation.sql` after PostgreSQL rejected an in-place view column rename from `starts` to `test_starts`.
+- Preserved every existing `project_event_metrics` and `project_supplier_event_metrics` column in its original ordinal position and appended `test_starts` at the end, which is supported by `CREATE OR REPLACE VIEW` and avoids dropping dependent views or APIs.
+- Verification: production build, lint, and `git diff --check` pass.
+- Current task is rerunning migration `023`, followed by migrations `024` onward in order. Next task remains authenticated hosted routing and metrics verification.
