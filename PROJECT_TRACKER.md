@@ -1018,3 +1018,10 @@ Do not record secret values here. Mark only whether they are available.
 - Preserved every existing `project_event_metrics` and `project_supplier_event_metrics` column in its original ordinal position and appended `test_starts` at the end, which is supported by `CREATE OR REPLACE VIEW` and avoids dropping dependent views or APIs.
 - Verification: production build, lint, and `git diff --check` pass.
 - Current task is rerunning migration `023`, followed by migrations `024` onward in order. Next task remains authenticated hosted routing and metrics verification.
+
+### 2026-09-13 - Migration 027 fraud resolver syntax fix
+
+- Corrected `resolve_fraud_flag` in migration `027_project_scoped_access.sql`: PostgreSQL does not allow a `%rowtype` record variable and a scalar variable in the same multi-item `SELECT INTO` target list.
+- The function now locks and loads the authorized fraud flag into its row variable, then reads the related session project ID separately for the audit record; review authorization and update behavior are unchanged.
+- Scanned all migrations for the same pattern; remaining multi-item `INTO` statements target scalar variables and are valid.
+- Verification: lint and `git diff --check` pass. Current task is rerunning migration `027`, then continuing with `028`.

@@ -210,9 +210,10 @@ language plpgsql security invoker set search_path=public as $$
 declare target public.fraud_flags%rowtype; target_project_id uuid;
 begin
   if p_status not in ('CONFIRMED','DISMISSED') then raise exception 'Invalid resolution'; end if;
-  select f,s.project_id into target,target_project_id from public.fraud_flags f join public.survey_sessions s on s.id=f.session_id
+  select f.* into target from public.fraud_flags f join public.survey_sessions s on s.id=f.session_id
   where f.id=p_flag_id and public.can_review_project(s.project_id) for update of f;
   if not found then raise exception 'Flag not found or review access denied'; end if;
+  select s.project_id into target_project_id from public.survey_sessions s where s.id=target.session_id;
   update public.fraud_flags f set status=p_status,reviewed_by=auth.uid(),reviewed_at=now() where f.id=target.id returning f.id,f.status,f.reviewed_at into id,status,reviewed_at;
   insert into public.audit_logs(organization_id,actor_user_id,action,entity_type,entity_id,metadata) values(target.organization_id,auth.uid(),'FRAUD_FLAG_RESOLVED','FRAUD_FLAG',target.id,jsonb_build_object('from',target.status,'to',p_status,'project_id',target_project_id));
   return next;
