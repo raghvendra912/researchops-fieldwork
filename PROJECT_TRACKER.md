@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-13
 Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `029`; local lint, build, and standard tests pass. Linked production migration history now verifies `001`-`029`; deterministic deployment uptake and authenticated routing/project-creation verification remain incomplete.
+Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `030`; local lint, build, and standard tests pass. Linked production migration history verifies `001`-`030`; production project creation requires one post-fix retry, while deterministic deployment uptake and authenticated routing verification remain incomplete.
 
 ## Resume protocol
 
@@ -351,8 +351,16 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Linked production migration reconciliation | PASS - Supabase CLI linked to project `cmrktkzdptmywrtscalu`. Remote history initially stopped at `022`; `023` and `024` applied normally, existing manually-created `025`-`027` schemas were reconciled into migration history without deleting data, and `028` applied normally. A final linked check reports local/remote parity for every migration `001`-`028`; Vercel health returns HTTP 200. |
 | 2026-09-13 | Full-project evidence audit | MIXED - production build and standard suite pass (27 passed, 5 environment-gated skips); lint passes but takes about 146 seconds; production dependency audit reports zero known vulnerabilities. The 10-test Chromium suite times out after five minutes with at least two 30-second failures. Vercel health/readiness return HTTP 200, while authenticated routing/build identity remain unproved. |
 | 2026-09-13 | Production project-creation failure response | FIX DEPLOYED TO DATABASE / APP PUSH PENDING - migration `029` explicitly reloaded the PostgREST schema cache after RPC changes from `028`. The Worker now retains safe Supabase status/code/detail diagnostics instead of reducing every database rejection to one generic 502. Production build and standard tests pass: 27 passed, 5 environment-gated skips. |
+| 2026-09-13 | Project INSERT RLS repair and market catalog audit | DATABASE FIX APPLIED / RETEST PENDING - the improved production diagnostic identified `42501: new row violates row-level security policy for table projects`. Migration `030` narrowly recreates the intended OWNER/ADMIN/PM project INSERT policy and reloads PostgREST; linked history matches `001`-`030`. The market catalog contains 249 ISO countries/territories and 184 languages; build and standard tests pass with 27 passed and 5 environment-gated skips. |
 
 ## Session log
+
+### 2026-09-13 - Project creation RLS repair and catalog verification
+
+- Used the deployed bounded Supabase diagnostic to identify the exact project-creation failure: PostgreSQL `42501`, new project rows rejected by the `projects` RLS policy.
+- Applied migration `030_restore_project_insert_policy.sql`, recreating only the intended authenticated project INSERT policy with `can_operate_organization`; no broad RLS bypass or multi-table permission rewrite was applied.
+- Verified linked migration parity through `030`, production build, and the standard suite (27 passed, 5 environment-gated skips). A post-deployment authenticated Create Project retry remains required.
+- Audited market options: source data contains all 249 ISO 3166 countries/territories and 184 ISO 639-1 languages, sorted by display name. Client and supplier choices intentionally come from ACTIVE records saved within the current workspace rather than an undefined global company directory.
 
 ### 2026-09-13 - Project creation database failure diagnosis
 
