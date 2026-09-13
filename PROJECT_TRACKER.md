@@ -353,8 +353,15 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Production project-creation failure response | FIX DEPLOYED TO DATABASE / APP PUSH PENDING - migration `029` explicitly reloaded the PostgREST schema cache after RPC changes from `028`. The Worker now retains safe Supabase status/code/detail diagnostics instead of reducing every database rejection to one generic 502. Production build and standard tests pass: 27 passed, 5 environment-gated skips. |
 | 2026-09-13 | Project INSERT RLS repair and market catalog audit | DATABASE FIX APPLIED / RETEST PENDING - the improved production diagnostic identified `42501: new row violates row-level security policy for table projects`. Migration `030` narrowly recreates the intended OWNER/ADMIN/PM project INSERT policy and reloads PostgREST; linked history matches `001`-`030`. The market catalog contains 249 ISO countries/territories and 184 languages; build and standard tests pass with 27 passed and 5 environment-gated skips. |
 | 2026-09-13 | Production schema repair through `033` | PASS / UI RETEST PENDING - migration `031` removes the scoped SELECT-RLS conflict caused by `INSERT ... RETURNING *`; `032` repairs eligibility/quota JSON ordinality syntax and the ambiguous quota reservation column; `033` corrects project-access UUID array initialization. Linked migration parity is exact through `033`, and `supabase db lint --linked --level warning` reports no schema errors. |
+| 2026-09-13 | ROP-1137 production Test-route reproduction | FAIL / DIAGNOSTIC DEPLOYMENT PENDING - both a concrete respondent ID and the literal supplier placeholder return HTTP 502 from Vercel after schema lint reached zero errors. The route now records and safely renders the failing stage plus request reference so the exact runtime dependency can be isolated without another user screenshot cycle; build passes. |
 
 ## Session log
+
+### 2026-09-13 - Stage-aware routing diagnosis
+
+- Reproduced the supplied ROP-1137 Test-mode URL against production with a concrete respondent ID; Vercel returned an uncached HTTP 502, proving the remaining fault is inside the runtime routing chain rather than the literal `{{respondent_id}}` placeholder alone.
+- Added bounded routing-stage diagnostics for supplier lookup, assignment lookup, eligibility, respondent start, fraud, outcome-token lookup, and reached-client ingestion. Public errors retain a request reference without exposing secrets or respondent metadata.
+- Verification: production build passes. Current task is deploying the diagnostic revision, hitting the same route directly, and fixing the identified stage; no further user-side reproduction is required for diagnosis.
 
 ### 2026-09-13 - Complete production function lint repair
 

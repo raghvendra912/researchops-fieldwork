@@ -49,9 +49,11 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
   if (request.method !== "GET") return unavailable("Method not allowed", 405);
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return unavailable("Routing is not configured", 503);
 
+  let routingStage = "route initialization";
   try {
     const url = new URL(request.url);
     if (supplierMatch) {
+      routingStage = "supplier lookup";
       const supplier = await supplierByToken(env, supplierMatch[1]);
       if (!supplier || supplier.status !== "ACTIVE") return unavailable("Supplier link is inactive", 404);
       if (supplierMatch[2] === "test") {
@@ -68,6 +70,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const projectCode = clean(url.searchParams.get("project"), 40).toUpperCase();
       const respondentRef = clean(url.searchParams.get("respondent"));
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
+      routingStage = "project assignment lookup";
       const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
@@ -75,6 +78,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : unavailable("Project traffic is not active", 409);
       }
+      routingStage = "eligibility lookup";
       const eligibilityRows = await serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=sort_order.asc`);
       const answers = eligibilityAnswers(url.searchParams);
       const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), answers);
@@ -95,6 +99,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         }
         reservationId = reservations[0].reservation_id;
       }
+      routingStage = "respondent start";
       const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return unavailable("The respondent session could not be started", 502); }
@@ -106,11 +111,13 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
           : unavailable("The client survey URL is not configured", 422);
       }
       if (startBody?.data?.sessionId) {
+        routingStage = "fraud check";
         const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
         if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE"); return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : unavailable("The respondent did not pass security checks", 403); }
       }
       const sessionId = startBody?.data?.sessionId;
       if (!sessionId) return unavailable("The respondent session could not be secured", 502);
+      routingStage = "outcome route lookup";
       const sessionRows = await serviceRows<{ outcome_token: string }>(env, `/rest/v1/survey_sessions?select=outcome_token&id=eq.${encodeURIComponent(sessionId)}&limit=1`);
       const outcomeToken = sessionRows[0]?.outcome_token;
       if (!outcomeToken) return unavailable("The respondent outcome route could not be created", 502);
@@ -122,6 +129,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!surveyUrl.searchParams.has("terminate_url")) surveyUrl.searchParams.set("terminate_url", callback("terminate"));
       if (!surveyUrl.searchParams.has("quota_full_url")) surveyUrl.searchParams.set("quota_full_url", callback("quota-full"));
       if (!surveyUrl.searchParams.has("security_terminate_url")) surveyUrl.searchParams.set("security_terminate_url", callback("security-terminate"));
+      routingStage = "client reached event";
       await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT", isTest ? "test-redirect" : "redirect", isTest);
       return redirect(surveyUrl.toString());
     }
@@ -152,7 +160,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     const result = await recordEvent(request, env, supplier, projectCode, respondentRef, outcomes[outcome].eventType); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
     const target = supplier[outcomes[outcome].field]; return typeof target === "string" && target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType)) : unavailable(`${outcome} redirect is not configured`, 422);
   } catch (error) {
-    safeLog("error", "redirect_failed", { requestId: requestId(request), path: pathname, error: error instanceof Error ? error.message : "Unknown redirect failure" });
-    return unavailable("The routing configuration could not be completed. The operations team can use the request log to identify the failed step.", 502);
+    const id = requestId(request);
+    safeLog("error", "redirect_failed", { requestId: id, path: pathname, stage: routingStage, error: error instanceof Error ? error.message : "Unknown redirect failure" });
+    return unavailable(`The routing configuration failed during ${routingStage}. Reference: ${id}`, 502);
   }
 }
