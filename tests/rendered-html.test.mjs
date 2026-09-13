@@ -20,11 +20,11 @@ test("server-renders the ResearchOps Project Center", async () => {
   const html = await response.text();
   assert.match(html, /<title>Project Center · ResearchOps<\/title>/i);
   assert.match(html, /Project Center/);
-  assert.match(html, /Checking your workspace session/i);
+  assert.match(html, /Active portfolio/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
-test("server-renders the protected operational dashboard shell",async()=>{const response=await request("/dashboard");assert.equal(response.status,200);const html=await response.text();assert.match(html,/Checking your workspace session/i);assert.match(html,/Dashboard/)});
+test("server-renders the protected operational dashboard shell",async()=>{const response=await request("/dashboard");assert.equal(response.status,200);const html=await response.text();assert.match(html,/ResearchOps/i);assert.match(html,/Dashboard/)});
 
 test("server-renders password recovery routes without account disclosure", async () => {
   const requestPage = await request("/forgot-password");
@@ -51,16 +51,16 @@ test("server-renders email OTP signup", async () => {
 test("server-renders persistent directory surfaces", async () => {
   const clients = await request("/clients");
   assert.equal(clients.status, 200);
-  assert.match(await clients.text(), /Checking your workspace session/i);
+  assert.match(await clients.text(), /Clients[\s\S]*directory/i);
   const suppliers = await request("/suppliers");
   assert.equal(suppliers.status, 200);
-  assert.match(await suppliers.text(), /Checking your workspace session/i);
+  assert.match(await suppliers.text(), /Suppliers[\s\S]*directory/i);
   const fraud = await request("/fraud");
   assert.equal(fraud.status, 200);
-  assert.match(await fraud.text(), /Checking your workspace session/i);
+  assert.match(await fraud.text(), /Fraud review/i);
   const notificationsPage = await request("/notifications");
   assert.equal(notificationsPage.status, 200);
-  assert.match(await notificationsPage.text(), /Checking your workspace session/i);
+  assert.match(await notificationsPage.text(), /Notifications/i);
 });
 
 test("serves Worker health and project APIs", async () => {
@@ -102,7 +102,8 @@ test("serves Worker health and project APIs", async () => {
     { projectName: "Invalid LOI", client: "Northstar Bank", quota: 100, clientCpi: 8.5, loi: 0 },
     { projectName: "Invalid incidence", client: "Northstar Bank", quota: 100, clientCpi: 8.5, incidence: 101 },
     { projectName: "Invalid survey", client: "Northstar Bank", quota: 100, clientCpi: 8.5, surveyUrl: "javascript:alert(1)" },
-    { projectName: "Invalid security redirect", client: "Northstar Bank", quota: 100, clientCpi: 8.5, securityTerminateUrl: "ftp://unsafe.example" },
+    { projectName: "Invalid test survey", client: "Northstar Bank", quota: 100, clientCpi: 8.5, testSurveyUrl: "ftp://unsafe.example" },
+    { projectName: "Invalid survey parameters", client: "Northstar Bank", quota: 100, clientCpi: 8.5, surveyParameters: [{ name: "bad name", value: "x" }] },
   ]) {
     const rejectedProject = await request("/api/projects", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(invalidProject),
@@ -151,6 +152,17 @@ test("serves Worker health and project APIs", async () => {
   assert.equal((await quotaCellsUpdated.json()).data[0].targetQuota, 80);
   const invalidQuotaCells = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ cells: [{ name: "Bad", targetQuota: 0, conditions: [] }] }) });
   assert.equal(invalidQuotaCells.status, 400);
+
+  const projectAccess = await request("/api/projects/PRJ-1048/access");
+  assert.equal(projectAccess.status, 200);
+  const projectAccessBody = await projectAccess.json();
+  assert.equal(projectAccessBody.meta.canManage, true);
+  assert.equal(projectAccessBody.data[0].accessRole, "REVIEWER");
+  const projectAccessUpdated = await request("/api/projects/PRJ-1048/access", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ grants: [{ userId: "00000000-0000-4000-8000-000000000011", accessRole: "EDITOR" }, { userId: "00000000-0000-4000-8000-000000000013", accessRole: "VIEWER" }] }) });
+  assert.equal(projectAccessUpdated.status, 200);
+  assert.equal((await projectAccessUpdated.json()).data.length, 2);
+  const incompatibleAccess = await request("/api/projects/PRJ-1048/access", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ grants: [{ userId: "00000000-0000-4000-8000-000000000012", accessRole: "EDITOR" }] }) });
+  assert.equal(incompatibleAccess.status, 400);
 
   const assignments = await request("/api/projects/PRJ-1048/suppliers");
   assert.equal(assignments.status, 200);
@@ -236,7 +248,8 @@ test("serves Worker health and project APIs", async () => {
   const createdClientBody = await clientCreated.json();
   assert.equal(createdClientBody.data.redirects, undefined);
   assert.equal(createdClientBody.data.redirectVariables.length, 2);
-  assert.match(createdClientBody.data.links.complete, /\/r\/client\/[^/]+\/complete\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/);
+  assert.match(createdClientBody.data.links.complete, /\/r\/client\/[^/]+\/complete\?rid=\{\{respondent_id\}\}$/);
+  assert.doesNotMatch(createdClientBody.data.links.complete, /project=/);
   const clientUpdated = await request("/api/clients/client-northstar", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Northstar Financial", code: "NORTHSTAR_FIN" }) });
   assert.equal(clientUpdated.status, 200);
   assert.equal((await clientUpdated.json()).data.name, "Northstar Financial");

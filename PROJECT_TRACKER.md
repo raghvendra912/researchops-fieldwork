@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-13
 Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, and atomic project/supplier/interlocked quota reservation are code-ready through migration `026`; local build, rule, API, and quota-editor browser checks pass. Hosted migrations and deterministic deployment uptake remain unverified, so the public URL is not claimed to run this revision.
+Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `028`; local lint, build, rule/API, and focused Chromium checks pass. Hosted migrations and deterministic deployment uptake remain unverified, so the public URL is not claimed to run this revision.
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - routing, quota, and deployment proof
 
-1. Apply migrations `023` through `026` to the target Supabase environment before deploying the matching Worker revision.
+1. Apply migrations `023` through `028` to the target Supabase environment before deploying the matching Worker revision.
 2. Prove an authenticated supplier Test → TST-only metric and Live → reservation → ST/RC → terminal outcome → supplier return flow against persistent data, including concurrent capacity boundaries.
 3. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
 4. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
@@ -53,7 +53,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Browser verification gate
 
-- Playwright Chromium is installed and local desktop/mobile shell plus hosted health/readiness checks pass. Hosted authentication credentials are still required for the protected routing and respondent-outcome vertical slice.
+- Playwright Chromium is installed; local desktop/mobile shell and the supplier Test/Live link dialog plus hosted health/readiness checks pass. Hosted authentication credentials are still required for the protected routing and respondent-outcome vertical slice.
 
 ## Feature board
 
@@ -86,6 +86,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `ORG-02` | Roles and server authorization | DONE | Worker and database role boundaries are live integration-tested for owner, analyst, and cross-tenant access. |
 | `ORG-03` | Workspace settings | DONE | Owner/admin-controlled organization name and timezone persist through an audited RPC; mandatory security controls are presented as enforced and live update/audit/restore verification passes. |
 | `ORG-04` | Tenant-visible member profiles | DONE | Auth signup/update synchronizes a safe display name; tenant RLS exposes only shared-workspace teammates, and project manager reads never expose internal IDs as labels. |
+| `ORG-05` | Project-scoped collaborator access | READY | Migration `027` adds EDITOR/REVIEWER/VIEWER grants beneath workspace roles, scoped RLS/capabilities, audited replacement, a project-team editor, and fraud-review enforcement; hosted migration and multi-user RLS proof remain. |
 | `AUD-01` | Privileged action audit trail | DONE | Live integration verifies project creation/update/transitions, directory changes, market/quota changes, supplier assignments, fraud resolution, and rule administration audit records. |
 
 ### M3 - Projects, clients, suppliers, and markets
@@ -101,6 +102,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `PRJ-07` | Project state transitions | DONE | Hosted migration and automated rules implement PENDING, LIVE, PAUSED, ID_SUBMITTED, INVOICED, and CLOSED with audited controlled transitions; existing DRAFT records were normalized to PENDING. |
 | `PRJ-08` | Project detail UI | READY | API-backed detail loading/editing, created date, survey/security URLs, average duration, lifecycle actions, markets, and expanded supplier comparison render in mock/Supabase modes; non-operators remain read-only. |
 | `PRJ-09` | Project manager and survey configuration | DONE | Creation assigns the authenticated operator; audited create/read/update flows persist validated project survey and security-termination URLs while directory records own outcome routing. |
+| `PRJ-10` | Test/live survey routing and URL parameters | READY | Migration `028` stores separate test/live survey destinations and up to 30 open-ended parameter templates; creation, editing, routing, and full-specification CSV export are connected. Hosted migration and end-to-end parameter proof remain. |
 | `MKT-01` | Multi-market editor | DONE | Live Worker integration replaces two unique country-language rows atomically and verifies the audit record. |
 | `MKT-02` | ISO market option catalog | READY | Hosted creation and market editing expose the complete ISO 3166-1 alpha-2 country and ISO 639-1 language catalogs with API allowlist validation; browser interaction evidence remains pending. |
 | `QTA-01` | Quota management | DONE | Live Worker integration proves positive market quotas and the 150-response project quota roll-up. |
@@ -110,7 +112,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
 | `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
 | `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
-| `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing separate TST plus production ST/RC/CO/TE/OQ/QT, IR, cost, redirect mode, and copyable Test/Live links; PAUSED/CLOSED stops live routing. |
+| `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing separate TST plus production ST/RC/CO/TE/OQ/QT, IR, cost, and redirect mode. A bordered dialog presents Test and Live links in separate cards with dedicated copy/open actions; PAUSED/CLOSED stops live routing. |
 | `SUP-04` | Persistent supplier assignment | DONE | Live Worker integration proves atomic assignment replacement for supplier project ID, CPI, quota, status, tenant authorization, and audit history. |
 
 ### M4 - Sessions, events, and operational metrics
@@ -247,7 +249,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
-| `BLK-10` | The Sites host has not demonstrably consumed recent pushed revisions, and this workspace has no linked Supabase project/local running stack for migrations `023`-`026`. The repository project ID returns `not found` in the currently selected personal Sites account, whose site list contains only an unrelated redirect tester; the `rav9912` ResearchOps host belongs to another Sites owner/workspace context. | Select/connect the Sites account that owns `appgprj_6a928169a84c8191b3f330591bd308cd`, apply migrations in order through `026`, deploy saved commit `ed6ec9f`, and verify the visible build identity plus authenticated routing data before production claims. |
+| `BLK-10` | The Sites host has not demonstrably consumed recent pushed revisions, and this workspace has no linked Supabase project/local running stack for migrations `023`-`028`. The repository project ID returns `not found` in the currently selected personal Sites account, whose site list contains only an unrelated redirect tester; the `rav9912` ResearchOps host belongs to another Sites owner/workspace context. | Select/connect the Sites account that owns `appgprj_6a928169a84c8191b3f330591bd308cd`, apply migrations in order through `028`, deploy the latest saved `main` revision, and verify the visible build identity plus authenticated routing data before production claims. |
 
 ## Verification record
 
@@ -343,8 +345,18 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-30 | Supabase gateway decoded-body production rollout | PASS - direct Vercel production deployment `dpl_2vy7vHKyGrjyzosnDoYTypi7VYNy` is Ready and aliased to `www.asrv.co.in`; live Auth response inspection confirms stale compression headers are absent |
 | 2026-09-13 | Advanced quota code-ready verification | PASS LOCALLY - lint passes; production build passes; quota/eligibility business rules pass 7/7; focused Worker API passes 1/1 including quota CRUD validation; Chromium confirms the new quota editor. The full 7-test browser run has two pre-existing/flaky shell/eligibility readiness failures while 5/7, including the new quota test, pass; database migration/concurrency proof remains environment-gated. |
 | 2026-09-13 | Commit `3bf16d7` push and hosted uptake check | PUSHED / NOT DEPLOYED - `origin/main` accepted the atomic-quota revision. Public health and readiness return HTTP 200 with Supabase configured, but none of nine referenced JavaScript assets contains the quota API/reservation build markers; the Sites host has not consumed this revision. |
+| 2026-09-13 | Supplier link dialog and current branch regression | PASS LOCALLY - lint and production build pass; 19 business/server-rendered tests pass; focused Chromium passes against a fresh production server and visual evidence confirms separate bordered Test/Live cards with copy actions. The first two dev-server attempts failed from stale/cold navigation and were not counted as product failures. |
 
 ## Session log
+
+### 2026-09-13 - Separated supplier Test/Live link dialog
+
+- Replaced ambiguous inline supplier routing actions with one Links control that opens a centered bordered dialog containing distinct Test and Live cards.
+- Test generates a unique `ROP-TEST-*` respondent link and offers separate Copy test and Open test actions; Live copies the reusable supplier template containing `{{respondent_id}}`.
+- Added a staged-schema compatibility fallback so Supplier delivery can still load production metrics when the Worker revision arrives before migration `023`; TST remains zero/unavailable until that migration is applied.
+- Preserved and verified the in-progress migration `027` project-scoped access and migration `028` test/live survey URL plus open-ended parameter work already present in the branch.
+- Verification: `npm run lint` PASS; `npm run build` PASS; business/server-rendered suite 19/19 PASS; focused Chromium supplier-link dialog PASS on a fresh production server; visual screenshot reviewed; `git diff --check` PASS. No credentials or secrets were added.
+- Current task is push/deployment uptake verification. Next is applying migrations `023`-`028` in order and proving authenticated Test → TST-only metrics and Live → reservation → outcome → supplier return against persistent hosted data.
 
 ### 2026-09-13 - Atomic interlocked quota reservation
 

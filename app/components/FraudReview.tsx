@@ -10,6 +10,7 @@ type Flag = {
   severity: string;
   status: string;
   evidence: Record<string, unknown>;
+  canReview?: boolean;
   session: {
     respondentRef: string;
     project: { projectCode: string; projectName: string };
@@ -69,7 +70,7 @@ export function FraudReview() {
             <td>{flag.severity}</td>
             <td>{Object.entries(flag.evidence).map(([key, value]) => `${key}: ${String(value)}`).join(" · ")}</td>
             <td><span className={`status-pill status-${flag.status}`}>{flag.status}</span></td>
-            <td>{flag.status === "OPEN" && canOperate
+            <td>{flag.status === "OPEN" && canOperate && flag.canReview !== false
               ? <div className="row-actions"><button className="button small" type="button" onClick={() => void resolve(flag, "CONFIRMED")}>Confirm</button><button className="button small ghost" type="button" onClick={() => void resolve(flag, "DISMISSED")}>Dismiss</button></div>
               : flag.status === "OPEN" ? "Awaiting operator" : "Reviewed"}</td>
           </tr>)}</tbody>

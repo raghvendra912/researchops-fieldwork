@@ -5,11 +5,12 @@ import { standardSupplierRedirect } from "../domain/supplier-redirect";
 import { requestId, safeLog } from "../lib/observability";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
+import { buildSurveyUrl, type SurveyParameter } from "../domain/survey-url";
 
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
-type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: { id: string; project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] } | { id: string; project_code: string; status: string; survey_url: string | null; clients: { redirect_token: string } | { redirect_token: string }[] }[] };
+type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients: { redirect_token: string } | { redirect_token: string }[] } | { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients: { redirect_token: string } | { redirect_token: string }[] }[] };
 type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
 type QuotaCellRow = { id: string; name: string; target_quota: number; priority: number; active: boolean; conditions: unknown };
 type QuotaReservationRow = { reservation_id: string | null; quota_cell_id: string | null; allowed: boolean; reason: string; reserved_until: string | null };
@@ -67,7 +68,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const projectCode = clean(url.searchParams.get("project"), 40).toUpperCase();
       const respondentRef = clean(url.searchParams.get("respondent"));
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
-      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
@@ -97,7 +98,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return unavailable("The respondent session could not be started", 502); }
-      if (!project.survey_url) {
+      const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
+      if (!surveyTemplate) {
         if (!isTest && reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
         return isTest
           ? routingPage("The test hit was recorded", "ST has been added to supplier metrics. Add a valid client survey URL to test the onward redirect and RC metric.", 200, "success")
@@ -113,8 +115,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const outcomeToken = sessionRows[0]?.outcome_token;
       if (!outcomeToken) return unavailable("The respondent outcome route could not be created", 502);
       const callback = (outcome: Outcome) => `${url.origin}/r/outcome/${outcomeToken}/${outcome}`;
-      const survey = project.survey_url.replaceAll("{{respondent_id}}", encodeURIComponent(respondentRef)).replaceAll("{{project_id}}", encodeURIComponent(projectCode)).replaceAll("{{complete_url}}", encodeURIComponent(callback("complete"))).replaceAll("{{terminate_url}}", encodeURIComponent(callback("terminate"))).replaceAll("{{quota_full_url}}", encodeURIComponent(callback("quota-full"))).replaceAll("{{security_terminate_url}}", encodeURIComponent(callback("security-terminate")));
-      const surveyUrl = new URL(survey);
+      const configuredParameters = Array.isArray(project.survey_parameters) ? project.survey_parameters.filter((value): value is SurveyParameter => { const item = value as Partial<SurveyParameter>; return typeof item?.name === "string" && typeof item?.value === "string"; }) : [];
+      const surveyUrl = buildSurveyUrl(surveyTemplate, configuredParameters, { ...answers, project_id: projectCode, respondent_id: respondentRef, session_id: sessionId, complete_url: callback("complete"), terminate_url: callback("terminate"), quota_full_url: callback("quota-full"), security_terminate_url: callback("security-terminate") });
       if (!surveyUrl.searchParams.has("rid")) surveyUrl.searchParams.set("rid", respondentRef);
       if (!surveyUrl.searchParams.has("complete_url")) surveyUrl.searchParams.set("complete_url", callback("complete"));
       if (!surveyUrl.searchParams.has("terminate_url")) surveyUrl.searchParams.set("terminate_url", callback("terminate"));
@@ -139,12 +141,14 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;
-    const projectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project") ?? url.searchParams.get("survey_id"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("transaction_id") ?? url.searchParams.get("respondent") ?? url.searchParams.get("rid") ?? url.searchParams.get("uid"));
-    if (!projectCode || !respondentRef) return unavailable("Project and respondent are required", 400);
+    const requestedProjectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project") ?? url.searchParams.get("survey_id"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("transaction_id") ?? url.searchParams.get("respondent") ?? url.searchParams.get("rid") ?? url.searchParams.get("uid"));
+    if (!respondentRef) return unavailable("Respondent ID is required", 400);
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${clientMatch![1]}&limit=1`); if (!clients[0]) return unavailable("Client link was not found", 404);
-    const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+    const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
+    const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,started_at,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&${projectFilter}&order=started_at.desc&limit=1`);
     const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return unavailable("Respondent routing session was not found", 404);
+    const projectCode = project.project_code;
     const result = await recordEvent(request, env, supplier, projectCode, respondentRef, outcomes[outcome].eventType); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
     const target = supplier[outcomes[outcome].field]; return typeof target === "string" && target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType)) : unavailable(`${outcome} redirect is not configured`, 422);
   } catch (error) {

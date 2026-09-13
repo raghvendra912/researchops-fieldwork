@@ -46,14 +46,14 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
 
   const values = await links.allTextContents();
   expect(values).toEqual(expect.arrayContaining([
-    expect.stringMatching(/\/r\/client\/[^/?]+\/complete\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
-    expect.stringMatching(/\/r\/client\/[^/?]+\/terminate\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
-    expect.stringMatching(/\/r\/client\/[^/?]+\/quota-full\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
-    expect.stringMatching(/\/r\/client\/[^/?]+\/security-terminate\?rid=\{\{respondent_id\}\}&project=\{\{project_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/complete\?rid=\{\{respondent_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/terminate\?rid=\{\{respondent_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/quota-full\?rid=\{\{respondent_id\}\}$/),
+    expect.stringMatching(/\/r\/client\/[^/?]+\/security-terminate\?rid=\{\{respondent_id\}\}$/),
   ]));
   for (const value of values) {
     expect(value).toContain("rid={{respondent_id}}");
-    expect(value).toContain("project={{project_id}}");
+    expect(value).not.toContain("project=");
   }
 });
 
@@ -62,6 +62,21 @@ test("supplier delivery separates test starts from live metrics", async ({ page 
   await expect(page.getByRole("heading", { name: "Supplier delivery" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "TST" })).toHaveAttribute("title", /excluded from live metrics/i);
   await expect(page.getByText("Test hits are separated from live delivery and cost.")).toBeVisible();
+});
+
+test("supplier routing links open in a separated bordered dialog", async ({ page }) => {
+  await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Links" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "CPX Research links" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".supplier-link-card.test")).toContainText("Test respondent link");
+  await expect(dialog.locator(".supplier-link-card.live")).toContainText("Live supplier template");
+  await expect(dialog.getByRole("button", { name: "Copy test" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Open test" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Copy live" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });
 
 test("project eligibility rules are visible and editable", async ({ page }) => {
@@ -83,4 +98,35 @@ test("interlocked quota cells are visible and editable", async ({ page }) => {
   await page.getByRole("button", { name: "Edit quotas" }).click();
   await expect(page.getByLabel("Quota cell name 1")).toHaveValue("India · age 21–34");
   await expect(page.getByRole("button", { name: "Save quota cells" })).toBeVisible();
+});
+
+test("project leads can manage role-compatible project access", async ({ page }) => {
+  await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Project team access" })).toBeVisible();
+  await expect(page.getByText("Kabir Rao", { exact: true })).toBeVisible();
+  await expect(page.getByText("REVIEWER", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Edit access" }).click();
+  await expect(page.getByLabel("Project role 1")).toHaveValue("REVIEWER");
+  await expect(page.getByRole("button", { name: "Save access" })).toBeVisible();
+});
+
+test("new project market selection covers all countries and preferred languages", async ({ page }) => {
+  await page.goto("/projects/new", { waitUntil: "domcontentloaded" });
+  const country = page.getByLabel("Country");
+  await expect(country.locator("option")).toHaveCount(249);
+  await country.selectOption("JP");
+  await expect(country).toHaveValue("JP");
+  await expect(page.getByLabel("Language").locator('optgroup[label^="Common in Japan"] option')).toHaveCount(1);
+  await expect(page.getByLabel("Language")).toHaveValue("ja");
+  await country.selectOption("CA");
+  await expect(page.getByLabel("Language")).toHaveValue("en");
+  await expect(page.getByLabel("Language").locator('optgroup[label^="Common in Canada"] option')).toHaveCount(2);
+  await expect(page.getByLabel("Live survey URL")).toBeVisible();
+  await expect(page.getByLabel("Test survey URL (optional)")).toBeVisible();
+  await expect(page.getByLabel("Survey parameter name 1")).toHaveValue("PID");
+  await expect(page.getByLabel("Survey parameter value 2")).toHaveValue("{{respondent_id}}");
+  await page.getByText("Select suppliers", { exact: true }).click();
+  await page.getByLabel("Assign CPX Research").check();
+  await expect(page.getByLabel("CPX Research supplier CPI")).toBeEnabled();
+  await expect(page.getByLabel("Project security terminate URL (optional)")).toHaveCount(0);
 });

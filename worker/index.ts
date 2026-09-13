@@ -16,6 +16,8 @@ import { handleDevAuthApi } from "./routes/dev-auth";
 import { handleRedirectApi } from "./routes/redirects";
 import { handleEligibilityApi } from "./routes/eligibility";
 import { handleQuotaCellsApi } from "./routes/quota-cells";
+import { handleProjectAccessApi } from "./routes/project-access";
+import { handleSurveySetupApi } from "./routes/survey-setup";
 
 interface Env {
   ASSETS: Fetcher;
@@ -104,6 +106,10 @@ const worker = {
     }
 
     if (url.pathname.startsWith("/api/projects")) {
+      const surveySetupResponse = await handleSurveySetupApi(request, url.pathname, projectEnv);
+      if (surveySetupResponse) return observed(surveySetupResponse);
+      const projectAccessResponse = await handleProjectAccessApi(request, url.pathname, projectEnv);
+      if (projectAccessResponse) return observed(projectAccessResponse);
       const quotaCellsResponse = await handleQuotaCellsApi(request, url.pathname, projectEnv);
       if (quotaCellsResponse) return observed(quotaCellsResponse);
       const eligibilityResponse = await handleEligibilityApi(request, url.pathname, projectEnv);

@@ -1,6 +1,7 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
 import type { EligibilityOperator, EligibilityRule } from "../domain/eligibility";
+import { getProjectCapabilities } from "../lib/project-authorization";
 
 const operators = new Set<EligibilityOperator>(["EQ", "NE", "IN", "NOT_IN", "GTE", "LTE", "BETWEEN"]);
 const demo: EligibilityRule[] = [
@@ -31,11 +32,13 @@ export async function handleEligibilityApi(request: Request, pathname: string, e
   }
   if (request.method === "GET") {
     const access = await authorizeWorkspace(request, env, workspacePermissions.read); if (!access.ok) return authorizationError(access);
+    const capability = await getProjectCapabilities(env, access.authorization, projectCode);
     const rows = await supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/project_eligibility_rules?select=id,variable_key,operator,values,required,active,sort_order,projects!inner(project_code)&projects.project_code=eq.${encodeURIComponent(projectCode)}&order=sort_order.asc`, access.authorization);
-    return Response.json({ data: rows.map(mapped), meta: { source: "supabase", canOperate: workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM") } });
+    return Response.json({ data: rows.map(mapped), meta: { source: "supabase", canOperate: capability?.can_operate === true } });
   }
   if (request.method === "PUT") {
     const access = await authorizeWorkspace(request, env, workspacePermissions.operate); if (!access.ok) return authorizationError(access);
+    const capability = await getProjectCapabilities(env, access.authorization, projectCode); if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
     const rules = parseRules(await request.json().catch(() => null) as Record<string, unknown> | null); if (!rules) return Response.json({ error: "Valid unique eligibility rules are required" }, { status: 400 });
     const rows = await supabaseJson<Record<string, unknown>[]>(env, "/rest/v1/rpc/replace_project_eligibility_rules", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: projectCode, p_rules: rules.map((rule) => ({ variable_key: rule!.variableKey, operator: rule!.operator, values: rule!.values, required: rule!.required, active: rule!.active, sort_order: rule!.sortOrder })) }) });
     return Response.json({ data: rows.map(mapped), meta: { source: "supabase" } });

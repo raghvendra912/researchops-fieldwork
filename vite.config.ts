@@ -75,7 +75,7 @@ export default defineConfig(async ({ mode }) => {
     },
     server: {
       host: "127.0.0.1",
-      port: 3001,
+      port: Number(process.env.DEV_PORT || environment.DEV_PORT || 3001),
       strictPort: true,
       // Quick Tunnels use a random hostname. Keep the allowlist narrow rather
       // than disabling Vite's host protection for every domain.

@@ -5,6 +5,7 @@ import { authorizationError, authorizeWorkspace, workspacePermissions } from "..
 import { canTransition } from "../domain/project-lifecycle";
 import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
 import { reconcileAbandoned } from "./analytics";
+import { getProjectCapabilities } from "../lib/project-authorization";
 
 export type ProjectApiEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
 
@@ -24,6 +25,8 @@ type DatabaseProject = {
   start_date: string | null;
   end_date: string | null;
   survey_url: string | null;
+  test_survey_url: string | null;
+  survey_parameters: unknown;
   security_terminate_url: string | null;
   created_at: string;
   clients: { name: string } | { name: string }[] | null;
@@ -139,6 +142,8 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     startDate: row.start_date ?? undefined,
     endDate: row.end_date ?? undefined,
     surveyUrl: row.survey_url ?? undefined,
+    testSurveyUrl: row.test_survey_url ?? undefined,
+    surveyParameters: Array.isArray(row.survey_parameters) ? row.survey_parameters as Array<{ name: string; value: string }> : [],
     securityTerminateUrl: row.security_terminate_url ?? undefined,
     averageDurationSeconds: metrics?.average_duration_seconds ?? 0,
     lastComplete: metrics?.last_complete_at ? new Date(metrics.last_complete_at).toISOString() : "Not started",
@@ -215,8 +220,11 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     || (loi !== null && (!Number.isInteger(loi) || loi < 1))
     || (incidence !== null && (!Number.isFinite(incidence) || incidence < 0 || incidence > 100))
     || !validCountryCodes.has(countryCode) || !validLanguageCodes.has(languageCode)) return null;
-  const urls = [payload.surveyUrl, payload.securityTerminateUrl].map((value) => String(value ?? "").trim());
+  const urls = [payload.surveyUrl, payload.testSurveyUrl].map((value) => String(value ?? "").trim());
   if (urls.some((value) => value && (!/^https?:\/\//i.test(value) || value.length > 2048))) return null;
+  const surveyParameters = parseSurveyParameters(payload.surveyParameters); if (!surveyParameters) return null;
+  const supplierAssignments = Array.isArray(payload.supplierAssignments) ? payload.supplierAssignments.map((value) => { const item = value as Record<string, unknown>; return { name: String(item.name ?? "").trim(), supplier_cpi: Number(item.supplierCpi ?? 0) }; }) : [];
+  if (supplierAssignments.length > 100 || supplierAssignments.some((item) => !item.name || !Number.isFinite(item.supplier_cpi) || item.supplier_cpi < 0) || new Set(supplierAssignments.map((item) => item.name.toLowerCase())).size !== supplierAssignments.length) return null;
   return {
     p_project_name: payload.projectName.trim(),
     p_client_name: String(payload.client ?? "").trim(),
@@ -229,9 +237,17 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     p_language_code: languageCode,
     p_expected_loi_minutes: loi,
     p_expected_ir: incidence,
-    p_supplier_names: Array.isArray(payload.suppliers) ? payload.suppliers.map(String) : [],
-    p_survey_url: urls[0] || null, p_security_terminate_url: urls[1] || null,
+    p_supplier_assignments: supplierAssignments,
+    p_survey_url: urls[0] || null, p_test_survey_url: urls[1] || null, p_survey_parameters: surveyParameters,
   };
+}
+
+function parseSurveyParameters(value: unknown) {
+  if (value === undefined) return [{ name: "PID", value: "{{project_id}}" }, { name: "RID", value: "{{respondent_id}}" }];
+  if (!Array.isArray(value) || value.length > 30) return null;
+  const parameters = value.map((entry) => { const item = entry as Record<string, unknown>; return { name: String(item.name ?? "").trim(), value: String(item.value ?? "").trim() }; });
+  const valid = parameters.every((item) => /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(item.name) && item.value.length > 0 && item.value.length <= 500);
+  return valid && new Set(parameters.map((item) => item.name.toLowerCase())).size === parameters.length ? parameters : null;
 }
 
 function parseUpdatePayload(payload: Record<string, unknown> | null) {
@@ -239,13 +255,11 @@ function parseUpdatePayload(payload: Record<string, unknown> | null) {
   const quota = Number(payload.quota);
   const clientCpi = Number(payload.clientCpi);
   const endDate = dateValue(String(payload.endDate ?? "")) || null;
-  const urls = [payload.surveyUrl, payload.securityTerminateUrl].map((value) => String(value ?? "").trim());
-  if (!Number.isFinite(quota) || quota < 1 || !Number.isFinite(clientCpi) || clientCpi < 0 || urls.some((value) => value && (!/^https?:\/\//i.test(value) || value.length > 2048))) return null;
+  if (!Number.isFinite(quota) || quota < 1 || !Number.isFinite(clientCpi) || clientCpi < 0) return null;
   return {
     p_project_name: payload.projectName.trim(), p_client_po: String(payload.clientPo ?? "").trim(),
     p_project_type: String(payload.type ?? "").trim(), p_category: String(payload.category ?? "").trim(),
     p_client_cpi: clientCpi, p_quota: quota, p_end_date: endDate,
-    p_survey_url: urls[0] || null, p_security_terminate_url: urls[1] || null,
   };
 }
 
@@ -291,7 +305,7 @@ const databaseSortColumns: Record<ProjectSortKey, string> = { createdAt: "create
 
 async function supabaseList(env: ProjectApiEnv, authorization: string, query: ProjectListQuery, canOperate: boolean, userId: string) {
   const clientFilter = postgrestText(query.client);
-  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,${clientFilter ? "clients!inner(name)" : "clients(name)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
+  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,${clientFilter ? "clients!inner(name)" : "clients(name)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
   const params = new URLSearchParams({ select, order: `${databaseSortColumns[query.sortBy]}.${query.sortDirection}` });
   const search = postgrestText(query.q);
   if (search) params.set("or", `(project_name.ilike.*${search}*,client_po.ilike.*${search}*)`);
@@ -352,6 +366,7 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
 
 export async function handleProjectsApi(request: Request, pathname: string, env: ProjectApiEnv): Promise<Response | null> {
   if (!isSupabaseConfigured(env)) {
+    if (pathname === "/api/projects/specifications" && request.method === "GET") { const codes = new URL(request.url).searchParams.get("codes")?.split(",").map((code) => code.toUpperCase()) ?? []; return Response.json({ data: mockProjects.filter((project) => !codes.length || codes.includes(project.id)).map((project) => ({ projectCode: project.id, liveSurveyUrl: project.surveyUrl ?? "", testSurveyUrl: project.testSurveyUrl ?? "", surveyParameters: project.surveyParameters ?? [{ name: "PID", value: "{{project_id}}" }, { name: "RID", value: "{{respondent_id}}" }], markets: [{ countryCode: "IN", languageCode: "en", targetQuota: project.quota ?? 500, expectedLoiMinutes: 12, expectedIr: 40 }], suppliers: [{ supplierName: "CPX Research", supplierProjectId: "CPX-1048", supplierCpi: 7.5, targetQuota: 250, status: "ACTIVE" }], eligibilityRules: [], quotaCells: [] })) }); }
     if (pathname === "/api/projects" && request.method === "GET") return Response.json(mockList(readListQuery(request)));
     if (pathname === "/api/projects" && request.method === "POST") {
       const payload = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -368,7 +383,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
       const update = parseUpdatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!update) return Response.json({ error: "Valid project name, quota, CPI and dates are required" }, { status: 400 });
-      return Response.json({ data: { ...project, name: update.p_project_name, clientPo: update.p_client_po, type: update.p_project_type, category: update.p_category, cpi: update.p_client_cpi, quota: update.p_quota, endDate: update.p_end_date ?? undefined, surveyUrl: update.p_survey_url ?? undefined, securityTerminateUrl: update.p_security_terminate_url ?? undefined }, meta: { source: "mock" } });
+      return Response.json({ data: { ...project, name: update.p_project_name, clientPo: update.p_client_po, type: update.p_project_type, category: update.p_category, cpi: update.p_client_cpi, quota: update.p_quota, endDate: update.p_end_date ?? undefined }, meta: { source: "mock" } });
     }
     const mockTransition = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/transitions$/i);
     if (mockTransition && request.method === "POST") {
@@ -385,7 +400,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       return markets ? Response.json({ data: markets, meta: { source: "mock" } }) : Response.json({ error: "Valid, unique market rows are required" }, { status: 400 });
     }
     const mockAssignments = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/suppliers$/i);
-    if (mockAssignments && request.method === "GET") return Response.json({ data: [{ id: "assignment-cpx", supplierId: "supplier-cpx", supplierName: "CPX Research", supplierProjectId: "CPX-1048", supplierCpi: 7.5, targetQuota: 250, status: "ACTIVE", testStarts: 0, starts: 0, reached: 0, completes: 0, terminates: 0, overQuota: 0, qualityTerm: 0, incidenceRate: 0, cost: 0 }], meta: { source: "mock" } });
+    if (mockAssignments && request.method === "GET") { const base = `${new URL(request.url).origin}/r/supplier/00000000-0000-4000-8000-000000000001/live?project=${mockAssignments[1].toUpperCase()}&respondent={{respondent_id}}`; return Response.json({ data: [{ id: "assignment-cpx", supplierId: "supplier-cpx", supplierName: "CPX Research", supplierProjectId: "CPX-1048", supplierCpi: 7.5, targetQuota: 250, status: "ACTIVE", testLink: `${base}&mode=test`, liveLink: base, testStarts: 0, starts: 0, reached: 0, completes: 0, terminates: 0, overQuota: 0, qualityTerm: 0, incidenceRate: 0, cost: 0 }], meta: { source: "mock" } }); }
     if (mockAssignments && request.method === "PUT") {
       const assignments = parseAssignments(await request.json().catch(() => null) as Record<string, unknown> | null);
       return assignments ? Response.json({ data: assignments, meta: { source: "mock" } }) : Response.json({ error: "Valid, unique supplier assignments are required" }, { status: 400 });
@@ -394,6 +409,15 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
   }
 
   try {
+    if (pathname === "/api/projects/specifications" && request.method === "GET") {
+      const access = await authorizeWorkspace(request, env, workspacePermissions.read); if (!access.ok) return authorizationError(access);
+      const codes = (new URL(request.url).searchParams.get("codes") ?? "").split(",").map((code) => code.trim().toUpperCase()).filter((code) => /^[A-Z]{2,10}-[A-Z0-9-]+$/.test(code)).slice(0, 100);
+      if (!codes.length) return Response.json({ data: [] });
+      type SpecRow = { project_code: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; project_markets: Array<{ country_code: string; language_code: string; target_quota: number; expected_loi_minutes: number; expected_ir: number | string }>; project_suppliers: Array<{ supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: string; suppliers: { name: string } | { name: string }[] }>; project_eligibility_rules: Array<{ variable_key: string; operator: string; values: string[]; required: boolean; active: boolean }>; project_quota_cells: Array<{ name: string; target_quota: number; priority: number; active: boolean; conditions: unknown }> };
+      const rows = await supabaseJson<SpecRow[]>(env, `/rest/v1/projects?select=project_code,survey_url,test_survey_url,survey_parameters,project_markets(country_code,language_code,target_quota,expected_loi_minutes,expected_ir),project_suppliers(supplier_project_id,supplier_cpi,target_quota,status,suppliers(name)),project_eligibility_rules(variable_key,operator,values,required,active),project_quota_cells(name,target_quota,priority,active,conditions)&project_code=in.(${codes.join(",")})`, access.authorization);
+      const data = rows.map((row) => ({ projectCode: row.project_code, liveSurveyUrl: row.survey_url ?? "", testSurveyUrl: row.test_survey_url ?? "", surveyParameters: Array.isArray(row.survey_parameters) ? row.survey_parameters : [], markets: row.project_markets.map((market) => ({ countryCode: market.country_code, languageCode: market.language_code, targetQuota: market.target_quota, expectedLoiMinutes: market.expected_loi_minutes, expectedIr: Number(market.expected_ir) })), suppliers: row.project_suppliers.map((assignment) => ({ supplierName: (Array.isArray(assignment.suppliers) ? assignment.suppliers[0] : assignment.suppliers)?.name ?? "Supplier", supplierProjectId: assignment.supplier_project_id ?? "", supplierCpi: Number(assignment.supplier_cpi), targetQuota: assignment.target_quota, status: assignment.status })), eligibilityRules: row.project_eligibility_rules.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: rule.values, required: rule.required, active: rule.active })), quotaCells: row.project_quota_cells.map((cell) => ({ name: cell.name, targetQuota: cell.target_quota, priority: cell.priority, active: cell.active, conditions: cell.conditions })) }));
+      return Response.json({ data, meta: { source: "supabase" } });
+    }
     if (pathname === "/api/projects" && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
@@ -406,7 +430,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
-      const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v3", access.authorization, { method: "POST", body: JSON.stringify(payload) });
+      const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(payload) });
       const created = rows[0];
       if (!created) throw new Error("Supabase did not return the created project");
       return Response.json({ data: { id: created.project_code, databaseId: created.project_id, status: created.status }, meta: { source: "supabase" } }, { status: 201 });
@@ -417,10 +441,11 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       await reconcileAbandoned(env);
       const code = encodeURIComponent(detailMatch[1]);
-      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,security_terminate_url,created_at,clients(name),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
+      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,clients(name),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
-      return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM") } });
+      const capability = await getProjectCapabilities(env, access.authorization, detailMatch[1]);
+      return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: capability?.can_operate === true, canReview: capability?.can_review === true, canManageAccess: capability?.can_manage_access === true } });
     }
     const marketsMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/markets$/i);
     if (marketsMatch && request.method === "GET") {
@@ -432,6 +457,8 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (marketsMatch && request.method === "PUT") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);
       if (!access.ok) return authorizationError(access);
+      const capability = await getProjectCapabilities(env, access.authorization, marketsMatch[1]);
+      if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
       const markets = parseMarkets(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!markets) return Response.json({ error: "Valid, unique market rows are required" }, { status: 400 });
       const rows = await supabaseJson<Array<{ id: string; country_code: string; language_code: string; target_quota: number; expected_loi_minutes: number; expected_ir: number | string }>>(env, "/rest/v1/rpc/replace_project_markets", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: marketsMatch[1].toUpperCase(), p_markets: markets.map((market) => ({ country_code: market.countryCode, language_code: market.languageCode, target_quota: market.targetQuota, expected_loi_minutes: market.expectedLoiMinutes, expected_ir: market.expectedIr })) }) });
@@ -443,13 +470,22 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const projectCode = assignmentsMatch[1].toUpperCase();
       const rows = await supabaseJson<Array<{ id: string; supplier_id: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"]; suppliers: { name: string; redirect_token?: string; redirect_mode?: string } | { name: string; redirect_token?: string; redirect_mode?: string }[]; projects: { project_code: string } }>>(env, `/rest/v1/project_suppliers?select=id,supplier_id,supplier_project_id,supplier_cpi,target_quota,status,suppliers(name,redirect_token,redirect_mode),projects!inner(project_code)&projects.project_code=eq.${encodeURIComponent(projectCode)}&order=created_at.asc`, access.authorization);
-      const metricRows = await supabaseJson<Array<{ supplier_id: string; test_starts: number; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; incidence_rate: number | string | null; cost: number | string }>>(env, `/rest/v1/project_supplier_event_metrics?select=supplier_id,test_starts,starts,reached,completes,terminates,over_quota,quality_term,incidence_rate,cost&project_code=eq.${encodeURIComponent(projectCode)}`, access.authorization);
+      let metricRows: Array<{ supplier_id: string; test_starts?: number; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; incidence_rate: number | string | null; cost: number | string }>;
+      try {
+        metricRows = await supabaseJson(env, `/rest/v1/project_supplier_event_metrics?select=supplier_id,test_starts,starts,reached,completes,terminates,over_quota,quality_term,incidence_rate,cost&project_code=eq.${encodeURIComponent(projectCode)}`, access.authorization);
+      } catch {
+        // Keep supplier delivery readable during a staged Worker-before-schema rollout.
+        // Test traffic remains unavailable until migration 023 is applied.
+        metricRows = await supabaseJson(env, `/rest/v1/project_supplier_event_metrics?select=supplier_id,starts,reached,completes,terminates,over_quota,quality_term,incidence_rate,cost&project_code=eq.${encodeURIComponent(projectCode)}`, access.authorization);
+      }
       const metrics = new Map(metricRows.map((row) => [row.supplier_id, row]));
       return Response.json({ data: rows.map((row) => assignmentRow({ ...row, ...metrics.get(row.supplier_id) }, new URL(request.url).origin, projectCode)), meta: { source: "supabase" } });
     }
     if (assignmentsMatch && request.method === "PUT") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);
       if (!access.ok) return authorizationError(access);
+      const capability = await getProjectCapabilities(env, access.authorization, assignmentsMatch[1]);
+      if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
       const assignments = parseAssignments(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!assignments) return Response.json({ error: "Valid, unique supplier assignments are required" }, { status: 400 });
       const rows = await supabaseJson<Array<{ id: string; supplier_id: string; supplier_name: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"] }>>(env, "/rest/v1/rpc/replace_project_suppliers", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: assignmentsMatch[1].toUpperCase(), p_assignments: assignments.map((item) => ({ supplier_id: item.supplierId, supplier_project_id: item.supplierProjectId, supplier_cpi: item.supplierCpi, target_quota: item.targetQuota, status: item.status })) }) });
@@ -458,15 +494,19 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (detailMatch && request.method === "PATCH") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);
       if (!access.ok) return authorizationError(access);
+      const capability = await getProjectCapabilities(env, access.authorization, detailMatch[1]);
+      if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
       const update = parseUpdatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!update) return Response.json({ error: "Valid project name, quota, CPI and dates are required" }, { status: 400 });
-      await supabaseJson(env, "/rest/v1/rpc/update_project_core_v3", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: detailMatch[1].toUpperCase(), ...update }) });
+      await supabaseJson(env, "/rest/v1/rpc/update_project_core_v4", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: detailMatch[1].toUpperCase(), ...update }) });
       return Response.json({ data: { id: detailMatch[1].toUpperCase(), ...update }, meta: { source: "supabase" } });
     }
     const transitionMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/transitions$/i);
     if (transitionMatch && request.method === "POST") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);
       if (!access.ok) return authorizationError(access);
+      const capability = await getProjectCapabilities(env, access.authorization, transitionMatch[1]);
+      if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
       const status = requestedTransition(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!status) return Response.json({ error: "A valid target status is required" }, { status: 400 });
       const rows = await supabaseJson<Array<{ project_code: string; previous_status: ProjectStatus; status: ProjectStatus }>>(env, "/rest/v1/rpc/transition_project_state", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: transitionMatch[1].toUpperCase(), p_next_status: status }) });

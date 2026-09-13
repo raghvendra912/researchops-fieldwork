@@ -203,6 +203,17 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .section-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.multi-select { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.multi-select summary { cursor: pointer; padding: 14px 16px; font-weight: 700; }
+.multi-select-menu { border-top: 1px solid var(--line); max-height: 340px; overflow: auto; padding: 8px 16px; }
+.supplier-select-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 260px); align-items: center; gap: 18px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.supplier-select-row:last-child { border-bottom: 0; }
+.supplier-select-row > label { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.supplier-select-row input[type="checkbox"] { width: 16px; height: 16px; }
+.parameter-head { margin-top: 20px; }
+.parameter-list { display: grid; gap: 10px; }
+.parameter-row { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(260px, 1.3fr) auto; align-items: end; gap: 12px; }
+.parameter-remove { margin-bottom: 1px; }
 .field.full { grid-column: 1 / -1; }
 .supplier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .choice-card { border: 1px solid var(--line); border-radius: 11px; padding: 13px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
@@ -266,6 +277,15 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .link-row { grid-template-columns: 120px minmax(0, 1fr) auto; }
 .link-row code { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.supplier-links-modal { width: min(880px, 100%); border: 1px solid #d7d9d3; box-shadow: 0 24px 70px rgba(12, 31, 27, .24); }
+.supplier-links-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.supplier-link-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: #faf9f5; display: flex; flex-direction: column; gap: 16px; }
+.supplier-link-card.test { border-color: #e4d3a8; background: #fffbef; }
+.supplier-link-card.live { border-color: #b9dacf; background: #f2faf7; }
+.supplier-link-card h3 { margin: 10px 0 6px; font-size: 15px; }
+.supplier-link-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.supplier-link-card code { min-height: 92px; padding: 12px; overflow-wrap: anywhere; border: 1px solid rgba(29,42,38,.1); border-radius: 10px; background: rgba(255,255,255,.72); font-size: 10px; line-height: 1.55; }
+.supplier-link-card .modal-actions { margin-top: auto; }
 .variable-required { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 10px; font-weight: 700; }
 .button:disabled { cursor: not-allowed; opacity: .62; }
 .empty-panel { min-height: 380px; padding: 48px; display: grid; place-items: center; text-align: center; }
@@ -275,6 +295,11 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .onboarding-card { width: min(520px, 100%); padding: 30px; }
 .onboarding-card .page-title { font-size: 38px; margin-block: 10px 12px; }
 .onboarding-card > .page-subtitle { margin-bottom: 26px; }
+
+@media (max-width: 760px) {
+  .supplier-links-grid { grid-template-columns: 1fr; }
+  .supplier-links-modal { padding: 18px; }
+}
 
 @media (max-width: 1100px) {
   .app-frame { grid-template-columns: 76px minmax(0, 1fr); }
@@ -308,7 +333,7 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
   .form-shell { grid-template-columns: 1fr; }
   .steps { position: static; display: flex; overflow-x: auto; }
   .step { min-width: 150px; }
-  .form-grid, .form-grid.three, .supplier-grid { grid-template-columns: 1fr; }
+  .form-grid, .form-grid.three, .supplier-grid, .supplier-select-row, .parameter-row { grid-template-columns: 1fr; }
   .detail-hero { align-items: start; flex-direction: column; }
   .login-page { grid-template-columns: 1fr; }
   .login-art { min-height: 400px; padding: 36px 28px; }

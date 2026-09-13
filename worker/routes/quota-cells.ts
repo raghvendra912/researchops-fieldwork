@@ -2,6 +2,7 @@ import { authorizationError, authorizeWorkspace, workspacePermissions } from "..
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
 import type { EligibilityOperator, EligibilityRule } from "../domain/eligibility";
 import type { QuotaCell } from "../domain/quota";
+import { getProjectCapabilities } from "../lib/project-authorization";
 
 const operators = new Set<EligibilityOperator>(["EQ", "NE", "IN", "NOT_IN", "GTE", "LTE", "BETWEEN"]);
 const demo: QuotaCell[] = [
@@ -50,13 +51,15 @@ export async function handleQuotaCellsApi(request: Request, pathname: string, en
   }
   if (request.method === "GET") {
     const access = await authorizeWorkspace(request, env, workspacePermissions.read); if (!access.ok) return authorizationError(access);
+    const capability = await getProjectCapabilities(env, access.authorization, projectCode);
     const rows = await supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/project_quota_cells?select=id,project_id,name,target_quota,priority,active,conditions,projects!inner(project_code)&projects.project_code=eq.${encodeURIComponent(projectCode)}&order=priority.asc,name.asc`, access.authorization);
     const metrics = rows[0]?.project_id ? await supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/project_quota_cell_metrics?select=quota_cell_id,completes,reserved,remaining&project_id=eq.${encodeURIComponent(String(rows[0].project_id))}`, access.authorization) : [];
     const metricsByCell = new Map(metrics.map((metric) => [String(metric.quota_cell_id), metric]));
-    return Response.json({ data: rows.map((row) => mapped(row, metricsByCell.get(String(row.id)))), meta: { source: "supabase", canOperate: workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM") } });
+    return Response.json({ data: rows.map((row) => mapped(row, metricsByCell.get(String(row.id)))), meta: { source: "supabase", canOperate: capability?.can_operate === true } });
   }
   if (request.method === "PUT") {
     const access = await authorizeWorkspace(request, env, workspacePermissions.operate); if (!access.ok) return authorizationError(access);
+    const capability = await getProjectCapabilities(env, access.authorization, projectCode); if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
     const cells = parseCells(await request.json().catch(() => null) as Record<string, unknown> | null); if (!cells) return Response.json({ error: "Valid, uniquely named quota cells are required" }, { status: 400 });
     const rows = await supabaseJson<Record<string, unknown>[]>(env, "/rest/v1/rpc/replace_project_quota_cells", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: projectCode, p_cells: cells.map((cell) => ({ name: cell!.name, target_quota: cell!.targetQuota, priority: cell!.priority, active: cell!.active, conditions: cell!.conditions.map((condition) => ({ variable_key: condition.variableKey, operator: condition.operator, values: condition.values, required: condition.required })) })) }) });
     return Response.json({ data: rows.map(mapped), meta: { source: "supabase" } });

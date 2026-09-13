@@ -18,6 +18,15 @@ const columns: Array<[string, (project: Project) => string | number]> = [
   ["Incidence rate", (project) => project.incidenceRate],
   ["Conversion rate", (project) => project.conversionRate],
   ["Client CPI", (project) => project.cpi],
+  ["Target completes", (project) => project.quota ?? ""],
+  ["Category", (project) => project.category ?? ""],
+  ["Live survey URL", (project) => project.surveyUrl ?? ""],
+  ["Test survey URL", (project) => project.testSurveyUrl ?? ""],
+  ["Survey parameters", (project) => JSON.stringify(project.surveyParameters ?? [])],
+  ["Markets", (project) => JSON.stringify(project.markets ?? [])],
+  ["Supplier assignments", (project) => JSON.stringify(project.supplierAssignments ?? [])],
+  ["Eligibility rules", (project) => JSON.stringify(project.eligibilityRules ?? [])],
+  ["Quota cells", (project) => JSON.stringify(project.quotaCells ?? [])],
 ];
 
 function csvCell(value: string | number) {

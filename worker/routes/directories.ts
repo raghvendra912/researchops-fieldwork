@@ -10,7 +10,6 @@ type RedirectVariable = { name: string; source: "URL_PARAM" | "SYSTEM" | "DATABA
 const emptyRedirects = { completeUrl: "", terminateUrl: "", quotaFullUrl: "", securityTerminateUrl: "" };
 const defaultRedirectVariables: RedirectVariable[] = [
   { name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true },
-  { name: "project_id", source: "SYSTEM", defaultValue: "", required: true },
 ];
 const demoClients = [
   { id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE" as const, projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", redirectVariables: defaultRedirectVariables },
@@ -38,7 +37,7 @@ function generatedLinks(kind: DirectoryKind, token: unknown, request: Request, a
   const origin = new URL(request.url).origin;
   const base = `${origin}/r/${kind === "clients" ? "client" : "supplier"}/${token}`;
   return kind === "clients"
-    ? { complete: `${base}/complete?rid={{respondent_id}}&project={{project_id}}`, terminate: `${base}/terminate?rid={{respondent_id}}&project={{project_id}}`, quotaFull: `${base}/quota-full?rid={{respondent_id}}&project={{project_id}}`, securityTerminate: `${base}/security-terminate?rid={{respondent_id}}&project={{project_id}}` }
+    ? { complete: `${base}/complete?rid={{respondent_id}}`, terminate: `${base}/terminate?rid={{respondent_id}}`, quotaFull: `${base}/quota-full?rid={{respondent_id}}`, securityTerminate: `${base}/security-terminate?rid={{respondent_id}}` }
     : { test: `${base}/test`, live: `${base}/live` };
 }
 

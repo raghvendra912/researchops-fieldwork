@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const externalBaseUrl = process.env.E2E_BASE_URL;
+const localPort = process.env.DEV_PORT ?? "3001";
+const localBaseUrl = `http://127.0.0.1:${localPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -9,13 +11,13 @@ export default defineConfig({
   fullyParallel: false,
   reporter: "line",
   use: {
-    baseURL: externalBaseUrl ?? "http://127.0.0.1:3001",
+    baseURL: externalBaseUrl ?? localBaseUrl,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   webServer: externalBaseUrl ? undefined : {
     command: "npm run dev",
-    url: "http://127.0.0.1:3001/api/health",
+    url: `${localBaseUrl}/api/health`,
     reuseExistingServer: true,
     timeout: 180_000,
   },

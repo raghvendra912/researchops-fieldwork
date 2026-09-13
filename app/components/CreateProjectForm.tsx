@@ -4,11 +4,12 @@ import Link from "./NavigationLink";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
-import { countryOptions, languageOptions } from "../../src/lib/market-options";
+import { countryOptions, languageOptions, languageOptionsForCountry } from "../../src/lib/market-options";
 
 const projectTypes = ["B2C", "B2B", "Healthcare", "Recontact", "Tracker", "Qualitative", "Quantitative", "Mixed method", "IHUT", "CLT"];
 const categories = ["None", "Business & Professionals", "General Household", "Financial Technology", "Consumer Goods", "Healthcare", "Automotive", "Other"];
 const steps = [["1", "Project info", "Core setup"], ["2", "Market", "Audience & quota"], ["3", "Suppliers", "Source allocation"], ["4", "Survey & security", "Live routing"]];
+const createdDate = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata" }).format(new Date());
 
 export function CreateProjectForm() {
   const { configured, session } = useAuth();
@@ -18,6 +19,12 @@ export function CreateProjectForm() {
   const [canOperate, setCanOperate] = useState(!configured);
   const [clients, setClients] = useState(["Northstar Bank", "Arc Technologies", "Halo Consumer", "Aperture Auto"]);
   const [suppliers, setSuppliers] = useState(["CPX Research", "BitLabs", "PureSpectrum"]);
+  const [supplierCpis, setSupplierCpis] = useState<Record<string, string>>({});
+  const [surveyParameters, setSurveyParameters] = useState([{ name: "PID", value: "{{project_id}}" }, { name: "RID", value: "{{respondent_id}}" }]);
+  const [country, setCountry] = useState("IN");
+  const [language, setLanguage] = useState("hi");
+  const preferredLanguages = languageOptionsForCountry(country);
+  const otherLanguages = languageOptions.filter((option) => !preferredLanguages.some((preferred) => preferred.code === option.code));
 
   useEffect(() => {
     if (configured && !session?.access_token) return;
@@ -38,7 +45,7 @@ export function CreateProjectForm() {
     const payload = {
       projectName: form.get("projectName"), client: form.get("client"), clientPo: form.get("clientPo"), type: form.get("type"), category: form.get("category"),
       clientCpi: form.get("clientCpi"), countryCode: form.get("country"), languageCode: form.get("language"), quota: form.get("quota"), loi: form.get("loi"), incidence: form.get("incidence"),
-      suppliers: form.getAll("suppliers"), surveyUrl: form.get("surveyUrl"), securityTerminateUrl: form.get("securityTerminateUrl"),
+      supplierAssignments: Object.entries(supplierCpis).map(([name, supplierCpi]) => ({ name, supplierCpi })), surveyUrl: form.get("surveyUrl"), testSurveyUrl: form.get("testSurveyUrl"), surveyParameters,
     };
     setSubmitting(true); setError("");
     try {
@@ -62,23 +69,23 @@ export function CreateProjectForm() {
           <div className="field"><label htmlFor="project-type">Project type</label><select className="control" id="project-type" name="type" defaultValue="B2C">{projectTypes.map((item) => <option key={item}>{item}</option>)}</select></div>
           <div className="field"><label htmlFor="category">Category</label><select className="control" id="category" name="category" defaultValue="None">{categories.map((item) => <option key={item}>{item}</option>)}</select></div>
           <div className="field"><span className="field-label">Project manager</span><div className="control" aria-label="Project manager">Signed-in operator</div></div>
-          <div className="field"><span className="field-label">Created date</span><div className="control" aria-label="Created date">{new Date().toLocaleDateString()}</div></div>
+          <div className="field"><span className="field-label">Created date</span><div className="control" aria-label="Created date">{createdDate}</div></div>
           <div className="field"><label htmlFor="client-cpi">Client CPI (USD)</label><input className="control" id="client-cpi" name="clientCpi" type="number" min="0" step="0.01" required /></div>
         </div></section>
         <section className="form-section"><div className="section-head"><div><h2>Market & quota</h2><p>Define the first audience. More markets can be added after creation.</p></div></div><div className="form-grid three">
-          <div className="field"><label htmlFor="country">Country</label><select className="control" id="country" name="country" defaultValue="IN">{countryOptions.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></div>
-          <div className="field"><label htmlFor="language">Language</label><select className="control" id="language" name="language" defaultValue="en">{languageOptions.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></div>
+          <div className="field"><label htmlFor="country">Country</label><select className="control" id="country" name="country" value={country} onChange={(event) => { const next = event.target.value; setCountry(next); setLanguage(languageOptionsForCountry(next)[0]?.code ?? "en"); }}>{countryOptions.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</select></div>
+          <div className="field"><label htmlFor="language">Language</label><select className="control" id="language" name="language" value={language} onChange={(event) => setLanguage(event.target.value)}><optgroup label={`Common in ${countryOptions.find((option) => option.code === country)?.name ?? country}`}>{preferredLanguages.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</optgroup><optgroup label="All other languages">{otherLanguages.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.code})</option>)}</optgroup></select></div>
           <div className="field"><label htmlFor="quota">Target completes</label><input className="control" id="quota" name="quota" type="number" min="1" required /></div>
           <div className="field"><label htmlFor="loi">Expected LOI (minutes)</label><input className="control" id="loi" name="loi" type="number" min="1" /></div>
           <div className="field"><label htmlFor="ir">Expected incidence (%)</label><input className="control" id="ir" name="incidence" type="number" min="0" max="100" /></div>
         </div></section>
-        <section className="form-section"><div className="section-head"><div><h2>Supplier assignment</h2><p>Select any number of saved suppliers. Quotas, CPI, IDs, and traffic state can be tuned in the project workspace.</p></div></div><div className="supplier-grid">{suppliers.map((supplier) => <label className="choice-card" key={supplier}><input aria-label={`Assign ${supplier}`} type="checkbox" name="suppliers" value={supplier} /><span><strong>{supplier}</strong><span>Saved supplier</span></span></label>)}</div></section>
-        <section className="form-section"><div className="section-head"><div><h2>Survey & security</h2><p>The survey URL receives masked outcome callbacks. Security termination can be configured separately.</p></div></div><div className="form-grid">
+        <section className="form-section"><div className="section-head"><div><h2>Supplier assignment</h2><p>Select multiple suppliers and set the buying CPI saved on each project assignment.</p></div></div><details className="multi-select"><summary>{Object.keys(supplierCpis).length ? `${Object.keys(supplierCpis).length} supplier${Object.keys(supplierCpis).length === 1 ? "" : "s"} selected` : "Select suppliers"}</summary><div className="multi-select-menu">{suppliers.map((supplier) => { const selected = Object.hasOwn(supplierCpis, supplier); return <div className="supplier-select-row" key={supplier}><label><input aria-label={`Assign ${supplier}`} type="checkbox" checked={selected} onChange={(event) => setSupplierCpis((current) => { const next = { ...current }; if (event.target.checked) next[supplier] = "0"; else delete next[supplier]; return next; })} /><span>{supplier}</span></label><div className="field"><label htmlFor={`supplier-cpi-${supplier.replace(/\W/g, "-")}`}>Supplier CPI (USD)</label><input className="control" id={`supplier-cpi-${supplier.replace(/\W/g, "-")}`} aria-label={`${supplier} supplier CPI`} type="number" min="0" step="0.01" value={supplierCpis[supplier] ?? ""} disabled={!selected} onChange={(event) => setSupplierCpis((current) => ({ ...current, [supplier]: event.target.value }))} /></div></div>; })}</div></details></section>
+        <section className="form-section"><div className="section-head"><div><h2>Survey routing</h2><p>Test traffic uses the test URL; live traffic uses the live URL. Parameters are appended automatically for every respondent.</p></div></div><div className="form-grid">
           <label className="choice-card"><input aria-label="Duplicate prevention is mandatory" type="checkbox" checked disabled readOnly /><span><strong>Duplicate prevention</strong><span>IP and device signals are checked before client routing.</span></span></label>
           <label className="choice-card"><input aria-label="Controlled routing is mandatory" type="checkbox" checked disabled readOnly /><span><strong>Controlled routing</strong><span>Only active project-supplier links can send live traffic.</span></span></label>
-          <div className="field full"><label htmlFor="survey-url">Client survey URL</label><input className="control" id="survey-url" name="surveyUrl" type="url" placeholder="https://survey.example.com/start?rid={{respondent_id}}" /></div>
-          <div className="field full"><label htmlFor="security-url">Project security terminate URL (optional)</label><input className="control" id="security-url" name="securityTerminateUrl" type="url" placeholder="https://client.example.com/security-terminate" /></div>
-        </div></section>
+          <div className="field full"><label htmlFor="survey-url">Live survey URL</label><input className="control" id="survey-url" name="surveyUrl" type="url" placeholder="https://survey.example.com/start" /></div>
+          <div className="field full"><label htmlFor="test-survey-url">Test survey URL (optional)</label><input className="control" id="test-survey-url" name="testSurveyUrl" type="url" placeholder="https://survey.example.com/test" /><span className="panel-note">When blank, test traffic safely falls back to the live survey URL.</span></div>
+        </div><div className="section-head parameter-head"><div><h3>Survey URL parameters</h3><p>Use system placeholders or any incoming eligibility value, for example {"{{country}}"}.</p></div><button className="button small ghost" type="button" onClick={() => setSurveyParameters((current) => [...current, { name: "", value: "" }])}>Add parameter</button></div><div className="parameter-list">{surveyParameters.map((parameter, index) => <div className="parameter-row" key={index}><div className="field"><label htmlFor={`parameter-name-${index}`}>Parameter name</label><input className="control" id={`parameter-name-${index}`} aria-label={`Survey parameter name ${index + 1}`} placeholder="PID" value={parameter.name} onChange={(event) => setSurveyParameters((current) => current.map((item, position) => position === index ? { ...item, name: event.target.value } : item))} /></div><div className="field"><label htmlFor={`parameter-value-${index}`}>Value template</label><input className="control" id={`parameter-value-${index}`} aria-label={`Survey parameter value ${index + 1}`} placeholder="{{project_id}}" value={parameter.value} onChange={(event) => setSurveyParameters((current) => current.map((item, position) => position === index ? { ...item, value: event.target.value } : item))} /></div><button className="button small ghost parameter-remove" type="button" disabled={surveyParameters.length === 1} onClick={() => setSurveyParameters((current) => current.filter((_, position) => position !== index))}>Remove</button></div>)}</div><p className="panel-note">Available system values: {"{{project_id}}"}, {"{{respondent_id}}"}, {"{{session_id}}"}, {"{{complete_url}}"}, {"{{terminate_url}}"}, {"{{quota_full_url}}"}, {"{{security_terminate_url}}"}.</p></section>
         <div className="form-actions"><span className="save-note">A dated pending project is created when you submit.</span><div className="head-actions"><Link className="button ghost" href="/projects">Cancel</Link><button className="button primary" type="submit" disabled={submitting || !canOperate}>{submitting ? "Creating…" : "Create project →"}</button></div></div>
       </div>
     </form>

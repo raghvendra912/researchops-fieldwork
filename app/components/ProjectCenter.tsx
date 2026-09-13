@@ -153,7 +153,9 @@ export function ProjectCenter() {
         const response = await apiRequest<ProjectsResponse>(`/api/projects?${projectParams(exportPage, exportPageSize)}`, {
           headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined,
         });
-        exported.push(...response.data);
+        const specifications = await apiRequest<{ data: Array<{ projectCode: string; liveSurveyUrl: string; testSurveyUrl: string; surveyParameters: Project["surveyParameters"]; markets: Project["markets"]; suppliers: Project["supplierAssignments"]; eligibilityRules: Project["eligibilityRules"]; quotaCells: Project["quotaCells"] }> }>(`/api/projects/specifications?codes=${response.data.map((project) => encodeURIComponent(project.id)).join(",")}`, { headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined });
+        const specs = new Map(specifications.data.map((item) => [item.projectCode, item]));
+        exported.push(...response.data.map((project) => { const spec = specs.get(project.id); return { ...project, surveyUrl: spec?.liveSurveyUrl, testSurveyUrl: spec?.testSurveyUrl, surveyParameters: spec?.surveyParameters, markets: spec?.markets, supplierAssignments: spec?.suppliers, eligibilityRules: spec?.eligibilityRules, quotaCells: spec?.quotaCells }; }));
       }
       const blob = new Blob(["\uFEFF", projectsToCsv(exported)], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);

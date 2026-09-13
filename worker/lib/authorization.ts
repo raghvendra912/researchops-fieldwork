@@ -15,6 +15,7 @@ type AuthorizationResult =
 export const workspacePermissions = {
   read: ["OWNER", "ADMIN", "PM", "ANALYST", "MEMBER"],
   operate: ["OWNER", "ADMIN", "PM"],
+  review: ["OWNER", "ADMIN", "PM", "ANALYST"],
   administer: ["OWNER", "ADMIN"],
   own: ["OWNER"],
 } as const satisfies Record<string, readonly WorkspaceRole[]>;
