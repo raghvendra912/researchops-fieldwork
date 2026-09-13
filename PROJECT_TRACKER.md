@@ -249,7 +249,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
-| `BLK-10` | The Sites host has not demonstrably consumed recent pushed revisions. Migrations `023`-`028` are user-confirmed applied, but the repository project ID still returns `not found` in the currently selected Sites account, whose site list contains only the unrelated Survey Redirect Tester; the `rav9912` ResearchOps host belongs to another Sites owner/workspace context. | Switch/connect Codex to the Sites workspace that owns `appgprj_6a928169a84c8191b3f330591bd308cd`, deploy the latest saved `main` revision, and verify the visible build identity plus authenticated routing data before production claims. |
+| `BLK-10` | The active production target is user-confirmed as Vercel (`www.asrv.co.in`), but its Git integration has not consumed the latest pushed `main` revision. Migrations `023`-`028` are user-confirmed applied; production remains healthy/Supabase-ready while its eight loaded JavaScript assets lack current routing/access/quota markers. This workspace has no Vercel CLI login or project link, and downloading the CLI timed out. | Inspect/reconnect the Vercel project's Git integration to `raghvendra912/researchops-fieldwork` branch `main`, redeploy commit `85671a9` (or newer), then verify build identity and authenticated routing data before production claims. |
 
 ## Verification record
 
@@ -351,6 +351,12 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Hosted migration report and direct Sites deployment attempt | MIGRATIONS USER-CONFIRMED / DEPLOYMENT BLOCKED - user reports migrations `023`-`028` completed. Direct `get_site` for the exact repository project ID returns `project_not_found`; the current Sites workspace lists only Survey Redirect Tester, so this session cannot save or deploy a ResearchOps version. Public readiness remains Supabase-ready while all nine live assets still lack current markers. |
 
 ## Session log
+
+### 2026-09-13 - Vercel production target clarification
+
+- User clarified that the active production site is Vercel at `www.asrv.co.in`, not the legacy Sites host; corrected the deployment gate accordingly.
+- Confirmed local `main` and `origin/main` are synchronized at `85671a9`. Vercel production health/readiness return healthy and Supabase-ready, but eight loaded JavaScript assets contain none of the current survey setup, project access, supplier dialog, or quota markers after repeated polling.
+- Attempted Vercel CLI discovery/login, but no local Vercel project link or credential exists and the CLI download/account check timed out. Automatic deployment therefore depends on repairing the Vercel Git integration or manually redeploying current `main` from the Vercel account.
 
 ### 2026-09-13 - User-confirmed migrations and Sites ownership check
 
