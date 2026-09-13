@@ -347,6 +347,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Commit `3bf16d7` push and hosted uptake check | PUSHED / NOT DEPLOYED - `origin/main` accepted the atomic-quota revision. Public health and readiness return HTTP 200 with Supabase configured, but none of nine referenced JavaScript assets contains the quota API/reservation build markers; the Sites host has not consumed this revision. |
 | 2026-09-13 | Supplier link dialog and current branch regression | PASS LOCALLY - lint and production build pass; 19 business/server-rendered tests pass; focused Chromium passes against a fresh production server and visual evidence confirms separate bordered Test/Live cards with copy actions. The first two dev-server attempts failed from stale/cold navigation and were not counted as product failures. |
 | 2026-09-13 | Routing vertical-slice integration harness and resumed regression | PASS LOCALLY / ENVIRONMENT-GATED - added a persistent-data test covering Test isolation, eligibility, one-slot concurrent quota admission, terminal completion, supplier return, metrics, quota consumption, specifications, and audit evidence. Lint, production build, and 27 standard tests pass; 5 Supabase/Docker-gated tests skip because Docker is unavailable in this environment. A stale long-running Vinext server prevented a reliable fresh full Chromium rerun; the already-recorded focused Chromium checks remain valid. |
+| 2026-09-13 | Commits `6073014` and `42c0451` push / hosted uptake | PUSHED / NOT DEPLOYED - `origin/main` accepted both revisions. Hosted health and readiness return HTTP 200 and Supabase-ready, but all nine referenced JavaScript assets lack the new survey-setup, project-access, supplier-dialog, and quota markers; the Sites host still has not consumed current Git main. |
 
 ## Session log
 
@@ -357,6 +358,7 @@ Do not record secret values here. Mark only whether they are available.
 - Hardened the new-project country/language controls against pre-hydration input and retained deterministic India-time rendering for build and created-date labels.
 - Verification: `npm run lint` PASS; `npm run build` PASS; standard Node suite 27/27 PASS with 5 environment-gated tests skipped; `git diff --check` PASS. Local Supabase proof cannot run because Docker/Podman is unavailable, and hosted migrations/deployment still require the owning Sites/Supabase context described in `BLK-10`.
 - Current task is commit/push followed by hosted build-identity inspection. Next remains applying migrations `023`-`028` and executing the new authenticated routing test against persistent hosted data.
+- Push result: commits `6073014` and `42c0451` reached `origin/main`. Public health/readiness remain healthy and Supabase-ready, but inspection of all nine live JavaScript assets found none of the new revision markers, so deployment uptake and hosted migration/application verification remain gated by the owning Sites/Supabase context in `BLK-10`.
 
 ### 2026-09-13 - Separated supplier Test/Live link dialog
 
