@@ -136,7 +136,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
 
     if (outcomeMatch) {
       const outcome = outcomeMatch[2].toLowerCase() as Outcome;
-      const sessions = await serviceRows<{ respondent_ref: string; status: string; projects: { project_code: string } | { project_code: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=respondent_ref,status,projects!inner(project_code),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&outcome_token=eq.${outcomeMatch[1]}&limit=1`);
+      const sessions = await serviceRows<{ respondent_ref: string; status: string; is_test: boolean; projects: { project_code: string } | { project_code: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=respondent_ref,status,is_test,projects!inner(project_code),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&outcome_token=eq.${outcomeMatch[1]}&limit=1`);
       const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
       if (!session || !project || !supplier) return unavailable("Respondent routing session was not found", 404);
       const terminalStatuses = new Set(["COMPLETE", "TERMINATE", "QUOTA_FULL", "QUALITY_TERMINATE", "ABANDON"]);
@@ -145,7 +145,10 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const result = await recordEvent(request, env, supplier, project.project_code, session.respondent_ref, expectedEvent);
       if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
       const target = supplier[outcomes[outcome].field];
-      return typeof target === "string" && target ? redirect(standardSupplierRedirect(target, project.project_code, session.respondent_ref, expectedEvent)) : unavailable(`${outcome} redirect is not configured`, 422);
+      if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, project.project_code, session.respondent_ref, expectedEvent));
+      return session.is_test
+        ? routingPage("The test outcome was recorded", `${expectedEvent.replaceAll("_", " ")} has been added to test metrics. No supplier return URL is required for this test.`, 200, "success")
+        : unavailable(`${outcome} redirect is not configured`, 422);
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;
@@ -153,12 +156,16 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     if (!respondentRef) return unavailable("Respondent ID is required", 400);
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${clientMatch![1]}&limit=1`); if (!clients[0]) return unavailable("Client link was not found", 404);
     const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
-    const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,started_at,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&${projectFilter}&order=started_at.desc&limit=1`);
+    const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; is_test: boolean; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,is_test,started_at,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&${projectFilter}&order=started_at.desc&limit=1`);
     const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return unavailable("Respondent routing session was not found", 404);
     const projectCode = project.project_code;
     const result = await recordEvent(request, env, supplier, projectCode, respondentRef, outcomes[outcome].eventType); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
-    const target = supplier[outcomes[outcome].field]; return typeof target === "string" && target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType)) : unavailable(`${outcome} redirect is not configured`, 422);
+    const target = supplier[outcomes[outcome].field];
+    if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType));
+    return session.is_test
+      ? routingPage("The test outcome was recorded", `${outcomes[outcome].eventType.replaceAll("_", " ")} has been added to test metrics. No supplier return URL is required for this test.`, 200, "success")
+      : unavailable(`${outcome} redirect is not configured`, 422);
   } catch (error) {
     const id = requestId(request);
     safeLog("error", "redirect_failed", { requestId: id, path: pathname, stage: routingStage, error: error instanceof Error ? error.message : "Unknown redirect failure" });
