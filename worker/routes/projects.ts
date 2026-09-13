@@ -519,9 +519,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     const reference = databaseError?.code ? ` (${databaseError.code})` : "";
     const message = databaseError?.status === 404
       ? `The project creation function is unavailable while the database schema cache refreshes${reference}`
-      : databaseError?.status === 403
-        ? `The database denied project creation for this workspace role${reference}`
-        : databaseError?.detail
+      : databaseError?.detail
           ? `The database rejected the project: ${databaseError.detail}${reference}`
           : `The project database request failed${reference}`;
     return Response.json({ error: message }, { status: 502 });
