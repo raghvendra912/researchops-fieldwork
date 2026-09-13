@@ -1115,5 +1115,5 @@ Do not record secret values here. Mark only whether they are available.
 - Fixed the production failure where a single Supabase `429`, `502`, `503`, or `504` during supplier, assignment, eligibility, quota, fraud, or callback lookup immediately sent a respondent to Routing unavailable.
 - Read-only routing requests now make up to three bounded attempts with short backoff. Mutation RPCs remain single-attempt so quota reservations and outcome writes cannot be duplicated by transport retries.
 - Added regression coverage proving a first-attempt `504` recovers on the next successful response and that permanent client/configuration statuses are not retryable.
-- Verification: focused business rules pass 12/12; the complete standard suite passes 29 tests with 5 environment-gated tests skipped; production build, lint, and `git diff --check` pass.
-- Current task is production deployment and repeated ROP-1137 route verification. Next task remains reliability monitoring and the external provider certification gates.
+- Verification: focused business rules pass 12/12; the complete standard suite passes 29 tests with 5 environment-gated tests skipped; production build, lint, and `git diff --check` pass. Commit `703d187` was deployed to Vercel production; hosted health/readiness return HTTP 200 and 10/10 fresh ROP-1137 test respondents returned the expected HTTP 302 survey redirect with no routing failure.
+- Current task returns to reliability monitoring and the external provider certification gates.
