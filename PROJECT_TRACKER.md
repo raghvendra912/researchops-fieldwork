@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-13
 Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `028`; local lint, build, rule/API, and focused Chromium checks pass. Hosted migrations `023`-`028` are user-confirmed applied; deterministic deployment uptake and authenticated routing verification remain incomplete, so the public URL is not claimed to run this revision.
+Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `028`; local lint, build, rule/API, and focused Chromium checks pass. Linked production migration history now verifies `001`-`028`; deterministic deployment uptake and authenticated routing verification remain incomplete, so the public URL is not yet claimed to pass the full respondent flow.
 
 ## Resume protocol
 
@@ -39,10 +39,9 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - routing, quota, and deployment proof
 
-1. Verify the user-confirmed hosted migrations `023` through `028` through migration history or the authenticated vertical-slice test.
-2. Prove an authenticated supplier Test → TST-only metric and Live → reservation → ST/RC → terminal outcome → supplier return flow against persistent data, including concurrent capacity boundaries.
-3. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
-4. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
+1. Prove an authenticated supplier Test → TST-only metric and Live → reservation → ST/RC → terminal outcome → supplier return flow against persistent data, including concurrent capacity boundaries.
+2. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
+3. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
 
 ### Next - external decision and credential gates
 
@@ -249,7 +248,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
-| `BLK-10` | The active production target is user-confirmed as Vercel (`www.asrv.co.in`), but its Git integration has not consumed the latest pushed `main` revision. Migrations `023`-`028` are user-confirmed applied; production remains healthy/Supabase-ready while its eight loaded JavaScript assets lack current routing/access/quota markers. This workspace has no Vercel CLI login or project link, and downloading the CLI timed out. | Inspect/reconnect the Vercel project's Git integration to `raghvendra912/researchops-fieldwork` branch `main`, redeploy commit `85671a9` (or newer), then verify build identity and authenticated routing data before production claims. |
+| `BLK-10` | The active production target is Vercel (`www.asrv.co.in`), but its Git integration has not been proven to consume current `main`. Linked Supabase migration history is synchronized through `028`, and production health is HTTP 200; authenticated routing/build-identity proof remains outstanding. This workspace has no Vercel CLI login or project link. | Verify a fresh Test link and TST metric on production; if the running build is stale, reconnect the Vercel project to `raghvendra912/researchops-fieldwork` branch `main` and redeploy commit `2595fd3` (or newer). |
 
 ## Verification record
 
@@ -349,8 +348,15 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Routing vertical-slice integration harness and resumed regression | PASS LOCALLY / ENVIRONMENT-GATED - added a persistent-data test covering Test isolation, eligibility, one-slot concurrent quota admission, terminal completion, supplier return, metrics, quota consumption, specifications, and audit evidence. Lint, production build, and 27 standard tests pass; 5 Supabase/Docker-gated tests skip because Docker is unavailable in this environment. A stale long-running Vinext server prevented a reliable fresh full Chromium rerun; the already-recorded focused Chromium checks remain valid. |
 | 2026-09-13 | Commits `6073014` and `42c0451` push / hosted uptake | PUSHED / NOT DEPLOYED - `origin/main` accepted both revisions. Hosted health and readiness return HTTP 200 and Supabase-ready, but all nine referenced JavaScript assets lack the new survey-setup, project-access, supplier-dialog, and quota markers; the Sites host still has not consumed current Git main. |
 | 2026-09-13 | Hosted migration report and direct Sites deployment attempt | MIGRATIONS USER-CONFIRMED / DEPLOYMENT BLOCKED - user reports migrations `023`-`028` completed. Direct `get_site` for the exact repository project ID returns `project_not_found`; the current Sites workspace lists only Survey Redirect Tester, so this session cannot save or deploy a ResearchOps version. Public readiness remains Supabase-ready while all nine live assets still lack current markers. |
+| 2026-09-13 | Linked production migration reconciliation | PASS - Supabase CLI linked to project `cmrktkzdptmywrtscalu`. Remote history initially stopped at `022`; `023` and `024` applied normally, existing manually-created `025`-`027` schemas were reconciled into migration history without deleting data, and `028` applied normally. A final linked check reports local/remote parity for every migration `001`-`028`; Vercel health returns HTTP 200. |
 
 ## Session log
+
+### 2026-09-13 - Production migration reconciliation and routing diagnosis
+
+- Diagnosed the generic Routing Unavailable page and absent Test metric against the linked production database. Remote migration history was at `022`, explaining the current Worker/schema mismatch.
+- Applied migrations `023` and `024`. Migrations `025`-`027` already had their leading tables from prior manual execution, so their history entries were safely repaired as applied without dropping or replacing production data. Applied migration `028` normally.
+- Verification: linked Supabase history reports exact local/remote parity for `001`-`028`; `https://www.asrv.co.in/api/health` returns HTTP 200 and healthy. Current task is a fresh production Test-link/TST-metric proof; next is live reservation/outcome proof and deterministic Vercel build identity.
 
 ### 2026-09-13 - Vercel production target clarification
 
