@@ -4,8 +4,8 @@ export type SupabaseEnv = {
 };
 
 export class SupabaseRequestError extends Error {
-  constructor(public status: number) {
-    super(`Supabase request failed with ${status}`);
+  constructor(public status: number, public code?: string, public detail?: string) {
+    super(detail ? `Supabase request failed with ${status}: ${detail}` : `Supabase request failed with ${status}`);
   }
 }
 
@@ -44,6 +44,11 @@ export async function supabaseRequest(env: SupabaseEnv, path: string, authorizat
     ...init,
     headers: supabaseHeaders(env, authorization, init?.headers),
   });
-  if (!response.ok) throw new SupabaseRequestError(response.status);
+  if (!response.ok) {
+    const body = await response.clone().json().catch(() => null) as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown } | null;
+    const code = typeof body?.code === "string" ? body.code.slice(0, 40) : undefined;
+    const detail = [body?.message, body?.details, body?.hint].find((value) => typeof value === "string" && value.trim()) as string | undefined;
+    throw new SupabaseRequestError(response.status, code, detail?.slice(0, 300));
+  }
   return response;
 }

@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-13
 Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `028`; local lint, build, rule/API, and focused Chromium checks pass. Linked production migration history now verifies `001`-`028`; deterministic deployment uptake and authenticated routing verification remain incomplete, so the public URL is not yet claimed to pass the full respondent flow.
+Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `029`; local lint, build, and standard tests pass. Linked production migration history now verifies `001`-`029`; deterministic deployment uptake and authenticated routing/project-creation verification remain incomplete.
 
 ## Resume protocol
 
@@ -350,8 +350,16 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Hosted migration report and direct Sites deployment attempt | MIGRATIONS USER-CONFIRMED / DEPLOYMENT BLOCKED - user reports migrations `023`-`028` completed. Direct `get_site` for the exact repository project ID returns `project_not_found`; the current Sites workspace lists only Survey Redirect Tester, so this session cannot save or deploy a ResearchOps version. Public readiness remains Supabase-ready while all nine live assets still lack current markers. |
 | 2026-09-13 | Linked production migration reconciliation | PASS - Supabase CLI linked to project `cmrktkzdptmywrtscalu`. Remote history initially stopped at `022`; `023` and `024` applied normally, existing manually-created `025`-`027` schemas were reconciled into migration history without deleting data, and `028` applied normally. A final linked check reports local/remote parity for every migration `001`-`028`; Vercel health returns HTTP 200. |
 | 2026-09-13 | Full-project evidence audit | MIXED - production build and standard suite pass (27 passed, 5 environment-gated skips); lint passes but takes about 146 seconds; production dependency audit reports zero known vulnerabilities. The 10-test Chromium suite times out after five minutes with at least two 30-second failures. Vercel health/readiness return HTTP 200, while authenticated routing/build identity remain unproved. |
+| 2026-09-13 | Production project-creation failure response | FIX DEPLOYED TO DATABASE / APP PUSH PENDING - migration `029` explicitly reloaded the PostgREST schema cache after RPC changes from `028`. The Worker now retains safe Supabase status/code/detail diagnostics instead of reducing every database rejection to one generic 502. Production build and standard tests pass: 27 passed, 5 environment-gated skips. |
 
 ## Session log
+
+### 2026-09-13 - Project creation database failure diagnosis
+
+- Traced the reported Create Project banner to the authenticated `create_project_with_market_v4` RPC; client-side validation had passed, while the previous Worker catch discarded the actionable Supabase response.
+- Added migration `029_reload_postgrest_schema.sql` and applied it to linked production to explicitly refresh PostgREST after migration `028` introduced the v4 RPC.
+- Extended the shared Supabase request error with bounded status/code/detail diagnostics and made the project API return an authenticated operator-safe actionable message while logging structured database context.
+- Verification: migration `029` applied successfully; production build and standard tests pass with 27 passed and 5 environment-gated skips. Current task is deploying this Worker revision and retrying the same project creation to confirm success or capture the now-specific database rejection.
 
 ### 2026-09-13 - Full-project readiness review
 

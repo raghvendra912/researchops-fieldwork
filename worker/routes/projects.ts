@@ -1,6 +1,6 @@
 import { projects as mockProjects } from "../../src/features/projects/mockProjects";
 import type { Project, ProjectStatus } from "../../src/features/projects/project.types";
-import { isSupabaseConfigured, supabaseJson, supabaseRequest, type SupabaseEnv } from "../lib/supabase";
+import { isSupabaseConfigured, SupabaseRequestError, supabaseJson, supabaseRequest, type SupabaseEnv } from "../lib/supabase";
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { canTransition } from "../domain/project-lifecycle";
 import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
@@ -514,8 +514,17 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       return Response.json({ data: { id: changed?.project_code, previousStatus: changed?.previous_status, status: changed?.status }, meta: { source: "supabase" } });
     }
   } catch (error) {
-    console.error("project_database_request_failed", { pathname, message: error instanceof Error ? error.message : "Unknown error" });
-    return Response.json({ error: "The project database request failed" }, { status: 502 });
+    const databaseError = error instanceof SupabaseRequestError ? error : null;
+    console.error("project_database_request_failed", { pathname, status: databaseError?.status, code: databaseError?.code, message: error instanceof Error ? error.message : "Unknown error" });
+    const reference = databaseError?.code ? ` (${databaseError.code})` : "";
+    const message = databaseError?.status === 404
+      ? `The project creation function is unavailable while the database schema cache refreshes${reference}`
+      : databaseError?.status === 403
+        ? `The database denied project creation for this workspace role${reference}`
+        : databaseError?.detail
+          ? `The database rejected the project: ${databaseError.detail}${reference}`
+          : `The project database request failed${reference}`;
+    return Response.json({ error: message }, { status: 502 });
   }
   return null;
 }
