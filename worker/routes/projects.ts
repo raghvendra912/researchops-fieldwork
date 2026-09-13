@@ -37,7 +37,7 @@ type ProjectSortKey = "createdAt" | "code" | "name" | "status" | "cpi";
 type SortDirection = "asc" | "desc";
 type ProjectMarket = { id?: string; countryCode: string; languageCode: string; targetQuota: number; expectedLoiMinutes: number; expectedIr: number };
 type SupplierAssignment = { id?: string; supplierId: string; supplierName?: string; supplierProjectId: string; supplierCpi: number; targetQuota: number; status: "PENDING" | "ACTIVE" | "PAUSED" | "CLOSED" };
-type ProjectMetrics = { project_code: string; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; abandons: number; in_progress: number; completes_l24: number; incidence_rate: number | string | null; conversion_rate: number | string | null; abandon_rate: number | string | null; average_duration_seconds: number | null; last_event_at: string | null; last_complete_at: string | null };
+type ProjectMetrics = { project_code: string; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; abandons: number; in_progress: number; completes_l24: number; incidence_rate: number | string | null; conversion_rate: number | string | null; abandon_rate: number | string | null; average_duration_seconds: number | null; last_event_at: string | null; last_complete_at: string | null; test_starts?: number; test_completes?: number; test_terminates?: number; test_over_quota?: number; test_quality_term?: number };
 
 type ProjectListQuery = {
   q: string;
@@ -135,6 +135,11 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     abandonRate: Number(metrics?.abandon_rate ?? 0),
     incidenceRate: Number(metrics?.incidence_rate ?? 0),
     conversionRate: Number(metrics?.conversion_rate ?? 0),
+    testStarts: metrics?.test_starts ?? 0,
+    testCompletes: metrics?.test_completes ?? 0,
+    testTerminates: metrics?.test_terminates ?? 0,
+    testOverQuota: metrics?.test_over_quota ?? 0,
+    testQualityTerm: metrics?.test_quality_term ?? 0,
     cpi: Number(row.client_cpi ?? 0),
     quota: row.quota ?? undefined,
     category: row.category ?? undefined,
@@ -294,11 +299,11 @@ function parseAssignments(payload: Record<string, unknown> | null): SupplierAssi
   return valid && new Set(assignments.map((item) => item.supplierId)).size === assignments.length ? assignments : null;
 }
 
-function assignmentRow(row: { id?: string; supplier_id: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"]; suppliers?: { name: string; redirect_token?: string; redirect_mode?: string } | { name: string; redirect_token?: string; redirect_mode?: string }[] | null; supplier_name?: string; test_starts?: number; starts?: number; reached?: number; completes?: number; terminates?: number; over_quota?: number; quality_term?: number; incidence_rate?: number | string | null; cost?: number | string }, origin?: string, projectCode?: string) {
+function assignmentRow(row: { id?: string; supplier_id: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"]; suppliers?: { name: string; redirect_token?: string; redirect_mode?: string } | { name: string; redirect_token?: string; redirect_mode?: string }[] | null; supplier_name?: string; test_starts?: number; test_completes?: number; test_terminates?: number; test_over_quota?: number; test_quality_term?: number; starts?: number; reached?: number; completes?: number; terminates?: number; over_quota?: number; quality_term?: number; incidence_rate?: number | string | null; conversion_rate?: number | string | null; cost?: number | string }, origin?: string, projectCode?: string) {
   const relation = Array.isArray(row.suppliers) ? row.suppliers[0] : row.suppliers;
   const linkBase = origin && relation?.redirect_token ? `${origin}/r/supplier/${relation.redirect_token}` : "";
   const liveLink = linkBase && projectCode ? `${linkBase}/live?project=${encodeURIComponent(projectCode)}&respondent={{respondent_id}}` : "";
-  return { id: row.id, supplierId: row.supplier_id, supplierName: row.supplier_name ?? relation?.name ?? "Supplier", supplierProjectId: row.supplier_project_id ?? "", supplierCpi: Number(row.supplier_cpi), targetQuota: row.target_quota, status: row.status, redirectMode: relation?.redirect_mode ?? "STATIC", testLink: liveLink ? `${liveLink}&mode=test` : "", liveLink, testStarts: row.test_starts ?? 0, starts: row.starts ?? 0, reached: row.reached ?? 0, completes: row.completes ?? 0, terminates: row.terminates ?? 0, overQuota: row.over_quota ?? 0, qualityTerm: row.quality_term ?? 0, incidenceRate: Number(row.incidence_rate ?? 0), cost: Number(row.cost ?? 0) };
+  return { id: row.id, supplierId: row.supplier_id, supplierName: row.supplier_name ?? relation?.name ?? "Supplier", supplierProjectId: row.supplier_project_id ?? "", supplierCpi: Number(row.supplier_cpi), targetQuota: row.target_quota, status: row.status, redirectMode: relation?.redirect_mode ?? "STATIC", testLink: liveLink ? `${liveLink}&mode=test` : "", liveLink, testStarts: row.test_starts ?? 0, testCompletes: row.test_completes ?? 0, testTerminates: row.test_terminates ?? 0, testOverQuota: row.test_over_quota ?? 0, testQualityTerm: row.test_quality_term ?? 0, starts: row.starts ?? 0, reached: row.reached ?? 0, completes: row.completes ?? 0, terminates: row.terminates ?? 0, overQuota: row.over_quota ?? 0, qualityTerm: row.quality_term ?? 0, incidenceRate: Number(row.incidence_rate ?? 0), conversionRate: Number(row.conversion_rate ?? 0), cost: Number(row.cost ?? 0) };
 }
 
 const databaseSortColumns: Record<ProjectSortKey, string> = { createdAt: "created_at", code: "project_code", name: "project_name", status: "status", cpi: "client_cpi" };
@@ -472,7 +477,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       const rows = await supabaseJson<Array<{ id: string; supplier_id: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"]; suppliers: { name: string; redirect_token?: string; redirect_mode?: string } | { name: string; redirect_token?: string; redirect_mode?: string }[]; projects: { project_code: string } }>>(env, `/rest/v1/project_suppliers?select=id,supplier_id,supplier_project_id,supplier_cpi,target_quota,status,suppliers(name,redirect_token,redirect_mode),projects!inner(project_code)&projects.project_code=eq.${encodeURIComponent(projectCode)}&order=created_at.asc`, access.authorization);
       let metricRows: Array<{ supplier_id: string; test_starts?: number; starts: number; reached: number; completes: number; terminates: number; over_quota: number; quality_term: number; incidence_rate: number | string | null; cost: number | string }>;
       try {
-        metricRows = await supabaseJson(env, `/rest/v1/project_supplier_event_metrics?select=supplier_id,test_starts,starts,reached,completes,terminates,over_quota,quality_term,incidence_rate,cost&project_code=eq.${encodeURIComponent(projectCode)}`, access.authorization);
+        metricRows = await supabaseJson(env, `/rest/v1/project_supplier_event_metrics?select=supplier_id,test_starts,test_completes,test_terminates,test_over_quota,test_quality_term,starts,reached,completes,terminates,over_quota,quality_term,incidence_rate,conversion_rate,cost&project_code=eq.${encodeURIComponent(projectCode)}`, access.authorization);
       } catch {
         // Keep supplier delivery readable during a staged Worker-before-schema rollout.
         // Test traffic remains unavailable until migration 023 is applied.

@@ -21,6 +21,11 @@ export interface Project {
   abandonRate: number;
   incidenceRate: number;
   conversionRate: number;
+  testStarts?: number;
+  testCompletes?: number;
+  testTerminates?: number;
+  testOverQuota?: number;
+  testQualityTerm?: number;
   cpi: number;
   quota?: number;
   category?: string;
