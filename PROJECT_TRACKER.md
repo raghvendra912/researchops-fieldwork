@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-13
 Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `028`; local lint, build, rule/API, and focused Chromium checks pass. Hosted migrations and deterministic deployment uptake remain unverified, so the public URL is not claimed to run this revision.
+Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `028`; local lint, build, rule/API, and focused Chromium checks pass. Hosted migrations `023`-`028` are user-confirmed applied; deterministic deployment uptake and authenticated routing verification remain incomplete, so the public URL is not claimed to run this revision.
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - routing, quota, and deployment proof
 
-1. Apply migrations `023` through `028` to the target Supabase environment before deploying the matching Worker revision.
+1. Verify the user-confirmed hosted migrations `023` through `028` through migration history or the authenticated vertical-slice test.
 2. Prove an authenticated supplier Test → TST-only metric and Live → reservation → ST/RC → terminal outcome → supplier return flow against persistent data, including concurrent capacity boundaries.
 3. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
 4. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
@@ -249,7 +249,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-07` | PRJ-1125 live routing cannot be activated: the hosted project is PENDING with no client survey URL, and the supplier token copied in the reported link is stale/not present in the hosted supplier directory. | Configure the intended HTTP(S) client survey URL, select or create an active hosted supplier assignment, then move the assignment to ACTIVE and the project to LIVE; suppliers must replace `{{respondent_id}}` with their respondent ID. |
 | `BLK-08` | Vercel production deployment requires explicit approval to store the hosted Supabase service-role credential in Vercel's encrypted production environment. | Approve that secret transfer, or authorize a larger backend redesign that removes privileged service-role operations from the Vercel runtime. |
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
-| `BLK-10` | The Sites host has not demonstrably consumed recent pushed revisions, and this workspace has no linked Supabase project/local running stack for migrations `023`-`028`. The repository project ID returns `not found` in the currently selected personal Sites account, whose site list contains only an unrelated redirect tester; the `rav9912` ResearchOps host belongs to another Sites owner/workspace context. | Select/connect the Sites account that owns `appgprj_6a928169a84c8191b3f330591bd308cd`, apply migrations in order through `028`, deploy the latest saved `main` revision, and verify the visible build identity plus authenticated routing data before production claims. |
+| `BLK-10` | The Sites host has not demonstrably consumed recent pushed revisions. Migrations `023`-`028` are user-confirmed applied, but the repository project ID still returns `not found` in the currently selected Sites account, whose site list contains only the unrelated Survey Redirect Tester; the `rav9912` ResearchOps host belongs to another Sites owner/workspace context. | Switch/connect Codex to the Sites workspace that owns `appgprj_6a928169a84c8191b3f330591bd308cd`, deploy the latest saved `main` revision, and verify the visible build identity plus authenticated routing data before production claims. |
 
 ## Verification record
 
@@ -348,8 +348,15 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Supplier link dialog and current branch regression | PASS LOCALLY - lint and production build pass; 19 business/server-rendered tests pass; focused Chromium passes against a fresh production server and visual evidence confirms separate bordered Test/Live cards with copy actions. The first two dev-server attempts failed from stale/cold navigation and were not counted as product failures. |
 | 2026-09-13 | Routing vertical-slice integration harness and resumed regression | PASS LOCALLY / ENVIRONMENT-GATED - added a persistent-data test covering Test isolation, eligibility, one-slot concurrent quota admission, terminal completion, supplier return, metrics, quota consumption, specifications, and audit evidence. Lint, production build, and 27 standard tests pass; 5 Supabase/Docker-gated tests skip because Docker is unavailable in this environment. A stale long-running Vinext server prevented a reliable fresh full Chromium rerun; the already-recorded focused Chromium checks remain valid. |
 | 2026-09-13 | Commits `6073014` and `42c0451` push / hosted uptake | PUSHED / NOT DEPLOYED - `origin/main` accepted both revisions. Hosted health and readiness return HTTP 200 and Supabase-ready, but all nine referenced JavaScript assets lack the new survey-setup, project-access, supplier-dialog, and quota markers; the Sites host still has not consumed current Git main. |
+| 2026-09-13 | Hosted migration report and direct Sites deployment attempt | MIGRATIONS USER-CONFIRMED / DEPLOYMENT BLOCKED - user reports migrations `023`-`028` completed. Direct `get_site` for the exact repository project ID returns `project_not_found`; the current Sites workspace lists only Survey Redirect Tester, so this session cannot save or deploy a ResearchOps version. Public readiness remains Supabase-ready while all nine live assets still lack current markers. |
 
 ## Session log
+
+### 2026-09-13 - User-confirmed migrations and Sites ownership check
+
+- Recorded the user's confirmation that hosted migrations `023`-`028` completed; independent schema/vertical-slice proof remains pending because no hosted authenticated test credential is available in this session.
+- Used the Sites connector directly with `.openai/hosting.json` project `appgprj_6a928169a84c8191b3f330591bd308cd`; it returned `project_not_found` and the selected Sites workspace lists only Survey Redirect Tester.
+- Public readiness remains healthy/Supabase-ready, but all nine referenced live JavaScript assets still lack the new routing/access/quota markers. The next action is switching Codex to the Sites owner workspace, then saving/deploying exact Git commit `0c8673f` and executing the authenticated routing test.
 
 ### 2026-09-13 - Resumed migration 027-028 and routing proof
 
