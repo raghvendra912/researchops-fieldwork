@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-13
 Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `030`; local lint, build, and standard tests pass. Linked production migration history verifies `001`-`030`; production project creation requires one post-fix retry, while deterministic deployment uptake and authenticated routing verification remain incomplete.
+Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `033`; local build and standard tests pass. Linked production migration history verifies `001`-`033`, and production database lint reports no schema errors; authenticated project creation and routing still require post-fix UI proof.
 
 ## Resume protocol
 
@@ -352,8 +352,15 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Full-project evidence audit | MIXED - production build and standard suite pass (27 passed, 5 environment-gated skips); lint passes but takes about 146 seconds; production dependency audit reports zero known vulnerabilities. The 10-test Chromium suite times out after five minutes with at least two 30-second failures. Vercel health/readiness return HTTP 200, while authenticated routing/build identity remain unproved. |
 | 2026-09-13 | Production project-creation failure response | FIX DEPLOYED TO DATABASE / APP PUSH PENDING - migration `029` explicitly reloaded the PostgREST schema cache after RPC changes from `028`. The Worker now retains safe Supabase status/code/detail diagnostics instead of reducing every database rejection to one generic 502. Production build and standard tests pass: 27 passed, 5 environment-gated skips. |
 | 2026-09-13 | Project INSERT RLS repair and market catalog audit | DATABASE FIX APPLIED / RETEST PENDING - the improved production diagnostic identified `42501: new row violates row-level security policy for table projects`. Migration `030` narrowly recreates the intended OWNER/ADMIN/PM project INSERT policy and reloads PostgREST; linked history matches `001`-`030`. The market catalog contains 249 ISO countries/territories and 184 languages; build and standard tests pass with 27 passed and 5 environment-gated skips. |
+| 2026-09-13 | Production schema repair through `033` | PASS / UI RETEST PENDING - migration `031` removes the scoped SELECT-RLS conflict caused by `INSERT ... RETURNING *`; `032` repairs eligibility/quota JSON ordinality syntax and the ambiguous quota reservation column; `033` corrects project-access UUID array initialization. Linked migration parity is exact through `033`, and `supabase db lint --linked --level warning` reports no schema errors. |
 
 ## Session log
+
+### 2026-09-13 - Complete production function lint repair
+
+- Reworked `create_project_with_market_v4` in migration `031` to pre-generate and return project identifiers without `INSERT ... RETURNING *`, preserving scoped RLS while removing the new-row SELECT-policy conflict.
+- Ran linked production database lint and repaired every reported issue: eligibility/quota `WITH ORDINALITY` syntax, quota reservation column ambiguity, and typed empty arrays in quota/access functions through migrations `032` and `033`.
+- Verification: production migrations `001`-`033` match local history and linked database lint returns `No schema errors found`. Existing application build and standard suite remain green; authenticated UI project creation and routing are the remaining runtime proof.
 
 ### 2026-09-13 - Project creation RLS repair and catalog verification
 
