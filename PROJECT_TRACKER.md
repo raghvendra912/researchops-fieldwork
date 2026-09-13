@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - routing, quota, and deployment proof
 
-1. Prove an authenticated supplier Test → TST-only metric and Live → reservation → ST/RC → terminal outcome → supplier return flow against persistent data, including concurrent capacity boundaries.
+1. Maintain production respondent-routing reliability after the completed Test/Live metric and terminal-outcome proof; transient Supabase read failures now use bounded retries.
 2. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
 3. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
 
@@ -1109,3 +1109,11 @@ Do not record secret values here. Mark only whether they are available.
 - The function now locks and loads the authorized fraud flag into its row variable, then reads the related session project ID separately for the audit record; review authorization and update behavior are unchanged.
 - Scanned all migrations for the same pattern; remaining multi-item `INTO` statements target scalar variables and are valid.
 - Verification: lint and `git diff --check` pass. Current task is rerunning migration `027`, then continuing with `028`.
+
+### 2026-09-13 - Transient Supabase routing recovery
+
+- Fixed the production failure where a single Supabase `429`, `502`, `503`, or `504` during supplier, assignment, eligibility, quota, fraud, or callback lookup immediately sent a respondent to Routing unavailable.
+- Read-only routing requests now make up to three bounded attempts with short backoff. Mutation RPCs remain single-attempt so quota reservations and outcome writes cannot be duplicated by transport retries.
+- Added regression coverage proving a first-attempt `504` recovers on the next successful response and that permanent client/configuration statuses are not retryable.
+- Verification: focused business rules pass 12/12; the complete standard suite passes 29 tests with 5 environment-gated tests skipped; production build, lint, and `git diff --check` pass.
+- Current task is production deployment and repeated ROP-1137 route verification. Next task remains reliability monitoring and the external provider certification gates.

@@ -6,6 +6,7 @@ import { requestId, safeLog } from "../lib/observability";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
 import { buildSurveyUrl, type SurveyParameter } from "../domain/survey-url";
+import { serviceRows } from "../lib/supabase-read";
 
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
@@ -23,7 +24,6 @@ const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }>
 };
 
 function serviceHeaders(env: RedirectEnv) { return { apikey: env.SUPABASE_SERVICE_ROLE_KEY!, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }; }
-async function serviceRows<T>(env: RedirectEnv, path: string): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}${path}`, { headers: serviceHeaders(env) }); if (!response.ok) throw new Error(`Redirect lookup failed with upstream status ${response.status}`); return response.json() as Promise<T[]>; }
 async function serviceRpc<T>(env: RedirectEnv, name: string, body: Record<string, unknown>): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Routing reservation failed with upstream status ${response.status}`); return response.json() as Promise<T[]>; }
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
