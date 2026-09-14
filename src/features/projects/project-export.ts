@@ -4,6 +4,7 @@ const columns: Array<[string, (project: Project) => string | number]> = [
   ["Project ID", (project) => project.id],
   ["Project", (project) => project.name],
   ["Client", (project) => project.client],
+  ["Client code", (project) => project.clientCode ?? ""],
   ["Market", (project) => project.market],
   ["Type", (project) => project.type],
   ["Manager", (project) => project.manager],

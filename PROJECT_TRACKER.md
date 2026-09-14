@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-14
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: The fieldwork-intelligence feature revision `0668533` and deployment-state revision `f6394f5` are pushed to approved GitHub `main`, with migration `035` present in linked Supabase. Local/remote migration history matches through `035`, remote database lint passes, and 17 focused feature tests pass. Production remains on the prior asset set because Git push did not trigger uptake and Vercel CLI is logged out.
+Overall state: The screenshot-aligned Project Center dashboard is code-ready with its dense operational table, complete/target and rate columns, client code/PO, PM and recency fields, create-date ordering, sticky identifiers, and profile-aware column visibility. Migration `036` is present in linked Supabase and local/remote history matches through `036`; OWNER/ADMIN/PM are full-portfolio readers while ANALYST/MEMBER remain explicit-project scoped. Build, lint, and 17 focused tests pass; multi-role browser proof and production deployment remain.
 
 ## Resume protocol
 
@@ -92,7 +92,9 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 | ID | Feature | Status | Acceptance criteria / next action |
 |---|---|---|---|
-| `PRJ-01` | Project Center table UI | READY | Workspace-wide API view supports distinct internal-ID/general search, all-client/all-type facets, durable manager facets, multi-status filtering, newest-first pagination, safe CSV export, and role-aware New Project access; browser evidence and hosted rollout remain pending. |
+| `PRJ-01` | Project Center table UI | READY | Screenshot-aligned dense view exposes Project ID/name, CC, CC PO#, ST, RC, L24, CO/target, TE, OQ, QT, AB%, IR%, CV%, CPI, status, PM, LU date, last complete, and actions, with create-date ordering, filters, sticky identifiers, CSV/XLSX controls, and horizontal scrolling. Browser evidence and hosted rollout remain pending. |
+| `PRJ-11` | Portfolio visibility by profile | READY | Migration `036` is present in linked Supabase and grants OWNER/ADMIN/PM read visibility across the organization portfolio while ANALYST/MEMBER remain limited to explicit project grants. The UI hides manager, commercial, client-code/PO, and recency administration columns from scoped profiles. Multi-role browser proof remains. |
+| `PRJ-12` | Secondary PM and sales ownership | TODO | The reference introduces SPM and Sales Person as distinct persisted assignments. Add role taxonomy, project foreign keys/history, assignment editor, filters, audit events, and export fields after ownership rules are approved; the PM/SPM heading currently displays the existing primary PM only and does not fabricate missing ownership data. |
 | `PRJ-02` | Project summary metrics | READY | Status counts, event outcomes, monthly Overview completes, and average respondent duration are connected in Supabase mode with demo fallback. |
 | `PRJ-03` | Demo project API | DONE | The explicit no-credentials fallback covers list/detail/create/update, transitions, markets, and assignments for local demonstrations. |
 | `PRJ-04` | Persistent project read API | DONE | Live Worker integration proves authenticated tenant-scoped detail and filtered/paginated list reads from Supabase. |
@@ -369,8 +371,19 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Linked migration `035` verification | PASS FOR SCHEMA / INTEGRATION PENDING - remote inspection confirms `project_response_variables` and `survey_response_values`; migration history was repaired after manual SQL application and now matches local `001`-`035`; `supabase db lint --linked --level warning` reports no schema errors. Authenticated RLS, capture, cleanup, review, browser, and deployment proof remain. |
 | 2026-09-14 | Fieldwork release deployment | BLOCKED SAFELY - verified feature revision is committed locally as `0668533`. GitHub push was not authorized for the unverified remote destination, and the linked Vercel CLI reports logged out; no source or credentials were uploaded. |
 | 2026-09-14 | Approved fieldwork GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - user explicitly approved the GitHub destination; `main` advanced through `0668533` and `f6394f5`. Production health/readiness return HTTP 200 and Supabase-ready, but none of the 10 referenced JavaScript assets contains `Download Fieldwork Workbook`; Vercel CLI remains logged out. |
+| 2026-09-14 | Screenshot-aligned Project Center | PASS LOCALLY / MIGRATION PENDING - production build and lint pass; 17 focused business/API tests pass. Migration `036` defines full OWNER/ADMIN/PM portfolio reads and scoped ANALYST/MEMBER reads; browser and hosted proof remain. |
+| 2026-09-14 | Linked migration `036` verification | PASS FOR SCHEMA HISTORY/LINT - user confirmed manual SQL execution; migration history was repaired and now matches local/remote `001`-`036`; linked database lint reports no schema errors. Multi-role browser proof remains. |
 
 ## Session log
+
+### 2026-09-14 - Screenshot-aligned Project Center dashboard
+
+- Reworked Project Center into the dense reference-style operational grid with Project ID/name, client code and PO, ST/RC/L24, CO/target, TE/OQ/QT, AB/IR/CV percentages, CPI, status, PM, last-update date, relative last-complete time, action, create-date ordering, sticky identity columns, and existing CSV/XLSX/refresh/search controls.
+- Added client-code delivery from the existing client directory rather than deriving unreliable initials.
+- Added explicit API view metadata and UI redaction: OWNER/ADMIN/PM receive the complete portfolio/column set, while ANALYST/MEMBER see only RLS-authorized projects and the operational core. Migration `036` makes PM organization-wide read access database-enforced without widening PM update privileges.
+- Identified SPM and Sales Person as genuinely new ownership concepts. They remain a separate TODO requiring approved role semantics, persisted user references/history, editing, filtering, auditing, and exports; no fake values were introduced.
+- Verification: production build and ESLint pass; focused business/API tests pass 17/17. Current task is applying migration `036`, then multi-role and browser verification before deployment.
+- Migration follow-up: user confirmed SQL-editor execution; linked database lint passes with no schema errors, and repaired migration history now has exact local/remote parity through `036`. Current task is multi-role browser verification before deployment.
 
 ### 2026-09-14 - Fieldwork workbook and respondent intelligence foundation
 

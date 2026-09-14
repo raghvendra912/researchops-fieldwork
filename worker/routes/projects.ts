@@ -29,7 +29,7 @@ type DatabaseProject = {
   survey_parameters: unknown;
   security_terminate_url: string | null;
   created_at: string;
-  clients: { name: string } | { name: string }[] | null;
+  clients: { name: string; code?: string | null } | { name: string; code?: string | null }[] | null;
   project_markets: { country_code: string }[] | null;
 };
 
@@ -107,6 +107,11 @@ function relationName(relation: DatabaseProject["clients"]) {
   return relation?.name ?? "Unassigned client";
 }
 
+function relationCode(relation: DatabaseProject["clients"]) {
+  const client = Array.isArray(relation) ? relation[0] : relation;
+  return client?.code ?? "";
+}
+
 function managerName(relation: DatabaseProject["project_managers"]) {
   if (Array.isArray(relation)) return relation[0]?.display_name ?? "Unassigned";
   return relation?.display_name ?? "Unassigned";
@@ -118,6 +123,7 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     id: row.project_code,
     name: row.project_name,
     client: relationName(row.clients),
+    clientCode: relationCode(row.clients),
     clientPo: row.client_po ?? "",
     market: (countryNames[countryCode] ?? countryCode) || "Not set",
     type: row.project_type ?? "Not set",
@@ -207,6 +213,8 @@ function mockList(query: ProjectListQuery) {
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
       source: "mock" as const,
       canOperate: true,
+      workspaceRole: "PM" as const,
+      fullPortfolio: true,
       facets: facetsFor(mockProjects),
       summary: statusSummary(filtered),
     },
@@ -308,9 +316,9 @@ function assignmentRow(row: { id?: string; supplier_id: string; supplier_project
 
 const databaseSortColumns: Record<ProjectSortKey, string> = { createdAt: "created_at", code: "project_code", name: "project_name", status: "status", cpi: "client_cpi" };
 
-async function supabaseList(env: ProjectApiEnv, authorization: string, query: ProjectListQuery, canOperate: boolean, userId: string) {
+async function supabaseList(env: ProjectApiEnv, authorization: string, query: ProjectListQuery, canOperate: boolean, userId: string, workspaceRole: "OWNER" | "ADMIN" | "PM" | "ANALYST" | "MEMBER") {
   const clientFilter = postgrestText(query.client);
-  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,${clientFilter ? "clients!inner(name)" : "clients(name)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
+  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,${clientFilter ? "clients!inner(name,code)" : "clients(name,code)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
   const params = new URLSearchParams({ select, order: `${databaseSortColumns[query.sortBy]}.${query.sortDirection}` });
   const search = postgrestText(query.q);
   if (search) params.set("or", `(project_name.ilike.*${search}*,client_po.ilike.*${search}*)`);
@@ -358,6 +366,8 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
       totalPages: Math.max(1, Math.ceil(resolvedTotal / query.pageSize)),
       source: "supabase" as const,
       canOperate,
+      workspaceRole,
+      fullPortfolio: ["OWNER", "ADMIN", "PM"].includes(workspaceRole),
       facets: {
         clients: Array.from(new Set(allClients.map((item) => item.name))).sort(),
         managers: Array.from(new Map(facetProjects.map((project) => [project.manager.value, project.manager])).values()).sort((a, b) => a.label.localeCompare(b.label)),
@@ -429,7 +439,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
       await reconcileAbandoned(env);
-      const result = await supabaseList(env, access.authorization, readListQuery(request), workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM"), access.membership.user_id ?? "");
+      const result = await supabaseList(env, access.authorization, readListQuery(request), workspacePermissions.operate.includes(access.membership.role as "OWNER" | "ADMIN" | "PM"), access.membership.user_id ?? "", access.membership.role);
       return Response.json(result, { headers: { "cache-control": "private, no-store" } });
     }
     if (pathname === "/api/projects" && request.method === "POST") {
@@ -448,7 +458,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       await reconcileAbandoned(env);
       const code = encodeURIComponent(detailMatch[1]);
-      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,clients(name),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
+      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,clients(name,code),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
       const capability = await getProjectCapabilities(env, access.authorization, detailMatch[1]);

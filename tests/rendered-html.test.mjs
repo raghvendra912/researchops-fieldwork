@@ -80,6 +80,8 @@ test("serves Worker health and project APIs", async () => {
   assert.equal(body.data[0].id, "PRJ-1048");
   assert.equal(body.meta.source, "mock");
   assert.equal(body.meta.canOperate, true);
+  assert.equal(body.meta.workspaceRole, "PM");
+  assert.equal(body.meta.fullPortfolio, true);
 
   const filteredProjects = await request("/api/projects?status=LIVE&page=1&pageSize=2&sortBy=code&sortDirection=asc");
   assert.equal(filteredProjects.status, 200);

@@ -4,6 +4,7 @@ export interface Project {
   id: string;
   name: string;
   client: string;
+  clientCode?: string;
   clientPo: string;
   market: string;
   type: string;
