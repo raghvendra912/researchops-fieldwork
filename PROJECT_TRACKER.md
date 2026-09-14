@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-14
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: A six-sheet Project Center fieldwork workbook, privacy-safe respondent context, normalized termination reasons, controlled response-variable capture/retention, and separate internal/vendor review workflows are committed locally as `0668533`, with migration `035` present in the linked database. Local/remote migration history matches through `035`, remote database lint passes, and 17 focused feature tests pass. Production deployment is blocked because Vercel CLI is logged out and source upload to the GitHub remote has not been explicitly approved.
+Overall state: The fieldwork-intelligence feature revision `0668533` and deployment-state revision `f6394f5` are pushed to approved GitHub `main`, with migration `035` present in linked Supabase. Local/remote migration history matches through `035`, remote database lint passes, and 17 focused feature tests pass. Production remains on the prior asset set because Git push did not trigger uptake and Vercel CLI is logged out.
 
 ## Resume protocol
 
@@ -368,6 +368,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Fieldwork workbook and respondent-intelligence code-ready verification | PARTIAL PASS - production build and lint pass; focused business/API rules pass 17/17, covering XLSX structure/safety, response-variable configuration validation, respondent export metadata, and separate review actions. Full standard suite retains two documented auth-loading SSR failures. Migration/RLS proof is gated by unavailable Docker/Podman. |
 | 2026-09-14 | Linked migration `035` verification | PASS FOR SCHEMA / INTEGRATION PENDING - remote inspection confirms `project_response_variables` and `survey_response_values`; migration history was repaired after manual SQL application and now matches local `001`-`035`; `supabase db lint --linked --level warning` reports no schema errors. Authenticated RLS, capture, cleanup, review, browser, and deployment proof remain. |
 | 2026-09-14 | Fieldwork release deployment | BLOCKED SAFELY - verified feature revision is committed locally as `0668533`. GitHub push was not authorized for the unverified remote destination, and the linked Vercel CLI reports logged out; no source or credentials were uploaded. |
+| 2026-09-14 | Approved fieldwork GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - user explicitly approved the GitHub destination; `main` advanced through `0668533` and `f6394f5`. Production health/readiness return HTTP 200 and Supabase-ready, but none of the 10 referenced JavaScript assets contains `Download Fieldwork Workbook`; Vercel CLI remains logged out. |
 
 ## Session log
 
@@ -392,6 +393,12 @@ Do not record secret values here. Mark only whether they are available.
 - Created local release commit `0668533` containing the fieldwork workbook, respondent intelligence, response-variable controls, review workflows, migration `035`, documentation, and tests.
 - GitHub source upload did not proceed because the destination requires explicit approval. Direct deployment also stopped safely because Vercel CLI is logged out, although `.vercel/project.json` still identifies the linked `researchops-fieldwork` project.
 - No source or credentials were sent externally. Current task is obtaining explicit approval for the GitHub `github` remote or restoring Vercel CLI authentication, then deploying `0668533` and running hosted health/readiness and asset checks.
+
+### 2026-09-14 - Approved GitHub push and production uptake check
+
+- After explicit user approval, pushed local `main` through `f6394f5` to `https://github.com/raghvendra912/researchops-fieldwork.git`.
+- Production `/api/health` and `/api/readiness` return HTTP 200 with Supabase configured. A delayed inspection of all 10 JavaScript assets referenced by `/projects` found no `Download Fieldwork Workbook` marker, proving the host has not consumed the new revision.
+- Direct deployment remains blocked only on Vercel CLI authentication. Next action is `npx vercel login`, followed by `npx vercel --prod --yes` and repeat health/readiness/asset verification.
 
 ### 2026-09-13 - Outcome pages, metric formulas, and export consistency
 
