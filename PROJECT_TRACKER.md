@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-14
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: The screenshot-aligned Project Center dashboard is code-ready with its dense operational table, complete/target and rate columns, client code/PO, PM and recency fields, create-date ordering, sticky identifiers, and profile-aware column visibility. Migration `036` is present in linked Supabase and local/remote history matches through `036`; OWNER/ADMIN/PM are full-portfolio readers while ANALYST/MEMBER remain explicit-project scoped. Build, lint, and 17 focused tests pass; multi-role browser proof and production deployment remain.
+Overall state: Screenshot-aligned Project Center commit `e282d44` is pushed to approved GitHub `main`. Migration `036` is present in linked Supabase and local/remote history matches through `036`; OWNER/ADMIN/PM are full-portfolio readers while ANALYST/MEMBER remain explicit-project scoped. Build, lint, and 17 focused tests pass. Production still serves the prior 10-asset bundle because GitHub-to-Vercel uptake is not connected and Vercel CLI remains logged out.
 
 ## Resume protocol
 
@@ -373,6 +373,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Approved fieldwork GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - user explicitly approved the GitHub destination; `main` advanced through `0668533` and `f6394f5`. Production health/readiness return HTTP 200 and Supabase-ready, but none of the 10 referenced JavaScript assets contains `Download Fieldwork Workbook`; Vercel CLI remains logged out. |
 | 2026-09-14 | Screenshot-aligned Project Center | PASS LOCALLY / MIGRATION PENDING - production build and lint pass; 17 focused business/API tests pass. Migration `036` defines full OWNER/ADMIN/PM portfolio reads and scoped ANALYST/MEMBER reads; browser and hosted proof remain. |
 | 2026-09-14 | Linked migration `036` verification | PASS FOR SCHEMA HISTORY/LINT - user confirmed manual SQL execution; migration history was repaired and now matches local/remote `001`-`036`; linked database lint reports no schema errors. Multi-role browser proof remains. |
+| 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
 
@@ -384,6 +385,7 @@ Do not record secret values here. Mark only whether they are available.
 - Identified SPM and Sales Person as genuinely new ownership concepts. They remain a separate TODO requiring approved role semantics, persisted user references/history, editing, filtering, auditing, and exports; no fake values were introduced.
 - Verification: production build and ESLint pass; focused business/API tests pass 17/17. Current task is applying migration `036`, then multi-role and browser verification before deployment.
 - Migration follow-up: user confirmed SQL-editor execution; linked database lint passes with no schema errors, and repaired migration history now has exact local/remote parity through `036`. Current task is multi-role browser verification before deployment.
+- Git/deployment follow-up: committed and pushed the matching dashboard revision as `e282d44`. Production asset inspection after the push confirms no automatic Vercel uptake; next action remains authenticating Vercel CLI, deploying production, then running multi-role browser verification.
 
 ### 2026-09-14 - Fieldwork workbook and respondent intelligence foundation
 
