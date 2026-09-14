@@ -1,6 +1,6 @@
 # ResearchOps
 
-A working research fieldwork operations application: organization overview, PM-scoped Project Center, controlled project creation, ISO country/language markets, contact directories, supplier traffic controls, masked respondent routing, event metrics, respondent/analytics exports, and a Cloudflare Worker API.
+A working research fieldwork operations application: organization overview, workspace-wide Project Center, controlled project creation, ISO country/language markets, contact directories, supplier traffic controls, masked respondent routing, event metrics, respondent/analytics exports, and a Cloudflare Worker API.
 
 ## Development status
 

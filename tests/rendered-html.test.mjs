@@ -20,6 +20,7 @@ test("server-renders the ResearchOps Project Center", async () => {
   const html = await response.text();
   assert.match(html, /<title>Project Center · ResearchOps<\/title>/i);
   assert.match(html, /Project Center/);
+  assert.match(html, /All workspace studies, delivery risk, and fieldwork controls/i);
   assert.match(html, /Active portfolio/i);
   assert.match(html, /Live metrics/i);
   assert.match(html, /Test metrics/i);

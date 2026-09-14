@@ -73,7 +73,7 @@ export function ProjectCenter() {
   const [trafficView, setTrafficView] = useState<"live" | "test">("live");
 
   const projectParams = useCallback((requestedPage: number, requestedPageSize: number) => {
-    const params = new URLSearchParams({ page: String(requestedPage), pageSize: String(requestedPageSize), sortBy: "createdAt", sortDirection: "desc", scope: "mine" });
+    const params = new URLSearchParams({ page: String(requestedPage), pageSize: String(requestedPageSize), sortBy: "createdAt", sortDirection: "desc", scope: "all" });
     if (appliedQuery) params.set("q", appliedQuery);
     if (appliedProjectId) params.set("projectId", appliedProjectId);
     if (client !== "ALL") params.set("client", client);
@@ -174,7 +174,7 @@ export function ProjectCenter() {
         <div>
           <div className="eyebrow">Fieldwork control</div>
           <h1 className="page-title">Project Center</h1>
-          <p className="page-subtitle">Your assigned studies, delivery risk, and fieldwork controls.</p>
+          <p className="page-subtitle">All workspace studies, delivery risk, and fieldwork controls.</p>
         </div>
         <div className="head-actions">
           <button className="button ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button>

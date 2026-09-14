@@ -92,7 +92,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 | ID | Feature | Status | Acceptance criteria / next action |
 |---|---|---|---|
-| `PRJ-01` | Project Center table UI | READY | PM-scoped API supports distinct internal-ID/general search, all-client/all-type facets, durable manager facets, multi-status filtering, newest-first pagination, safe CSV export, and role-aware New Project access; browser evidence and hosted rollout remain pending. |
+| `PRJ-01` | Project Center table UI | READY | Workspace-wide API view supports distinct internal-ID/general search, all-client/all-type facets, durable manager facets, multi-status filtering, newest-first pagination, safe CSV export, and role-aware New Project access; browser evidence and hosted rollout remain pending. |
 | `PRJ-02` | Project summary metrics | READY | Status counts, event outcomes, monthly Overview completes, and average respondent duration are connected in Supabase mode with demo fallback. |
 | `PRJ-03` | Demo project API | DONE | The explicit no-credentials fallback covers list/detail/create/update, transitions, markets, and assignments for local demonstrations. |
 | `PRJ-04` | Persistent project read API | DONE | Live Worker integration proves authenticated tenant-scoped detail and filtered/paginated list reads from Supabase. |
@@ -1132,3 +1132,9 @@ Do not record secret values here. Mark only whether they are available.
 - Removed the Live projects, Pending launch, Paused, and Total completes summary-card strip from Project Center while retaining filters, Live/Test metric tables, refresh, export, and project controls.
 - Added rendered-page regression coverage confirming the removed summary-card copy is absent.
 - Verification: production build passes; rendered HTML suite passes 9/9. Current task remains reliability monitoring and external provider certification.
+
+### 2026-09-14 - Workspace-wide Project Center overview
+
+- Changed Project Center from the signed-in manager's assigned-only scope to the complete workspace portfolio, including filtering, pagination, displayed totals, Live/Test metrics, and CSV export.
+- Updated the page copy and product documentation to state that the view contains all workspace studies; role-aware project controls remain unchanged.
+- Verification: production build passes. The existing local Playwright server on port 3001 served a stale build; a clean-port retry reached the interaction test but exceeded the command window in the slow local environment. Rendered HTML coverage validates the workspace-wide page copy. Current task is production deployment and hosted verification, then reliability monitoring and external provider certification.

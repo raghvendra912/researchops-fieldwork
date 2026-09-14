@@ -59,6 +59,7 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
 
 test("project search, refresh, clear filters, metric views, and CSV download work", async ({ page }) => {
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("All workspace studies, delivery risk, and fieldwork controls.")).toBeVisible();
   await page.getByLabel("Internal project ID").fill("PRJ-1048");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("link", { name: "PRJ-1048" })).toBeVisible();
