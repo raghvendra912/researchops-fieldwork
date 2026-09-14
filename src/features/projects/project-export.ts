@@ -8,6 +8,10 @@ const columns: Array<[string, (project: Project) => string | number]> = [
   ["Type", (project) => project.type],
   ["Manager", (project) => project.manager],
   ["Status", (project) => project.status],
+  ["Created at", (project) => project.createdAt ?? ""],
+  ["Start date", (project) => project.startDate ?? ""],
+  ["End date", (project) => project.endDate ?? ""],
+  ["Client PO", (project) => project.clientPo],
   ["Starts", (project) => project.starts],
   ["Reached client", (project) => project.reached],
   ["Last 24h completes", (project) => project.l24],
@@ -32,6 +36,8 @@ const columns: Array<[string, (project: Project) => string | number]> = [
   ["Supplier assignments", (project) => JSON.stringify(project.supplierAssignments ?? [])],
   ["Eligibility rules", (project) => JSON.stringify(project.eligibilityRules ?? [])],
   ["Quota cells", (project) => JSON.stringify(project.quotaCells ?? [])],
+  ["Average duration seconds", (project) => project.averageDurationSeconds ?? ""],
+  ["Last event at", (project) => project.lastEventAt ?? ""],
 ];
 
 function csvCell(value: string | number) {

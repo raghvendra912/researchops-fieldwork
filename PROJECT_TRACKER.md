@@ -3,8 +3,8 @@
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
 Last updated: 2026-09-14
-Current milestone: Dependable respondent routing vertical slice
-Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `033`; local build and standard tests pass. Linked production migration history verifies `001`-`033`, and production database lint reports no schema errors; authenticated project creation and routing still require post-fix UI proof.
+Current milestone: Fieldwork intelligence and operational workbook
+Overall state: A six-sheet Project Center fieldwork workbook, privacy-safe respondent context, normalized termination reasons, controlled response-variable capture/retention, and separate internal/vendor review workflows are code-ready with migration `035` present in the linked database. Local/remote migration history matches through `035`, remote database lint passes, and 17 focused feature tests pass; persistent multi-role behavior, browser proof, and deployment remain.
 
 ## Resume protocol
 
@@ -37,11 +37,11 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
-### Now - routing, quota, and deployment proof
+### Now - fieldwork intelligence verification
 
-1. Verify the separated Live/Test Project Center metrics, simplified outcome pages, and working project controls on Vercel production.
-2. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
-3. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
+1. Prove response-variable capture, reason mapping, retention cleanup, review authorization, and tenant isolation against the linked Supabase schema.
+2. Browser-verify filtered XLSX download, all six worksheets, read-only supplier-link redaction, response-variable configuration, and respondent review controls.
+3. Deploy the verified revision, then continue external identifier decisions, monitoring/reconciliation, and provider certification.
 
 ### Next - external decision and credential gates
 
@@ -125,6 +125,10 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `MET-02` | Live Project Center metrics | DONE | Live tenant-scoped list/detail responses return the persisted five starts and one complete. |
 | `MET-03` | Supplier comparison metrics | DONE | Live assignment delivery returns five starts, one complete, and the expected 8.75 supplier cost. |
 | `RSP-01` | Respondent/session explorer | DONE | Project filter/search returns normalized chronological timelines with supplier CPI and duration; a formula-safe per-project/all-project CSV export supports up to 1,000 rows. |
+| `RSP-02` | Fieldwork session intelligence | READY | Migration `035` is present in the linked database and routing/API code adds market snapshots, coarse device class, normalized termination reasons, and explainable risk summaries without exporting raw IP or fingerprint hashes; live traffic and browser proof remain. |
+| `RSP-03` | Controlled response variables | READY | The linked schema contains the audited 30-field allowlist and retained response-value tables; routing captures only allowlisted values and the service-role cleanup function enforces expiry. Multi-role/RLS and browser proof remain. |
+| `RSP-04` | Respondent approval and vendor reconciliation | READY | Separate audited internal and vendor decision states, review RPC authorization, Respondents controls, and workbook fields are code-ready; persistent multi-role proof remains. |
+| `EXP-01` | Multi-sheet fieldwork workbook | READY | Project Center retains CSV and generates a formula-safe XLSX with Project Summary, Survey Logs, Screen Conditions, Quota Table, Vendor Survey Links, and Response Variables. Filtered browser download and Excel visual proof remain. |
 | `ANA-01` | Analytics UI | READY | Date controls, source comparisons, supplier conversion/IR/cost indicators, and formula-safe portfolio/supplier/client/market CSV export are implemented with demo fallback. |
 | `ANA-02` | Persistent analytics API | DONE | Date-bounded tenant analytics returns the respondent funnel, terminal outcomes, in-progress/abandonment totals, last activity, and supplier cost from persisted data. |
 
@@ -234,6 +238,9 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-08-29 | Make Sites staging publicly reachable while retaining mandatory Supabase authentication and server-side authorization. | Allows external ResearchOps users to reach the login page without granting anonymous access to protected data or APIs. |
 | 2026-08-29 | Use PENDING, LIVE, PAUSED, ID_SUBMITTED, INVOICED, and CLOSED as the project lifecycle, with new `ROP-` internal IDs and snapshot manager names. | Matches the transcript's operational workflow while separating fieldwork completion, ID delivery, invoicing, and final closure and preserving historical ownership. |
 | 2026-08-29 | Keep client survey URLs on projects, platform callback URLs on client records, and supplier outcome destinations on supplier records. | This is the industry-aligned mediator model described by the conversation and preserves the already verified masked-routing implementation. |
+| 2026-09-14 | Keep the project CSV as a stable summary and add a separate normalized multi-sheet fieldwork workbook. | Project rows and respondent rows have different cardinality; separate worksheets preserve usable Excel data without duplicating or flattening unrelated records into one CSV. |
+| 2026-09-14 | Never export raw IP addresses or fingerprint hashes; expose only coarse device class and explainable risk outcomes. | Supports operational fraud review while minimizing sensitive respondent data and preventing reusable identifiers from leaving the protected system. |
+| 2026-09-14 | Capture response variables only through a per-project allowlist with classification and retention. | Prevents arbitrary URL parameters from silently becoming durable respondent data and gives operators an explicit privacy control. |
 
 ## Known blockers and risks
 
@@ -249,6 +256,7 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-08` | RESOLVED - the hosted Supabase service-role credential is stored as a sensitive Vercel Production environment variable. | Keep server credentials confined to encrypted host storage and rotate the legacy key after a replacement secret is proven valid. |
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
 | `BLK-10` | RESOLVED - Vercel was linked, the invalid production server credential was replaced with the verified Supabase legacy `service_role` credential, and ROP-1137 Test routing now returns HTTP 302 to the configured survey. | Rotate the legacy credential later through a controlled Supabase/Vercel secret replacement; never store or print either credential in the repository. |
+| `BLK-11` | RESOLVED - migration `035` objects are present in linked Supabase, its manually applied migration-history entry was repaired, local/remote history matches through `035`, and linked database lint reports no schema errors. | Complete authenticated multi-role integration and browser proof, then deploy the matching application revision. |
 
 ## Verification record
 
@@ -357,7 +365,26 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-13 | Missing supplier return handling for Test traffic | PASS IN PRODUCTION - CPX Research is intentionally/temporarily configured with no supplier outcome destinations. Test sessions now show a successful recorded-outcome page after COMPLETE/TERMINATE/QUOTA_FULL/QUALITY_TERMINATE instead of a misleading routing error; live sessions continue to require configured supplier return URLs. Production build and 10 focused business-rule tests pass; a fresh hosted route returned 302 and its generated COMPLETE callback returned the expected green HTTP 200 confirmation page. |
 | 2026-09-13 | Complete outcome/metrics/CSV standardization | PASS IN PRODUCTION - migration `034` is applied and linked history matches through `034`; database lint reports no schema errors. IR is `CO / (CO + TE) * 100`, conversion is `CO / RC * 100`, and zero denominators return 0. Live and Test COMPLETE/TERMINATE/QUOTA_FULL/QUALITY_TERMINATE remain separately counted; project/supplier/analytics views and CSV exports expose the applicable counts and rates. Build, lint, 10 business-rule tests, and 19 rendered/API tests pass. All four hosted outcome pages passed and ROP-1137 metrics persisted their exact statuses. |
 
+| 2026-09-14 | Fieldwork workbook and respondent-intelligence code-ready verification | PARTIAL PASS - production build and lint pass; focused business/API rules pass 17/17, covering XLSX structure/safety, response-variable configuration validation, respondent export metadata, and separate review actions. Full standard suite retains two documented auth-loading SSR failures. Migration/RLS proof is gated by unavailable Docker/Podman. |
+| 2026-09-14 | Linked migration `035` verification | PASS FOR SCHEMA / INTEGRATION PENDING - remote inspection confirms `project_response_variables` and `survey_response_values`; migration history was repaired after manual SQL application and now matches local `001`-`035`; `supabase db lint --linked --level warning` reports no schema errors. Authenticated RLS, capture, cleanup, review, browser, and deployment proof remain. |
+
 ## Session log
+
+### 2026-09-14 - Fieldwork workbook and respondent intelligence foundation
+
+- Added a browser-compatible, formula-safe XLSX generator and a Project Center “Download Fieldwork Workbook” action. The workbook contains Project Summary, Survey Logs, Screen Conditions, Quota Table, Vendor Survey Links, and Response Variables with frozen/filterable headers and normalized rows.
+- Expanded project CSV dates/audit context and enriched respondent API/CSV data with client, market, traffic, reached/terminal times, supplier project ID, provider transaction, reason, coarse device type, risk summary, and separate review states.
+- Added migration `035_fieldwork_session_intelligence.sql` for market/device session context, normalized termination reasons, allowlisted classified response variables, retention cleanup, and independently audited internal/vendor reviews. Raw IP and device hashes remain excluded from user-facing data and exports.
+- Added the response-variable configuration API/UI and respondent review API/UI. Routing now attaches privacy-safe context, captures only allowlisted values, and records explicit eligibility/quota/security/client reason codes.
+- Restricted supplier Test/Live link materialization in project specification and assignment APIs to operators; read-only exports retain assignment metadata without usable opaque routing links.
+- Verification: production build passes; ESLint passes; focused business/API tests pass 17/17 including XLSX package structure, all six sheet names, formula-injection safety, absence of IP/device hash labels, response-variable normalization/validation, respondent export metadata, and separate vendor review; `git diff --check` passes. The complete standard suite builds and runs but retains two previously documented auth-loading SSR assertion failures. Supabase CLI validation is environment-gated because Docker/Podman is unavailable.
+- Current task is applying and integration-testing migration `035`. Next task is compiled-browser workbook download/review/configuration proof, followed by deployment and explicit business definitions for external Survey ID/TOID/User Number/Vendor Parameter/Account Score.
+
+### 2026-09-14 - Linked migration 035 confirmation
+
+- Confirmed the migration SQL had been applied manually: remote table inspection contains `project_response_variables` and `survey_response_values`, and linked database lint reports no schema errors.
+- The Supabase migration ledger initially showed local `035` with no remote version. Repaired only that history entry as applied; final linked migration history has exact local/remote parity through `035`.
+- Current task is authenticated persistent/RLS and browser verification of response capture, retention, reviews, redaction, and XLSX download. Deployment follows that proof.
 
 ### 2026-09-13 - Outcome pages, metric formulas, and export consistency
 

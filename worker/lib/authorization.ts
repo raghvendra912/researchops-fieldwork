@@ -1,4 +1,4 @@
-import { SupabaseRequestError, supabaseJson, type SupabaseEnv } from "./supabase";
+import { SupabaseRequestError, supabaseJson, type SupabaseEnv } from "./supabase.ts";
 
 export type WorkspaceRole = "OWNER" | "ADMIN" | "PM" | "ANALYST" | "MEMBER";
 

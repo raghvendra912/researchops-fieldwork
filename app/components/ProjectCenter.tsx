@@ -6,6 +6,7 @@ import { useAuth } from "../../src/features/auth/AuthProvider";
 import { projects as demoProjects } from "../../src/features/projects/mockProjects";
 import type { Project, ProjectStatus } from "../../src/features/projects/project.types";
 import { projectsToCsv } from "../../src/features/projects/project-export";
+import { buildFieldworkWorkbook, type FieldworkSession, type FieldworkSpecification } from "../../src/features/projects/fieldwork-workbook";
 import { apiRequest } from "../../src/lib/api";
 
 type ManagerFacet = { value: string; label: string };
@@ -70,6 +71,7 @@ export function ProjectCenter() {
   const [pageSize, setPageSize] = useState(5);
   const [refreshKey, setRefreshKey] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [exportingWorkbook, setExportingWorkbook] = useState(false);
   const [trafficView, setTrafficView] = useState<"live" | "test">("live");
 
   const projectParams = useCallback((requestedPage: number, requestedPageSize: number) => {
@@ -165,6 +167,30 @@ export function ProjectCenter() {
     }
   }
 
+  async function exportWorkbook() {
+    if (meta.total === 0 || exportingWorkbook) return;
+    setExportingWorkbook(true);
+    try {
+      const exported: Project[] = [];
+      const specifications: FieldworkSpecification[] = [];
+      const exportPageSize = 100;
+      const totalPages = Math.max(1, Math.ceil(meta.total / exportPageSize));
+      for (let exportPage = 1; exportPage <= totalPages; exportPage += 1) {
+        const response = await apiRequest<ProjectsResponse>(`/api/projects?${projectParams(exportPage, exportPageSize)}`, { headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined });
+        const specResponse = await apiRequest<{ data: FieldworkSpecification[] }>(`/api/projects/specifications?codes=${response.data.map((project) => encodeURIComponent(project.id)).join(",")}`, { headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined });
+        const specs = new Map(specResponse.data.map((item) => [item.projectCode, item]));
+        specifications.push(...specResponse.data);
+        exported.push(...response.data.map((project) => { const spec = specs.get(project.id); return { ...project, surveyUrl: spec?.liveSurveyUrl, testSurveyUrl: spec?.testSurveyUrl, surveyParameters: spec?.surveyParameters, markets: spec?.markets, supplierAssignments: spec?.suppliers, eligibilityRules: spec?.eligibilityRules, quotaCells: spec?.quotaCells }; }));
+      }
+      const respondents = await apiRequest<{ data: FieldworkSession[]; meta?: { truncated?: boolean } }>(`/api/respondents?export=1&projects=${exported.map((project) => encodeURIComponent(project.id)).join(",")}`, { headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined });
+      if (respondents.meta?.truncated) throw new Error("The workbook exceeds the current 5,000-respondent limit. Narrow the Project Center filters and try again.");
+      const bytes = buildFieldworkWorkbook(exported, specifications, respondents.data);
+      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `researchops-fieldwork-${new Date().toISOString().slice(0, 10)}.xlsx`; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    } catch (error) { setLoadError(error instanceof Error ? error.message : "Fieldwork workbook could not be generated."); }
+    finally { setExportingWorkbook(false); }
+  }
+
   const firstResult = meta.total === 0 ? 0 : (meta.page - 1) * meta.pageSize + 1;
   const lastResult = Math.min(meta.page * meta.pageSize, meta.total);
 
@@ -179,6 +205,7 @@ export function ProjectCenter() {
         <div className="head-actions">
           <button className="button ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button>
           <button className="button" type="button" disabled={meta.total === 0 || exporting} onClick={() => void exportView()}>{exporting ? "Preparing CSV…" : "Download CSV"}</button>
+          <button className="button primary" type="button" disabled={meta.total === 0 || exportingWorkbook} onClick={() => void exportWorkbook()}>{exportingWorkbook ? "Preparing workbook…" : "Download Fieldwork Workbook"}</button>
           {meta.canOperate ? <Link className="button primary" href="/projects/new"><span aria-hidden="true">＋</span> New project</Link> : <span className="status-pill status-PENDING">Read only</span>}
         </div>
       </div>

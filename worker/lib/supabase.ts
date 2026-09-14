@@ -4,8 +4,15 @@ export type SupabaseEnv = {
 };
 
 export class SupabaseRequestError extends Error {
-  constructor(public status: number, public code?: string, public detail?: string) {
+  status: number;
+  code?: string;
+  detail?: string;
+
+  constructor(status: number, code?: string, detail?: string) {
     super(detail ? `Supabase request failed with ${status}: ${detail}` : `Supabase request failed with ${status}`);
+    this.status = status;
+    this.code = code;
+    this.detail = detail;
   }
 }
 

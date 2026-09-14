@@ -1,4 +1,4 @@
-import { supabaseJson, type SupabaseEnv } from "./supabase";
+import { supabaseJson, type SupabaseEnv } from "./supabase.ts";
 
 export type ProjectCapabilities = {
   project_id: string;

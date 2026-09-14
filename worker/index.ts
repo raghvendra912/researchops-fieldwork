@@ -18,6 +18,7 @@ import { handleEligibilityApi } from "./routes/eligibility";
 import { handleQuotaCellsApi } from "./routes/quota-cells";
 import { handleProjectAccessApi } from "./routes/project-access";
 import { handleSurveySetupApi } from "./routes/survey-setup";
+import { handleResponseVariablesApi } from "./routes/response-variables";
 
 interface Env {
   ASSETS: Fetcher;
@@ -106,6 +107,8 @@ const worker = {
     }
 
     if (url.pathname.startsWith("/api/projects")) {
+      const responseVariablesResponse = await handleResponseVariablesApi(request, url.pathname, projectEnv);
+      if (responseVariablesResponse) return observed(responseVariablesResponse);
       const surveySetupResponse = await handleSurveySetupApi(request, url.pathname, projectEnv);
       if (surveySetupResponse) return observed(surveySetupResponse);
       const projectAccessResponse = await handleProjectAccessApi(request, url.pathname, projectEnv);
@@ -128,7 +131,7 @@ const worker = {
       if (apiResponse) return observed(apiResponse);
     }
 
-    if (url.pathname === "/api/respondents") {
+    if (url.pathname.startsWith("/api/respondents")) {
       const apiResponse = await handleRespondentsApi(request, url.pathname, projectEnv);
       if (apiResponse) return observed(apiResponse);
     }

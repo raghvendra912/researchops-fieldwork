@@ -11,7 +11,8 @@ import { serviceRows } from "../lib/supabase-read";
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
-type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients: { redirect_token: string } | { redirect_token: string }[] } | { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients: { redirect_token: string } | { redirect_token: string }[] }[] };
+type LiveProject = { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
+type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: LiveProject | LiveProject[] };
 type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
 type QuotaCellRow = { id: string; name: string; target_quota: number; priority: number; active: boolean; conditions: unknown };
 type QuotaReservationRow = { reservation_id: string | null; quota_cell_id: string | null; allowed: boolean; reason: string; reserved_until: string | null };
@@ -41,9 +42,17 @@ function outcomePage(eventType: string) {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${page.title} | ResearchOps</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 0,${page.soft},transparent 42%),#f4f1eb;color:#17221d;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.card{width:min(620px,100%);padding:54px 50px;text-align:center;border:1px solid #d8d5cd;border-radius:28px;background:rgba(255,255,255,.94);box-shadow:0 24px 80px rgba(23,34,29,.1)}.brand{font:600 17px Georgia,serif;letter-spacing:.08em}.symbol{width:74px;height:74px;margin:34px auto 24px;display:grid;place-items:center;border-radius:50%;background:${page.soft};color:${page.color};font-size:38px;font-weight:700}.eyebrow{color:${page.color};font-size:12px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}h1{margin:12px 0 14px;font:500 clamp(34px,7vw,48px)/1.05 Georgia,serif;letter-spacing:-.03em}p{max-width:440px;margin:0 auto;color:#59665f;font-size:16px;line-height:1.65}@media(max-width:560px){.card{padding:40px 24px;border-radius:22px}.symbol{margin-top:28px}}</style></head><body><main class="card"><div class="brand">ResearchOps</div><div class="symbol" aria-hidden="true">${page.symbol}</div><div class="eyebrow">${page.eyebrow}</div><h1>${page.title}</h1><p>${page.message}</p></main></body></html>`, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } });
 }
 
-async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false) {
+function deviceType(request: Request) {
+  const agent = request.headers.get("user-agent") ?? "";
+  if (/bot|crawler|spider|headless/i.test(agent)) return "BOT";
+  if (/ipad|tablet/i.test(agent)) return "TABLET";
+  if (/mobile|android|iphone/i.test(agent)) return "MOBILE";
+  return agent ? "DESKTOP" : "UNKNOWN";
+}
+
+async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false, context: Record<string, unknown> = {}) {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
-  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest } }, env);
+  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest, deviceType: deviceType(request), ...context } }, env);
 }
 
 async function supplierByToken(env: RedirectEnv, token: string) {
@@ -81,7 +90,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const respondentRef = clean(url.searchParams.get("respondent"));
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return unavailable("Project and respondent are required", 400);
       routingStage = "project assignment lookup";
-      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
@@ -91,11 +100,12 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       routingStage = "eligibility lookup";
       const eligibilityRows = await serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=sort_order.asc`);
       const answers = eligibilityAnswers(url.searchParams);
+      const market = project.project_markets?.[0]; const sessionContext = { countryCode: /^[A-Za-z]{2}$/.test(answers.country ?? "") ? answers.country!.toUpperCase() : market?.country_code, languageCode: /^[A-Za-z]{2}$/.test(answers.language ?? "") ? answers.language!.toLowerCase() : market?.language_code, responseVariables: answers };
       const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), answers);
       if (!eligibility.eligible) {
-        const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
+        const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
         if (!start.ok) return unavailable("The respondent session could not be started", 502);
-        await recordEvent(request, env, supplier, projectCode, respondentRef, "TERMINATE", `eligibility:${eligibility.failedRule ?? "rule"}`, isTest);
+        await recordEvent(request, env, supplier, projectCode, respondentRef, "TERMINATE", `eligibility:${eligibility.failedRule ?? "rule"}`, isTest, { reasonCode: "ELIGIBILITY_SCREEN_OUT" });
         return supplier.terminate_url ? redirect(standardSupplierRedirect(supplier.terminate_url, projectCode, respondentRef, "TERMINATE")) : unavailable(eligibility.reason ?? "The respondent is not eligible for this study", 200);
       }
       let reservationId: string | null = null;
@@ -104,13 +114,13 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         const quotaCells: QuotaCell[] = quotaRows.map((cell) => ({ id: cell.id, name: cell.name, targetQuota: cell.target_quota, priority: cell.priority, active: cell.active, conditions: (Array.isArray(cell.conditions) ? cell.conditions : []).map((condition) => { const value = condition as Record<string, unknown>; return { variableKey: String(value.variable_key ?? ""), operator: String(value.operator ?? "EQ") as EligibilityRule["operator"], values: Array.isArray(value.values) ? value.values.map(String) : [], required: value.required !== false, active: true }; }) }));
         const reservations = await serviceRpc<QuotaReservationRow>(env, "reserve_project_quota", { p_organization_id: supplier.organization_id, p_project_code: projectCode, p_supplier_id: supplier.id, p_respondent_ref: respondentRef, p_matching_cell_ids: matchingQuotaCellIds(quotaCells, answers) });
         if (!reservations[0]?.allowed) {
-          await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL", `quota:${reservations[0]?.reason ?? "full"}`);
+          await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL", `quota:${reservations[0]?.reason ?? "full"}`, false, { reasonCode: "QUOTA_FULL" });
           return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("The requested quota is full", 409);
         }
         reservationId = reservations[0].reservation_id;
       }
       routingStage = "respondent start";
-      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest);
+      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return unavailable("The respondent session could not be started", 502); }
       const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
@@ -123,7 +133,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (startBody?.data?.sessionId) {
         routingStage = "fraud check";
         const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
-        if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE"); return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : unavailable("The respondent did not pass security checks", 403); }
+        if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "security", isTest, { reasonCode: "SECURITY_REJECT" }); return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : unavailable("The respondent did not pass security checks", 403); }
       }
       const sessionId = startBody?.data?.sessionId;
       if (!sessionId) return unavailable("The respondent session could not be secured", 502);
@@ -152,7 +162,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const terminalStatuses = new Set(["COMPLETE", "TERMINATE", "QUOTA_FULL", "QUALITY_TERMINATE", "ABANDON"]);
       const expectedEvent = outcomes[outcome].eventType;
       if (terminalStatuses.has(session.status) && session.status !== expectedEvent) return unavailable(`This respondent is already recorded as ${session.status.toLowerCase().replaceAll("_", " ")}`, 409);
-      const result = await recordEvent(request, env, supplier, project.project_code, session.respondent_ref, expectedEvent);
+      const reasonCode = expectedEvent === "TERMINATE" ? "CLIENT_TERMINATE" : expectedEvent === "QUOTA_FULL" ? "QUOTA_FULL" : expectedEvent === "QUALITY_TERMINATE" ? "QUALITY_REJECT" : undefined;
+      const result = await recordEvent(request, env, supplier, project.project_code, session.respondent_ref, expectedEvent, "client-outcome", session.is_test, reasonCode ? { reasonCode } : {});
       if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
       const target = supplier[outcomes[outcome].field];
       if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, project.project_code, session.respondent_ref, expectedEvent));
@@ -168,7 +179,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return unavailable("Respondent routing session was not found", 404);
     const projectCode = project.project_code;
-    const result = await recordEvent(request, env, supplier, projectCode, respondentRef, outcomes[outcome].eventType); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
+    const eventType = outcomes[outcome].eventType; const reasonCode = eventType === "TERMINATE" ? "CLIENT_TERMINATE" : eventType === "QUOTA_FULL" ? "QUOTA_FULL" : eventType === "QUALITY_TERMINATE" ? "QUALITY_REJECT" : undefined;
+    const result = await recordEvent(request, env, supplier, projectCode, respondentRef, eventType, "client-outcome", session.is_test, reasonCode ? { reasonCode } : {}); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
     const target = supplier[outcomes[outcome].field];
     if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType));
     return outcomePage(outcomes[outcome].eventType);

@@ -158,6 +158,21 @@ test("serves Worker health and project APIs", async () => {
   const invalidQuotaCells = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ cells: [{ name: "Bad", targetQuota: 0, conditions: [] }] }) });
   assert.equal(invalidQuotaCells.status, 400);
 
+  const responseVariables = await request("/api/projects/PRJ-1048/response-variables");
+  assert.equal(responseVariables.status, 200);
+  assert.equal((await responseVariables.json()).data[0].variableKey, "age");
+  const responseVariablesUpdated = await request("/api/projects/PRJ-1048/response-variables", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ variables: [{ variableKey: "postal_code", label: "Postal code", dataClassification: "SENSITIVE", retentionDays: 90, active: true }] }) });
+  assert.equal(responseVariablesUpdated.status, 200);
+  const invalidResponseVariables = await request("/api/projects/PRJ-1048/response-variables", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ variables: [{ variableKey: "bad key", label: "Bad", retentionDays: 0 }] }) });
+  assert.equal(invalidResponseVariables.status, 400);
+
+  const respondents = await request("/api/respondents");
+  assert.equal(respondents.status, 200);
+  const respondentBody = await respondents.json();
+  assert.equal(respondentBody.meta.canReview, true);
+  const reviewed = await request(`/api/respondents/${respondentBody.data[0].id}/review`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ reviewType: "INTERNAL", status: "APPROVED" }) });
+  assert.equal(reviewed.status, 200);
+
   const projectAccess = await request("/api/projects/PRJ-1048/access");
   assert.equal(projectAccess.status, 200);
   const projectAccessBody = await projectAccess.json();
