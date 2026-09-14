@@ -165,7 +165,6 @@ export function ProjectCenter() {
     }
   }
 
-  const counts = meta.summary.statuses;
   const firstResult = meta.total === 0 ? 0 : (meta.page - 1) * meta.pageSize + 1;
   const lastResult = Math.min(meta.page * meta.pageSize, meta.total);
 
@@ -182,13 +181,6 @@ export function ProjectCenter() {
           <button className="button" type="button" disabled={meta.total === 0 || exporting} onClick={() => void exportView()}>{exporting ? "Preparing CSV…" : "Download CSV"}</button>
           {meta.canOperate ? <Link className="button primary" href="/projects/new"><span aria-hidden="true">＋</span> New project</Link> : <span className="status-pill status-PENDING">Read only</span>}
         </div>
-      </div>
-
-      <div className="metric-strip">
-        <MetricCard label="Live projects" value={counts.LIVE} detail="Currently fielding" tint="#cae7df" />
-        <MetricCard label="Pending launch" value={counts.PENDING} detail="Awaiting fieldwork" tint="#f2dfbb" />
-        <MetricCard label="Paused" value={counts.PAUSED} detail="Awaiting action" tint="#dbe3f2" />
-        <MetricCard label="Total completes" value={meta.summary.totalCompletes.toLocaleString()} detail="Across this result set" tint="#f1d7ce" />
       </div>
 
       <section className="panel filter-panel" aria-label="Project filters">
@@ -248,8 +240,4 @@ function testIncidence(project: Project) {
   const completes = project.testCompletes ?? 0;
   const terminates = project.testTerminates ?? 0;
   return completes + terminates > 0 ? (completes / (completes + terminates)) * 100 : 0;
-}
-
-function MetricCard({ label, value, detail, tint }: { label: string; value: string | number; detail: string; tint: string }) {
-  return <div className="panel metric-card" style={{ "--metric-tint": tint } as React.CSSProperties}><div className="metric-top"><span>{label}</span><span className="metric-delta">{detail}</span></div><div className="metric-value">{value}</div></div>;
 }

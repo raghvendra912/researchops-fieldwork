@@ -24,6 +24,7 @@ test("server-renders the ResearchOps Project Center", async () => {
   assert.match(html, /Live metrics/i);
   assert.match(html, /Test metrics/i);
   assert.match(html, /Download CSV/i);
+  assert.doesNotMatch(html, /Currently fielding|Awaiting fieldwork|Across this result set/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 

@@ -1126,3 +1126,9 @@ Do not record secret values here. Mark only whether they are available.
 - Verification: targeted lint passes; production build and the standard suite pass (29 passed, 5 environment-gated tests skipped); rendered HTML coverage includes both metric views and CSV control; compiled-production Chromium interaction passes 1/1 for Search, Live/Test switching, Refresh, Clear filters, and CSV download; `git diff --check` passes.
 - Production deployment: commit `cb5e597` was pushed and deployed to Vercel at `www.asrv.co.in`; hosted health returns HTTP 200, the deployed hashed Project Center JavaScript contains Live/Test metric controls and CSV download behavior, the deployed stylesheet contains the traffic switch, and a fresh ROP-1137 test respondent still returns the expected survey redirect. Outcome-page code was included in the same immutable Worker build; the configured supplier may redirect terminal traffic onward, so its ResearchOps fallback page is shown only when that outcome destination is blank.
 - Current task returns to reliability monitoring and external provider certification.
+
+### 2026-09-14 - Remove Project Center summary cards
+
+- Removed the Live projects, Pending launch, Paused, and Total completes summary-card strip from Project Center while retaining filters, Live/Test metric tables, refresh, export, and project controls.
+- Added rendered-page regression coverage confirming the removed summary-card copy is absent.
+- Verification: production build passes; rendered HTML suite passes 9/9. Current task remains reliability monitoring and external provider certification.
