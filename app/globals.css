@@ -101,6 +101,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .filter-grid .search-wrap { grid-column: span 2; }
 .filter-grid .status-field { grid-column: span 2; }
 .filter-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+.traffic-switch { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); }
+.traffic-switch button { border: 0; border-radius: 6px; background: transparent; color: var(--muted); padding: 7px 10px; font-size: 9px; font-weight: 800; cursor: pointer; }
+.traffic-switch button.active { background: #1d2a26; color: white; box-shadow: 0 2px 7px rgba(29,42,38,.16); }
 .status-toggle-list { display: flex; flex-wrap: wrap; gap: 7px; min-height: 38px; align-content: flex-start; }
 .status-toggle { min-height: 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); color: var(--muted); padding: 0 12px; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
 .status-toggle:hover { border-color: var(--accent); color: var(--accent); }

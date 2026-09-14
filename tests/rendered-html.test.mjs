@@ -21,6 +21,9 @@ test("server-renders the ResearchOps Project Center", async () => {
   assert.match(html, /<title>Project Center · ResearchOps<\/title>/i);
   assert.match(html, /Project Center/);
   assert.match(html, /Active portfolio/i);
+  assert.match(html, /Live metrics/i);
+  assert.match(html, /Test metrics/i);
+  assert.match(html, /Download CSV/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 

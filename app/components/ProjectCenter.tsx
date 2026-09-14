@@ -55,7 +55,6 @@ export function ProjectCenter() {
     facets: configured ? { clients: [], managers: [], types: [], statuses: initialStatuses } : initialFacets,
     summary: configured ? { statuses: { PENDING: 0, LIVE: 0, PAUSED: 0, ID_SUBMITTED: 0, INVOICED: 0, CLOSED: 0 }, totalCompletes: 0 } : initialSummary,
   });
-  const [source, setSource] = useState<"loading" | "mock" | "supabase">(configured ? "loading" : "mock");
   const [loadError, setLoadError] = useState("");
   const [client, setClient] = useState("ALL");
   const [manager, setManager] = useState("ALL");
@@ -65,27 +64,18 @@ export function ProjectCenter() {
   const [to, setTo] = useState("");
   const [query, setQuery] = useState("");
   const [projectIdQuery, setProjectIdQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [debouncedProjectId, setDebouncedProjectId] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
+  const [appliedProjectId, setAppliedProjectId] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [refreshKey, setRefreshKey] = useState(0);
   const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [query]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedProjectId(projectIdQuery.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [projectIdQuery]);
+  const [trafficView, setTrafficView] = useState<"live" | "test">("live");
 
   const projectParams = useCallback((requestedPage: number, requestedPageSize: number) => {
     const params = new URLSearchParams({ page: String(requestedPage), pageSize: String(requestedPageSize), sortBy: "createdAt", sortDirection: "desc", scope: "mine" });
-    if (debouncedQuery) params.set("q", debouncedQuery);
-    if (debouncedProjectId) params.set("projectId", debouncedProjectId);
+    if (appliedQuery) params.set("q", appliedQuery);
+    if (appliedProjectId) params.set("projectId", appliedProjectId);
     if (client !== "ALL") params.set("client", client);
     if (manager !== "ALL") params.set("manager", manager);
     if (selectedStatuses.length) params.set("status", selectedStatuses.join(","));
@@ -93,7 +83,7 @@ export function ProjectCenter() {
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     return params;
-  }, [client, debouncedProjectId, debouncedQuery, from, manager, selectedStatuses, to, type]);
+  }, [appliedProjectId, appliedQuery, client, from, manager, selectedStatuses, to, type]);
 
   useEffect(() => {
     if (configured && !session?.access_token) return;
@@ -105,7 +95,6 @@ export function ProjectCenter() {
     }).then((response) => {
       setProjects(response.data);
       setMeta(response.meta);
-      setSource(response.meta.source);
       setLoadError("");
     }).catch(() => {
       if (controller.signal.aborted) return;
@@ -129,7 +118,10 @@ export function ProjectCenter() {
     setTo("");
     setQuery("");
     setProjectIdQuery("");
+    setAppliedQuery("");
+    setAppliedProjectId("");
     setPage(1);
+    setRefreshKey((current) => current + 1);
   }
 
   function toggleStatus(status: ProjectStatus) {
@@ -138,8 +130,8 @@ export function ProjectCenter() {
 
   function searchNow() {
     setPage(1);
-    setDebouncedQuery(query.trim());
-    setDebouncedProjectId(projectIdQuery.trim());
+    setAppliedQuery(query.trim());
+    setAppliedProjectId(projectIdQuery.trim());
   }
 
   async function exportView() {
@@ -207,8 +199,8 @@ export function ProjectCenter() {
           <div className="field"><label htmlFor="manager">Project manager</label><select id="manager" className="control" value={manager} onChange={(event) => resetPageAnd(() => setManager(event.target.value))}><option value="ALL">All managers</option>{meta.facets.managers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
           <div className="field status-field"><span className="field-label">Statuses</span><div className="status-toggle-list" aria-label="Filter by project status">{initialStatuses.map((item) => <button className={`status-toggle ${selectedStatuses.includes(item) ? "selected" : ""}`} type="button" key={item} aria-pressed={selectedStatuses.includes(item)} onClick={() => toggleStatus(item)}>{item.replaceAll("_", " ")}</button>)}</div><span className="field-help">Click one or more statuses to filter.</span></div>
           <div className="field"><label htmlFor="type">Project type</label><select id="type" className="control" value={type} onChange={(event) => resetPageAnd(() => setType(event.target.value))}><option value="ALL">All types</option>{meta.facets.types.map((item) => <option key={item}>{item}</option>)}</select></div>
-          <div className="field search-wrap"><label htmlFor="project-id-search">Internal project ID</label><input id="project-id-search" className="control search-control" placeholder="e.g. ROP-1050" value={projectIdQuery} onChange={(event) => resetPageAnd(() => setProjectIdQuery(event.target.value))} /></div>
-          <div className="field search-wrap"><label htmlFor="search">General search</label><input id="search" className="control search-control" placeholder="Project name or client PO" value={query} onChange={(event) => resetPageAnd(() => setQuery(event.target.value))} /></div>
+          <div className="field search-wrap"><label htmlFor="project-id-search">Internal project ID</label><input id="project-id-search" className="control search-control" placeholder="e.g. ROP-1050" value={projectIdQuery} onChange={(event) => setProjectIdQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") searchNow(); }} /></div>
+          <div className="field search-wrap"><label htmlFor="search">General search</label><input id="search" className="control search-control" placeholder="Project name or client PO" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") searchNow(); }} /></div>
         </div>
         <div className="filter-actions"><button className="button small" type="button" onClick={searchNow}>Search</button><button className="button small ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button><button className="button small ghost" type="button" onClick={resetFilters}>Clear filters</button></div>
       </section>
@@ -216,23 +208,22 @@ export function ProjectCenter() {
       {loadError ? <div className="form-error data-error" role="alert">{loadError}</div> : null}
 
       <section className="panel" aria-label="Project results">
-        <div className="panel-head"><h2 className="panel-title">Active portfolio</h2><span className="panel-note">{source === "supabase" ? "Supabase · protected by workspace access" : source === "loading" ? "Loading protected workspace data…" : "Demo data · Supabase not configured"}</span></div>
+        <div className="panel-head"><div><h2 className="panel-title">Active portfolio</h2><span className="panel-note">{trafficView === "live" ? "Production delivery only · IR = CO / (CO + TE) · CV = CO / RC" : "Test outcomes only · excluded from live delivery, quota and cost"}</span></div><div className="traffic-switch" aria-label="Metric traffic view"><button type="button" className={trafficView === "live" ? "active" : ""} aria-pressed={trafficView === "live"} onClick={() => setTrafficView("live")}>Live metrics</button><button type="button" className={trafficView === "test" ? "active" : ""} aria-pressed={trafficView === "test"} onClick={() => setTrafficView("test")}>Test metrics</button></div></div>
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th>Project ID</th><th>Project</th><th>Client</th><th>ST</th><th>RC</th><th>L24</th><th>CO</th><th>TE</th><th>OQ</th><th>QT</th><th>IR%</th><th>CV%</th><th>CPI</th><th>Status</th><th>Action</th></tr></thead>
+            <thead>{trafficView === "live" ? <tr><th>Project ID</th><th>Project</th><th>Client</th><th>ST</th><th>RC</th><th>L24</th><th>CO</th><th>TE</th><th>OQ</th><th>QT</th><th>IR%</th><th>CV%</th><th>CPI</th><th>Status</th><th>Action</th></tr> : <tr><th>Project ID</th><th>Project</th><th>Client</th><th>Test ST</th><th>Test CO</th><th>Test TE</th><th>Test OQ</th><th>Test QT</th><th>Test IR%</th><th>Status</th><th>Action</th></tr>}</thead>
             <tbody>
               {projects.map((project) => (
                 <tr key={project.id}>
                   <td><Link className="project-code" href={`/projects/${project.id}`}>{project.id}</Link></td>
                   <td className="project-name-cell"><strong>{project.name}</strong><span>{project.market} · {project.type}</span></td>
                   <td>{project.client}</td>
-                  <td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td>{project.completes.toLocaleString()}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td>
-                  <td className="rate">{project.incidenceRate.toFixed(1)}</td><td>{project.conversionRate.toFixed(1)}</td><td>${project.cpi.toFixed(2)}</td>
+                  {trafficView === "live" ? <><td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td>{project.completes.toLocaleString()}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td><td className="rate">{project.incidenceRate.toFixed(1)}</td><td>{project.conversionRate.toFixed(1)}</td><td>${project.cpi.toFixed(2)}</td></> : <><td>{project.testStarts ?? 0}</td><td>{project.testCompletes ?? 0}</td><td>{project.testTerminates ?? 0}</td><td>{project.testOverQuota ?? 0}</td><td>{project.testQualityTerm ?? 0}</td><td className="rate">{testIncidence(project).toFixed(1)}</td></>}
                   <td><span className={`status-pill status-${project.status}`}>{project.status.replaceAll("_", " ")}</span></td>
                   <td><Link className="button small ghost" href={`/projects/${project.id}`}>Open →</Link></td>
                 </tr>
               ))}
-              {projects.length === 0 && <tr><td colSpan={15} style={{ textAlign: "center", padding: 36, color: "var(--muted)" }}>{loadError ? "No project data is available." : "No projects match these filters."}</td></tr>}
+              {projects.length === 0 && <tr><td colSpan={trafficView === "live" ? 15 : 11} style={{ textAlign: "center", padding: 36, color: "var(--muted)" }}>{loadError ? "No project data is available." : "No projects match these filters."}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -251,6 +242,12 @@ export function ProjectCenter() {
       </section>
     </>
   );
+}
+
+function testIncidence(project: Project) {
+  const completes = project.testCompletes ?? 0;
+  const terminates = project.testTerminates ?? 0;
+  return completes + terminates > 0 ? (completes / (completes + terminates)) * 100 : 0;
 }
 
 function MetricCard({ label, value, detail, tint }: { label: string; value: string | number; detail: string; tint: string }) {

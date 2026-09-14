@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-13
+Last updated: 2026-09-14
 Current milestone: Dependable respondent routing vertical slice
 Overall state: Test/live separation, eligibility, atomic quota reservation, project-scoped access, configurable test/live survey routing, and the separated supplier-link dialog are code-ready through migration `033`; local build and standard tests pass. Linked production migration history verifies `001`-`033`, and production database lint reports no schema errors; authenticated project creation and routing still require post-fix UI proof.
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - routing, quota, and deployment proof
 
-1. Maintain production respondent-routing reliability after the completed Test/Live metric and terminal-outcome proof; transient Supabase read failures now use bounded retries.
+1. Verify the separated Live/Test Project Center metrics, simplified outcome pages, and working project controls on Vercel production.
 2. Restore deterministic Git-to-host deployment uptake and verify the running build identity before calling the public revision live.
 3. Continue scoped authorization, UAT evidence, monitoring/reconciliation, and provider certification after the routing vertical slice is hosted.
 
@@ -1117,3 +1117,11 @@ Do not record secret values here. Mark only whether they are available.
 - Added regression coverage proving a first-attempt `504` recovers on the next successful response and that permanent client/configuration statuses are not retryable.
 - Verification: focused business rules pass 12/12; the complete standard suite passes 29 tests with 5 environment-gated tests skipped; production build, lint, and `git diff --check` pass. Commit `703d187` was deployed to Vercel production; hosted health/readiness return HTTP 200 and 10/10 fresh ROP-1137 test respondents returned the expected HTTP 302 survey redirect with no routing failure.
 - Current task returns to reliability monitoring and the external provider certification gates.
+
+### 2026-09-14 - Clear traffic metrics, outcome pages, and project controls
+
+- Added an explicit Live metrics/Test metrics switch to Project Center. Live retains ST/RC/L24/CO/TE/OQ/QT, production IR (`CO / (CO + TE)`), conversion (`CO / RC`), and CPI; Test displays its separately stored ST/CO/TE/OQ/QT plus test IR without contaminating live delivery, quota, conversion, or cost.
+- Replaced generic terminal-result content with four clean ResearchOps-branded respondent pages for Complete, Terminate, Quota Full, and Quality/Security Terminate. Each page contains only the brand, outcome identity, and a short respondent-facing message; technical test/live and workspace instructions were removed.
+- Made text search explicitly apply through Search or Enter, made Clear filters clear both visible and applied values immediately, retained forced API Refresh, and verified filtered full-project CSV download including live/test outcome data and project specifications.
+- Verification: targeted lint passes; production build and the standard suite pass (29 passed, 5 environment-gated tests skipped); rendered HTML coverage includes both metric views and CSV control; compiled-production Chromium interaction passes 1/1 for Search, Live/Test switching, Refresh, Clear filters, and CSV download; `git diff --check` passes.
+- Current task is commit, Vercel production deployment, and hosted outcome/Project Center smoke verification. Next task returns to reliability monitoring and external provider certification.

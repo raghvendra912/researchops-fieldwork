@@ -30,15 +30,15 @@ function clean(value: string | null, maximum = 160) { return (value ?? "").trim(
 function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
 function routingPage(title: string, message: string, status = 400, tone: "success" | "error" = "error") { return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} | ResearchOps</title><style>body{margin:0;background:#f4f1eb;color:#17221d;font:16px/1.5 system-ui,-apple-system,sans-serif}.card{max-width:560px;margin:12vh auto;padding:42px;border:1px solid #d8d5cd;border-radius:22px;background:#fff;box-shadow:0 18px 60px #17221d12}.mark{display:inline-block;padding:6px 10px;border-radius:999px;background:${tone === "success" ? "#dff4ed;color:#087761" : "#fae7df;color:#a53f25"};font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1{margin:18px 0 8px;font-size:30px}p{margin:0;color:#59665f}.hint{margin-top:24px;padding-top:18px;border-top:1px solid #e5e2db;font-size:14px}</style></head><body><main class="card"><span class="mark">${tone === "success" ? "Test recorded" : "Routing unavailable"}</span><h1>${title}</h1><p>${message}</p><p class="hint">You can close this tab and return to the ResearchOps project workspace.</p></main></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } }); }
 function unavailable(message: string, status = 400) { return routingPage("We could not continue this respondent", message, status); }
-function outcomePage(eventType: string, isTest: boolean) {
-  const pages: Record<string, { title: string; message: string }> = {
-    COMPLETE: { title: "Survey completed", message: "Your completed response has been recorded successfully." },
-    TERMINATE: { title: "Survey ended", message: "Your response has been recorded as terminated." },
-    QUOTA_FULL: { title: "Survey quota is full", message: "Your response has been recorded as quota full." },
-    QUALITY_TERMINATE: { title: "Survey quality check ended", message: "Your response has been recorded as a quality termination." },
+function outcomePage(eventType: string) {
+  const pages: Record<string, { eyebrow: string; title: string; message: string; symbol: string; color: string; soft: string }> = {
+    COMPLETE: { eyebrow: "Complete", title: "Survey completed", message: "Thank you. Your response has been successfully recorded.", symbol: "✓", color: "#087761", soft: "#dff4ed" },
+    TERMINATE: { eyebrow: "Screened out", title: "Survey ended", message: "Thank you for your time. This survey has now ended.", symbol: "—", color: "#9a5b18", soft: "#fff0d5" },
+    QUOTA_FULL: { eyebrow: "Quota full", title: "Survey quota reached", message: "Thank you for your interest. The required responses have been collected.", symbol: "○", color: "#315e8a", soft: "#e4eef8" },
+    QUALITY_TERMINATE: { eyebrow: "Quality check", title: "Survey ended", message: "Thank you for your time. This survey cannot be continued.", symbol: "×", color: "#a53f25", soft: "#fae7df" },
   };
-  const page = pages[eventType] ?? { title: "Survey response recorded", message: "Your response status has been recorded." };
-  return routingPage(page.title, `${page.message}${isTest ? " This was test traffic and remains separate from live delivery." : ""}`, 200, "success");
+  const page = pages[eventType] ?? { eyebrow: "Recorded", title: "Response recorded", message: "Thank you. Your response has been recorded.", symbol: "✓", color: "#087761", soft: "#dff4ed" };
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${page.title} | ResearchOps</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 0,${page.soft},transparent 42%),#f4f1eb;color:#17221d;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.card{width:min(620px,100%);padding:54px 50px;text-align:center;border:1px solid #d8d5cd;border-radius:28px;background:rgba(255,255,255,.94);box-shadow:0 24px 80px rgba(23,34,29,.1)}.brand{font:600 17px Georgia,serif;letter-spacing:.08em}.symbol{width:74px;height:74px;margin:34px auto 24px;display:grid;place-items:center;border-radius:50%;background:${page.soft};color:${page.color};font-size:38px;font-weight:700}.eyebrow{color:${page.color};font-size:12px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}h1{margin:12px 0 14px;font:500 clamp(34px,7vw,48px)/1.05 Georgia,serif;letter-spacing:-.03em}p{max-width:440px;margin:0 auto;color:#59665f;font-size:16px;line-height:1.65}@media(max-width:560px){.card{padding:40px 24px;border-radius:22px}.symbol{margin-top:28px}}</style></head><body><main class="card"><div class="brand">ResearchOps</div><div class="symbol" aria-hidden="true">${page.symbol}</div><div class="eyebrow">${page.eyebrow}</div><h1>${page.title}</h1><p>${page.message}</p></main></body></html>`, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } });
 }
 
 async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false) {
@@ -156,7 +156,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
       const target = supplier[outcomes[outcome].field];
       if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, project.project_code, session.respondent_ref, expectedEvent));
-      return outcomePage(expectedEvent, session.is_test);
+      return outcomePage(expectedEvent);
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;
@@ -171,7 +171,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     const result = await recordEvent(request, env, supplier, projectCode, respondentRef, outcomes[outcome].eventType); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
     const target = supplier[outcomes[outcome].field];
     if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType));
-    return outcomePage(outcomes[outcome].eventType, session.is_test);
+    return outcomePage(outcomes[outcome].eventType);
   } catch (error) {
     const id = requestId(request);
     safeLog("error", "redirect_failed", { requestId: id, path: pathname, stage: routingStage, error: error instanceof Error ? error.message : "Unknown redirect failure" });

@@ -57,6 +57,30 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
   }
 });
 
+test("project search, refresh, clear filters, metric views, and CSV download work", async ({ page }) => {
+  await page.goto("/projects", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Internal project ID").fill("PRJ-1048");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("link", { name: "PRJ-1048" })).toBeVisible();
+  await expect(page.getByText("PRJ-1047", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Test metrics" }).click();
+  await expect(page.getByRole("columnheader", { name: "Test QT" })).toBeVisible();
+  await page.getByRole("button", { name: "Live metrics" }).click();
+  await expect(page.getByRole("columnheader", { name: "CV%" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Refresh", exact: true }).last().click();
+  await expect(page.getByRole("link", { name: "PRJ-1048" })).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByLabel("Internal project ID")).toHaveValue("");
+  await expect(page.getByText("PRJ-1047", { exact: true })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download CSV" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("researchops-projects.csv");
+});
+
 test("supplier delivery separates test starts from live metrics", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Supplier delivery" })).toBeVisible();
