@@ -2,9 +2,9 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-15
+Last updated: 2026-09-16
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: GitHub `main` contains the screenshot-aligned Project Center and two-ID client/supplier handoff. The user reports applying `038`, and public hosted Supabase probes show its ownership schema. The first user execution of migration `039` failed on an eight-argument GRANT for a nine-argument event function; the SQL has been corrected and made retryable in source. The hosted capability RPC still returns `404 PGRST202`, so `039` is not fully active. SQL lint/live integration, hosted routing, authenticated Project Center, migration `037`, ownership proof, and provider certification remain pending. Vercel CLI is logged out.
+Overall state: GitHub `main` contains the screenshot-aligned Project Center and two-ID client/supplier handoff. The user reports applying `038`, and public hosted Supabase probes show its ownership schema. The first user execution of migration `039` failed on an eight-argument GRANT for a nine-argument event function; the SQL was corrected and made retryable in source, and the user then reported a clean re-run of the corrected file that reached its final `select pg_notify('pgrst','reload schema')` statement without error. The capability RPC has not yet been re-probed, so hosted activation is reported but not independently confirmed. SQL lint/live integration, hosted routing, authenticated Project Center, migration `037`, ownership proof, and provider certification remain pending. Vercel CLI is logged out. Local `docker` is not resolvable on PATH in the current workstation, so local database verification is unavailable.
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - restore hosted Project Center and verify the release
 
-1. Retry the corrected migration `039` after checking whether the failed SQL-editor run retained earlier statements and confirming `037` status; run its live equal-reference, concurrent-quota, terminal-outcome, replay, and assignment-history tests. Until `039` is fully applied, the router keeps the pre-migration collision guard.
+1. Independently confirm hosted `039` activation by probing the `supplier_scoped_ref_ready` capability RPC, then run its live equal-reference, concurrent-quota, terminal-outcome, replay, and assignment-history tests. Until the capability marker is confirmed present, the router keeps the pre-migration collision guard.
 2. Deploy and prove the two-ID routing revision on Vercel, then confirm an authenticated hosted `/api/projects` list read and Project Center load after `038`; verify `038` ownership constraints, audit records, role permissions, and tenant isolation.
 3. Prove fieldwork response capture, retention, review, and tenant isolation; browser-verify the workbook and hosted multi-role flows, then continue provider certification.
 
@@ -211,7 +211,7 @@ Do not record secret values here. Mark only whether they are available.
 |---|---|---|
 | Node.js 22.13+ | AVAILABLE | Node 24.19 was used for the latest verification. |
 | npm dependencies | AVAILABLE | Installed in the current workspace. |
-| Local Docker/Supabase | AVAILABLE | Minimal local stack is running; API and database are exposed only on loopback. |
+| Local Docker/Supabase | UNAVAILABLE | `docker` is not resolvable on PATH on the current workstation (`docker ps` raises `CommandNotFoundException`), so a local Supabase stack cannot be started or reached. This contradicts the previous `AVAILABLE` marking and supersedes `BLK-16`'s separate claim, which happened to agree that local access was unavailable. Local database verification is therefore not currently possible; hosted verification or a repaired local Docker install is required. |
 | Supabase project URL | AVAILABLE | Local development URL is configured outside source control. |
 | Supabase anon key | AVAILABLE | Local public development key is configured outside source control. |
 | Supabase service-role key | AVAILABLE | Local server-only development key is passed only to the Worker runtime. |
@@ -273,12 +273,13 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-13` | Flamingo Tool contract and workflow are not defined. | Keep the labeled placeholder until URL/API, auth, and user actions are supplied. |
 | `BLK-14` | Hosted Project Center previously reported a data-load failure; `038` ownership fields/joins are now visible but an authenticated `/api/projects` response and hosted uptake of commit `be7a0bc` cannot be proven. Vercel CLI reports logged out. | Test a signed-in Project Center read, restore Vercel deployment access or GitHub-to-Vercel uptake if needed, and verify the browser UI after rollout. |
 | `BLK-15` | Supplier STATIC/DYNAMIC is stored but does not change return URL construction; generic outcome/status query parameters have not been certified against CPX, BitLabs, or PureSpectrum contracts. | Obtain each provider's official integration contract, map its launch/return IDs and statuses, and test provider-specific callback/return behavior before external production traffic. |
-| `BLK-16` | The user's first SQL-editor run of `039` failed at an eight-argument GRANT for the nine-argument `ingest_survey_event` function. Earlier statement persistence is unknown; the hosted capability RPC remains absent. The corrected SQL uses guarded constraint/index and trigger changes for a partial retry. Local PostgreSQL/Docker and linked CLI access are unavailable, and changing unique constraints can lock busy tables. | Push the correction, inspect production table size/traffic and `037` status, retry corrected `039` in a controlled window, verify the capability marker and live equal-reference/concurrent-quota/assignment-history integration, then prove hosted routing. |
+| `BLK-16` | The user's first SQL-editor run of `039` failed at an eight-argument GRANT for the nine-argument `ingest_survey_event` function. The corrected, retry-guarded file was then re-run and reported to complete without error, so the schema change is believed applied to hosted; however the capability RPC has not been re-probed and no live integration test has run against it, so the schema cannot yet be treated as confirmed. Local PostgreSQL/Docker is unavailable on the current workstation, removing the local fallback for verification. | Confirm hosted activation by probing `supplier_scoped_ref_ready`, verify `037` status, then run the live equal-reference, concurrent-quota, terminal-outcome, replay, and assignment-history integration tests and prove hosted routing. |
 
 ## Verification record
 
 | Date | Check | Result |
 |---|---|---|
+| 2026-09-16 | Migration `039` re-run in hosted Supabase | USER-REPORTED APPLIED / INDEPENDENT PROBE PENDING - the user re-ran the corrected file in the Supabase SQL editor and it completed without error, reaching the file's final `select pg_notify('pgrst','reload schema')` statement (rendered as a blank row, which is the expected `void` result for that function). This implies the line-73 GRANT that failed on the first attempt executed cleanly. The capability RPC has not been re-probed and the live equal-reference/concurrent-quota/assignment-history integration remains unrun, so hosted activation is reported but not independently confirmed. |
 | 2026-09-15 | Migration `039` SQL-editor failure diagnosis | SOURCE FIX PASS / DATABASE RETRY PENDING - the GRANT omitted one `text` argument even though CREATE/REVOKE named the nine-argument function. Corrected it and guarded the constraint/index/trigger steps for a possible partial run. Two migration-signature/retry regression tests pass; standard build/test passes 41 with 6 environment skips, lint, TypeScript, and diff checks pass. The hosted capability RPC still returns `404 PGRST202`; database transaction/partial state and full SQL lint remain unverified. |
 | 2026-09-15 | End-to-end supplier reference isolation | SOURCE PUSHED / LIVE PENDING - commit `6d5c903` is on `github/main`. Migration `039` scopes session and quota keys to assignments, revises ingestion/terminal reservation logic, adds capability detection, and preserves assignment IDs. Four mocked route tests pass for normal two-ID flow, pre-migration collision guard, post-migration equal supplier refs, and ambiguous legacy rejection. The public hosted gateway returns expected pre-migration `404 PGRST202` for the capability RPC. A conditional live Supabase integration test covers two same-ref sessions/reservations, replay, one-sided quota consumption, stable assignment IDs, and historical removal denial; it was skipped without local database credentials. Build/test passes 39 with 6 environment skips; lint, TypeScript, and diff checks pass. |
 | 2026-09-15 | Two-ID respondent routing implementation | LOCAL PASS / GITHUB PUSHED - commit `1e28819` is on `github/main`. Launch/client-return test proves the client receives the existing ResearchOps session UUID in RID/rid and the supplier return retains the original supplier reference; pre-change reference return remains accepted. Duplicate assignment reference receives HTTP 409. Build/test passes 37 tests with 5 environment skips; lint, TypeScript, and diff checks pass. Ten public hosted assets lack the new UI label, so Vercel uptake is not proven; authenticated provider traffic remains unverified. |
@@ -398,6 +399,14 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
+
+### 2026-09-16 - Hosted `039` re-run and environment recheck
+
+- The user re-ran the corrected `039` file in the Supabase SQL editor. The result returned the file's final `select pg_notify('pgrst','reload schema')` statement as a blank row, which is the expected `void` result. Reaching the last statement indicates the file executed to completion, including the line-73 GRANT that failed on the first attempt.
+- Reviewed the retry mechanics: every destructive or additive step in `039` is guarded (`drop ... if exists`, `create ... if not exists`, `if not exists(pg_constraint)`), so a re-run converges from any partial state left by the failed attempt rather than erroring. The end state is therefore correct regardless of what the first run committed.
+- Rechecked the local environment and found `docker` is not resolvable on PATH, contradicting the credentials table's `AVAILABLE` marking for Local Docker/Supabase. Local database verification is not currently possible, so verification must run against hosted or wait on a repaired local install.
+- Not verified: the capability RPC probe, and every live integration check. Hosted activation is user-reported, not independently confirmed. No repository files were changed in this session.
+- Current task: obtain an independent hosted confirmation of `039`, then prove two-ID routing and the authenticated Project Center read. Next: fix the local Docker gap or supply hosted credentials so the integration suite can run.
 
 ### 2026-09-15 - Migration `039` signature repair
 
