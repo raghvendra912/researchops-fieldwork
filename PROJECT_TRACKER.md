@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-15
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: GitHub `main` contains the screenshot-aligned Project Center and two-ID client/supplier handoff. The user reports applying `038`, and public hosted Supabase probes show its ownership schema. Migration `039` and routing code are locally prepared to scope supplier references and quota reservations by assignment, preserve assignment IDs across edits, reject ambiguous legacy client returns, and search both attempt IDs. Database lint/live integration for `039`, hosted routing, authenticated Project Center, migration `037`, ownership proof, and provider certification remain pending. Vercel CLI is logged out.
+Overall state: GitHub `main` contains the screenshot-aligned Project Center and two-ID client/supplier handoff. The user reports applying `038`, and public hosted Supabase probes show its ownership schema. The first user execution of migration `039` failed on an eight-argument GRANT for a nine-argument event function; the SQL has been corrected and made retryable in source. The hosted capability RPC still returns `404 PGRST202`, so `039` is not fully active. SQL lint/live integration, hosted routing, authenticated Project Center, migration `037`, ownership proof, and provider certification remain pending. Vercel CLI is logged out.
 
 ## Resume protocol
 
@@ -39,7 +39,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - restore hosted Project Center and verify the release
 
-1. Review and apply migration `039` in a controlled database window after confirming `037` status; run its live equal-reference, concurrent-quota, terminal-outcome, replay, and assignment-history tests. Until `039` is applied, the router keeps the pre-migration collision guard.
+1. Retry the corrected migration `039` after checking whether the failed SQL-editor run retained earlier statements and confirming `037` status; run its live equal-reference, concurrent-quota, terminal-outcome, replay, and assignment-history tests. Until `039` is fully applied, the router keeps the pre-migration collision guard.
 2. Deploy and prove the two-ID routing revision on Vercel, then confirm an authenticated hosted `/api/projects` list read and Project Center load after `038`; verify `038` ownership constraints, audit records, role permissions, and tenant isolation.
 3. Prove fieldwork response capture, retention, review, and tenant isolation; browser-verify the workbook and hosted multi-role flows, then continue provider certification.
 
@@ -273,12 +273,13 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-13` | Flamingo Tool contract and workflow are not defined. | Keep the labeled placeholder until URL/API, auth, and user actions are supplied. |
 | `BLK-14` | Hosted Project Center previously reported a data-load failure; `038` ownership fields/joins are now visible but an authenticated `/api/projects` response and hosted uptake of commit `be7a0bc` cannot be proven. Vercel CLI reports logged out. | Test a signed-in Project Center read, restore Vercel deployment access or GitHub-to-Vercel uptake if needed, and verify the browser UI after rollout. |
 | `BLK-15` | Supplier STATIC/DYNAMIC is stored but does not change return URL construction; generic outcome/status query parameters have not been certified against CPX, BitLabs, or PureSpectrum contracts. | Obtain each provider's official integration contract, map its launch/return IDs and statuses, and test provider-specific callback/return behavior before external production traffic. |
-| `BLK-16` | The hosted schema still keys sessions and quota reservations by `(project_id, respondent_ref)`. Migration `039` is source-ready but cannot be linted or applied from this workspace because local PostgreSQL/Docker and linked CLI access are unavailable; changing unique constraints can lock busy tables. | Inspect production table size/traffic, apply `039` in a controlled window after confirming `037` status, verify the database capability marker and live equal-reference/concurrent-quota/assignment-history integration, then prove hosted routing. |
+| `BLK-16` | The user's first SQL-editor run of `039` failed at an eight-argument GRANT for the nine-argument `ingest_survey_event` function. Earlier statement persistence is unknown; the hosted capability RPC remains absent. The corrected SQL uses guarded constraint/index and trigger changes for a partial retry. Local PostgreSQL/Docker and linked CLI access are unavailable, and changing unique constraints can lock busy tables. | Push the correction, inspect production table size/traffic and `037` status, retry corrected `039` in a controlled window, verify the capability marker and live equal-reference/concurrent-quota/assignment-history integration, then prove hosted routing. |
 
 ## Verification record
 
 | Date | Check | Result |
 |---|---|---|
+| 2026-09-15 | Migration `039` SQL-editor failure diagnosis | SOURCE FIX PASS / DATABASE RETRY PENDING - the GRANT omitted one `text` argument even though CREATE/REVOKE named the nine-argument function. Corrected it and guarded the constraint/index/trigger steps for a possible partial run. Two migration-signature/retry regression tests pass; standard build/test passes 41 with 6 environment skips, lint, TypeScript, and diff checks pass. The hosted capability RPC still returns `404 PGRST202`; database transaction/partial state and full SQL lint remain unverified. |
 | 2026-09-15 | End-to-end supplier reference isolation | SOURCE PUSHED / LIVE PENDING - commit `6d5c903` is on `github/main`. Migration `039` scopes session and quota keys to assignments, revises ingestion/terminal reservation logic, adds capability detection, and preserves assignment IDs. Four mocked route tests pass for normal two-ID flow, pre-migration collision guard, post-migration equal supplier refs, and ambiguous legacy rejection. The public hosted gateway returns expected pre-migration `404 PGRST202` for the capability RPC. A conditional live Supabase integration test covers two same-ref sessions/reservations, replay, one-sided quota consumption, stable assignment IDs, and historical removal denial; it was skipped without local database credentials. Build/test passes 39 with 6 environment skips; lint, TypeScript, and diff checks pass. |
 | 2026-09-15 | Two-ID respondent routing implementation | LOCAL PASS / GITHUB PUSHED - commit `1e28819` is on `github/main`. Launch/client-return test proves the client receives the existing ResearchOps session UUID in RID/rid and the supplier return retains the original supplier reference; pre-change reference return remains accepted. Duplicate assignment reference receives HTTP 409. Build/test passes 37 tests with 5 environment skips; lint, TypeScript, and diff checks pass. Ten public hosted assets lack the new UI label, so Vercel uptake is not proven; authenticated provider traffic remains unverified. |
 | 2026-09-15 | User-applied hosted migration `038` schema check | PARTIAL PASS - public hosted Supabase REST probes return HTTP 200 for baseline and ownership columns, existing project joins, and both new ownership profile joins. `/api/health` and `/api/readiness` return 200; no-session `/api/projects` returns expected 401. This proves PostgREST schema visibility, not migration `037`, all `038` functions/triggers, an authenticated dashboard read, or deployment of the latest UI bundle. |
@@ -397,6 +398,13 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
+
+### 2026-09-15 - Migration `039` signature repair
+
+- The user reported SQL error `42883` naming an eight-argument `ingest_survey_event` function. Found the migration's GRANT omitted the provider-transaction-ID `text` argument; CREATE and REVOKE correctly named all nine arguments.
+- Corrected the GRANT and made the migration's initial constraint/index changes and delete-guard trigger retryable if the SQL editor retained earlier statements. Added automated checks that every GRANT/REVOKE matches its CREATE FUNCTION signature and that retry guards remain present.
+- Verification: two focused migration checks pass; standard build/test passes 41 with 6 environment skips; lint, TypeScript, and diff checks pass. The hosted capability RPC still returns `404 PGRST202`, showing `039` is not fully active; the exact earlier statement persistence and SQL execution cannot be established without an authorized database session.
+- Current task: finish checks and push the corrected migration, then retry and verify `039` in Supabase. Next: hosted two-ID routing and authenticated Project Center proof.
 
 ### 2026-09-15 - Supplier-scoped routing completion
 

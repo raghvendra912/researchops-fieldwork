@@ -2,15 +2,25 @@
 -- survey_sessions.id remains the globally unique client-facing attempt ID.
 -- Apply before allowing duplicate external references across suppliers.
 
-alter table public.survey_sessions drop constraint survey_sessions_project_id_respondent_ref_key;
-alter table public.survey_sessions
-  add constraint survey_sessions_assignment_ref_key unique(project_id,project_supplier_id,respondent_ref);
-create unique index survey_sessions_direct_ref_key on public.survey_sessions(project_id,respondent_ref)
+alter table public.survey_sessions drop constraint if exists survey_sessions_project_id_respondent_ref_key;
+do $$ begin
+  if not exists(select 1 from pg_constraint where conrelid='public.survey_sessions'::regclass
+    and conname='survey_sessions_assignment_ref_key') then
+    alter table public.survey_sessions add constraint survey_sessions_assignment_ref_key
+      unique(project_id,project_supplier_id,respondent_ref);
+  end if;
+end $$;
+create unique index if not exists survey_sessions_direct_ref_key on public.survey_sessions(project_id,respondent_ref)
   where project_supplier_id is null;
 
-alter table public.survey_quota_reservations drop constraint survey_quota_reservations_project_id_respondent_ref_key;
-alter table public.survey_quota_reservations
-  add constraint survey_quota_reservations_assignment_ref_key unique(project_id,project_supplier_id,respondent_ref);
+alter table public.survey_quota_reservations drop constraint if exists survey_quota_reservations_project_id_respondent_ref_key;
+do $$ begin
+  if not exists(select 1 from pg_constraint where conrelid='public.survey_quota_reservations'::regclass
+    and conname='survey_quota_reservations_assignment_ref_key') then
+    alter table public.survey_quota_reservations add constraint survey_quota_reservations_assignment_ref_key
+      unique(project_id,project_supplier_id,respondent_ref);
+  end if;
+end $$;
 
 create or replace function public.ingest_survey_event(
   p_organization_id uuid, p_project_code text, p_supplier_id uuid,
@@ -60,7 +70,7 @@ begin
   return query select target_session_id,target_event_id,was_created;
 end $$;
 revoke all on function public.ingest_survey_event(uuid,text,uuid,text,text,text,timestamptz,jsonb,boolean) from public;
-grant execute on function public.ingest_survey_event(uuid,text,uuid,text,text,timestamptz,jsonb,boolean) to service_role;
+grant execute on function public.ingest_survey_event(uuid,text,uuid,text,text,text,timestamptz,jsonb,boolean) to service_role;
 
 create or replace function public.reserve_project_quota(
   p_organization_id uuid,p_project_code text,p_supplier_id uuid,p_respondent_ref text,p_matching_cell_ids jsonb
@@ -158,6 +168,7 @@ begin
   end if;
   return old;
 end $$;
+drop trigger if exists project_suppliers_protect_history on public.project_suppliers;
 create trigger project_suppliers_protect_history before delete on public.project_suppliers
 for each row execute function public.protect_supplier_assignment_history();
 
