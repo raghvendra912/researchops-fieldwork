@@ -19,12 +19,17 @@ export async function handleRespondentsApi(request: Request, pathname: string, e
   }
   if (pathname !== "/api/respondents" || request.method !== "GET") return null;
   const search = new URL(request.url).searchParams; const q = clean(search.get("q")); const projectCode = clean(search.get("project")).toUpperCase(); const projectCodes = (search.get("projects") ?? "").split(",").map((code) => clean(code).toUpperCase()).filter((code) => /^[A-Z]{2,10}-[A-Z0-9-]+$/.test(code)).slice(0, 100); const limit = search.get("export") === "1" ? 5000 : 100;
-  if (!isSupabaseConfigured(env)) { const filtered = demo.filter((item) => (!q || item.respondentRef.toLowerCase().includes(q.toLowerCase())) && (!projectCode || item.projectCode === projectCode)); return Response.json({ data: filtered, meta: { source: "mock", canReview: true, truncated: false, projects: [{ code: "PRJ-1048", name: "Digital Wallet Adoption" }] } }); }
+  if (!isSupabaseConfigured(env)) { const filtered = demo.filter((item) => (!q || item.respondentRef.toLowerCase().includes(q.toLowerCase()) || item.id.toLowerCase().includes(q.toLowerCase())) && (!projectCode || item.projectCode === projectCode)); return Response.json({ data: filtered, meta: { source: "mock", canReview: true, truncated: false, projects: [{ code: "PRJ-1048", name: "Digital Wallet Adoption" }] } }); }
   const access = await authorizeWorkspace(request, env, workspacePermissions.read); if (!access.ok) return authorizationError(access);
   try {
     const restrictProjects = Boolean(projectCode || projectCodes.length); const projectRelation = restrictProjects ? "projects!inner(project_code,project_name,status,clients(name),project_markets(country_code,language_code,expected_loi_minutes))" : "projects(project_code,project_name,status,clients(name),project_markets(country_code,language_code,expected_loi_minutes))";
     const params = new URLSearchParams({ select: `id,respondent_ref,status,is_test,started_at,completed_at,country_code,language_code,device_type,termination_reason_code,termination_reason_source,internal_approval_status,vendor_approval_status,${projectRelation},project_suppliers(supplier_project_id,supplier_cpi,suppliers(name)),survey_events(id,event_type,occurred_at,provider_transaction_id),fraud_flags(rule_code,severity,status),survey_response_values(variable_key,value,source,captured_at)`, order: "started_at.desc", "survey_events.order": "occurred_at.asc,id.asc", limit: String(limit) });
-    if (q) params.set("respondent_ref", `ilike.*${q}*`); if (projectCode) params.set("projects.project_code", `eq.${projectCode}`); else if (projectCodes.length) params.set("projects.project_code", `in.(${projectCodes.join(",")})`);
+    if (q) {
+      const search = q.replace(/[%*,()]/g, "");
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search)) params.set("or", `(id.eq.${search},respondent_ref.ilike.*${search}*)`);
+      else params.set("respondent_ref", `ilike.*${search}*`);
+    }
+    if (projectCode) params.set("projects.project_code", `eq.${projectCode}`); else if (projectCodes.length) params.set("projects.project_code", `in.(${projectCodes.join(",")})`);
     const [rows, projectRows] = await Promise.all([
       supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/survey_sessions?${params}`, access.authorization),
       supabaseJson<Array<{ project_code: string; project_name: string }>>(env, "/rest/v1/projects?select=project_code,project_name&order=created_at.desc&limit=1000", access.authorization),

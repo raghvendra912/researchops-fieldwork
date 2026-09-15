@@ -26,6 +26,13 @@ const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }>
 
 function serviceHeaders(env: RedirectEnv) { return { apikey: env.SUPABASE_SERVICE_ROLE_KEY!, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }; }
 async function serviceRpc<T>(env: RedirectEnv, name: string, body: Record<string, unknown>): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Routing reservation failed with upstream status ${response.status}`); return response.json() as Promise<T[]>; }
+async function supplierScopedRefReady(env: RedirectEnv) {
+  const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/supplier_scoped_ref_ready`, { headers: serviceHeaders(env) });
+  if (response.ok) return await response.json() === true;
+  const error = await response.json().catch(() => null) as { code?: string } | null;
+  if (response.status === 404 && error?.code === "PGRST202") return false;
+  throw new Error(`Supplier reference scope check failed with upstream status ${response.status}`);
+}
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
 function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
@@ -93,8 +100,10 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
-      const priorSessions = await serviceRows<{ project_supplier_id: string | null }>(env, `/rest/v1/survey_sessions?select=project_supplier_id&project_id=eq.${encodeURIComponent(project.id)}&respondent_ref=eq.${encodeURIComponent(respondentRef)}&limit=1`);
-      if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) return unavailable("This supplier attempt ID is already used by another source on this project", 409);
+      if (!await supplierScopedRefReady(env)) {
+        const priorSessions = await serviceRows<{ project_supplier_id: string | null }>(env, `/rest/v1/survey_sessions?select=project_supplier_id&project_id=eq.${encodeURIComponent(project.id)}&respondent_ref=eq.${encodeURIComponent(respondentRef)}&limit=1`);
+        if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) return unavailable("This supplier attempt ID is already used by another source on this project", 409);
+      }
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : unavailable("Project traffic is not active", 409);
@@ -179,11 +188,14 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
     type ClientSession = { respondent_ref: string; is_test: boolean; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] };
     const sessionSelect = "respondent_ref,is_test,projects!inner(project_code,client_id),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))";
-    const sessionQuery = (field: "id" | "respondent_ref") => `/rest/v1/survey_sessions?select=${sessionSelect}&${field}=eq.${encodeURIComponent(clientAttemptId)}&${projectFilter}&order=started_at.desc&limit=1`;
+    const sessionQuery = (field: "id" | "respondent_ref") => `/rest/v1/survey_sessions?select=${sessionSelect}&${field}=eq.${encodeURIComponent(clientAttemptId)}&${projectFilter}&order=started_at.desc&limit=${field === "id" ? 1 : 2}`;
     const isSessionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientAttemptId);
     let sessions = isSessionId ? await serviceRows<ClientSession>(env, sessionQuery("id")) : [];
     // Surveys launched before this separation still return the supplier reference.
-    if (!sessions.length) sessions = await serviceRows<ClientSession>(env, sessionQuery("respondent_ref"));
+    if (!sessions.length) {
+      sessions = await serviceRows<ClientSession>(env, sessionQuery("respondent_ref"));
+      if (sessions.length > 1) return unavailable("This legacy respondent ID matches more than one survey attempt", 409);
+    }
     const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return unavailable("Respondent routing session was not found", 404);
     const projectCode = project.project_code;

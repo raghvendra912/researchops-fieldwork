@@ -398,7 +398,8 @@ test("latest routing migrations isolate UAT, enforce eligibility, and reserve qu
   const rejected = routed.filter(({ location }) => location.pathname === "/quota");
   assert.equal(admitted.length, 1, "Exactly one concurrent respondent must reserve the one-slot cell");
   assert.equal(rejected.length, 1, "The other concurrent respondent must be quota-full");
-  assert.equal(admitted[0].location.searchParams.get("RID"), admitted[0].contender.respondentRef);
+  assert.match(admitted[0].location.searchParams.get("RID"), /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  assert.notEqual(admitted[0].location.searchParams.get("RID"), admitted[0].contender.respondentRef);
   assert.equal(admitted[0].location.searchParams.get("COUNTRY"), "US");
 
   const liveComplete = new URL(admitted[0].location.searchParams.get("COMPLETE"));

@@ -54,6 +54,9 @@ test("respondent intelligence and separate review workflow are available in demo
   assert.equal(list.meta.truncated, false);
   assert.equal(list.data[0].respondentRef, "RESP-78291");
 
+  const byInternalId = await handleRespondentsApi(request("/api/respondents?q=session-demo-1"), "/api/respondents", {});
+  assert.equal((await byInternalId.json()).data[0].id, "session-demo-1");
+
   const reviewResponse = await handleRespondentsApi(
     request("/api/respondents/session-demo-1/review", {
       method: "PATCH",
