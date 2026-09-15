@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-15
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: GitHub `main` contains the screenshot-aligned Project Center, a pre-`038` read fallback, and corrected supplier entry-route labels. The user reports applying migration `038`; public hosted Supabase probes now return HTTP 200 for both ownership columns and both profile joins, confirming the schema is visible to PostgREST. Hosted health/readiness pass and unauthenticated `/api/projects` correctly returns 401. Authenticated hosted Project Center, migration `037`, ownership constraints/audit, and multi-role proof remain pending. Vercel CLI is logged out and hosted uptake of the latest UI fixes is unverified.
+Overall state: GitHub `main` contains the screenshot-aligned Project Center, a pre-`038` read fallback, and corrected supplier entry-route labels. The user reports applying migration `038`; public hosted Supabase probes return HTTP 200 for its ownership columns and profile joins. The active local change separates ResearchOps and supplier attempt IDs at the client handoff using the existing session UUID, with legacy return compatibility and an operational ID mapping. Authenticated hosted Project Center, migration `037`, ownership constraints/audit, multi-role proof, and hosted uptake of the ID separation remain pending. Vercel CLI is logged out.
 
 ## Resume protocol
 
@@ -39,8 +39,8 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ### Now - restore hosted Project Center and verify the release
 
-1. Confirm an authenticated hosted `/api/projects` list read and Project Center load after the user-applied `038`; restore Vercel deployment access or its GitHub build trigger if the latest code has not reached `www.asrv.co.in`. Public schema/health checks do not prove this protected path.
-2. Verify migration `037` separately, assessing lock impact of its regular index builds before applying it if absent; then prove `038` ownership constraints, audit records, secondary-PM permissions, sales non-permissions, and tenant isolation with authenticated users.
+1. Finish and release the two-ID respondent handoff: supplier attempt reference stays on supplier events/returns, while the existing ResearchOps session UUID goes to the client survey and resolves client outcomes. Verify the legacy return path and block cross-supplier reference collisions; production uptake remains gated by Vercel access/build trigger.
+2. Confirm an authenticated hosted `/api/projects` list read and Project Center load after the user-applied `038`; verify migration `037` separately and prove `038` ownership constraints, audit records, role permissions, and tenant isolation.
 3. Prove fieldwork response capture, retention, review, and tenant isolation; browser-verify the workbook and hosted multi-role flows, then continue provider certification.
 
 ### Next - external decision and credential gates
@@ -117,6 +117,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
 | `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing separate TST plus production ST/RC/CO/TE/OQ/QT, IR, cost, and redirect mode. A bordered dialog presents Test and Live links in separate cards with dedicated copy/open actions; PAUSED/CLOSED stops live routing. |
 | `SUP-04` | Persistent supplier assignment | DONE | Live Worker integration proves atomic assignment replacement for supplier project ID, CPI, quota, status, tenant authorization, and audit history. |
+| `SUP-05` | Distinct supplier and ResearchOps attempt IDs | READY | Routing code keeps the supplier's launch reference for events and supplier outcomes and sends the stable survey-session UUID as the client-facing respondent ID. Client returns resolve the UUID to the stored supplier reference; pre-change returns can still resolve the reference. Respondents UI/CSV shows both IDs, and a duplicate reference from another assignment is rejected. Local routing tests pass; hosted rollout and provider-specific parameter certification remain. |
 
 ### M4 - Sessions, events, and operational metrics
 
@@ -249,6 +250,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-15 | Route the Project Center `$` control to the existing Analytics supplier-cost view. | Reuses verified operational cost data while the financial model remains undefined. |
 | 2026-09-15 | Display a market-country suffix on Project IDs while keeping canonical codes for links and APIs; keep Flamingo Tool as a labeled placeholder. | Matches the reference without changing identifiers or claiming an integration contract that has not been supplied. |
 | 2026-09-15 | Label supplier directory URLs as a synthetic return check and launch-route base, and keep project-specific respondent Test/Live links in Project details. | Prevents suppliers from treating incomplete base URLs as production survey launches and separates supplier setup from the client's four outcome returns. |
+| 2026-09-15 | Use the existing survey-session UUID as ResearchOps' stable client-facing attempt ID while retaining the supplier launch reference for supplier-side events and returns. | Separates identifier ownership without a new migration, keeps already-started client surveys returnable by their legacy reference, and makes the operational mapping visible. |
 
 ## Known blockers and risks
 
@@ -269,11 +271,13 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-13` | Flamingo Tool contract and workflow are not defined. | Keep the labeled placeholder until URL/API, auth, and user actions are supplied. |
 | `BLK-14` | Hosted Project Center previously reported a data-load failure; `038` ownership fields/joins are now visible but an authenticated `/api/projects` response and hosted uptake of commit `be7a0bc` cannot be proven. Vercel CLI reports logged out. | Test a signed-in Project Center read, restore Vercel deployment access or GitHub-to-Vercel uptake if needed, and verify the browser UI after rollout. |
 | `BLK-15` | Supplier STATIC/DYNAMIC is stored but does not change return URL construction; generic outcome/status query parameters have not been certified against CPX, BitLabs, or PureSpectrum contracts. | Obtain each provider's official integration contract, map its launch/return IDs and statuses, and test provider-specific callback/return behavior before external production traffic. |
+| `BLK-16` | Survey sessions and quota reservations currently key respondent references by `(project_id, respondent_ref)`, so two supplier assignments on one project cannot safely reuse the same external attempt value. A route-level check rejects known collisions but does not make concurrent collision handling atomic. | Design a migration to namespace references by supplier/assignment across session, event-ingestion, quota-reservation, and reconciliation RPCs; prove concurrent launches and legacy-data compatibility before changing the production constraint. |
 
 ## Verification record
 
 | Date | Check | Result |
 |---|---|---|
+| 2026-09-15 | Two-ID respondent routing implementation | LOCAL PASS - launch/client-return test proves the client receives the existing ResearchOps session UUID in RID/rid and the supplier return retains the original supplier reference; pre-change reference return remains accepted. Duplicate assignment reference receives HTTP 409. Build/test passes 37 tests with 5 environment skips; lint, TypeScript, and diff checks pass. Hosted provider traffic remains unverified. |
 | 2026-09-15 | User-applied hosted migration `038` schema check | PARTIAL PASS - public hosted Supabase REST probes return HTTP 200 for baseline and ownership columns, existing project joins, and both new ownership profile joins. `/api/health` and `/api/readiness` return 200; no-session `/api/projects` returns expected 401. This proves PostgREST schema visibility, not migration `037`, all `038` functions/triggers, an authenticated dashboard read, or deployment of the latest UI bundle. |
 | 2026-09-15 | Hosted Project Center schema and supplier-link review | DIAGNOSED / LOCAL FIX PASS - hosted public Supabase gateway returns HTTP 200 for legacy project columns/joins, HTTP 400 `42703` for ownership columns, and HTTP 400 `PGRST200` for ownership joins. Vercel CLI is logged out and the follow-up client marker is absent from 10 public assets; exact hosted fallback identity remains unproved. Supplier modal labels/copy-all bug is corrected locally; focused Edge interaction passes 1/1, standard build/test passes 35 with 5 environment skips, lint and TypeScript pass. Project Center now shows the safe API failure reason. |
 | 2026-09-15 | GitHub main push and pre-`038` hosted compatibility | PUSHED / PARTIAL HOSTED PROOF - `f1a5c67` pushed to `github/main`. Hosted `/flamingo`, `/api/health`, and `/api/readiness` return HTTP 200; the placeholder copy is present. The follow-up compatibility build/test passes 35 tests with 5 environment skips, lint and TypeScript pass, and a simulated pre-`038` Supabase test proves list/detail reads fall back to the existing schema. Authenticated hosted project reads and migrations remain unverified. |
@@ -390,6 +394,14 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
+
+### 2026-09-15 - Distinct respondent attempt IDs
+
+- Traced the supplier launch, client survey, client outcome, supplier return, event RPC, and session data. The project already had a stable, random per-session UUID but previously sent the supplier reference onward to the client; both ID owners were collapsed in survey URL parameters.
+- Changed the client survey handoff to use the session UUID for `{{respondent_id}}` and `rid`. The client directory return resolves that UUID to the stored supplier reference for event recording and supplier redirect, with a legacy lookup for surveys already started. Respondents detail/CSV now expose both IDs. A route-level duplicate check rejects an external reference already attached to another supplier assignment.
+- New limitation: existing project-wide reference uniqueness and quota-reservation keys need an atomic supplier namespace migration if overlapping supplier references must be accepted; generic vendor return parameter contracts still need certification.
+- Verification: mocked launch/return and duplicate-assignment regression tests pass; standard build/test passes 37 with 5 environment skips; lint, TypeScript, and diff checks pass.
+- Current task: release and prove the two-ID routing change on the hosted site. Next: prove authenticated Project Center, then design supplier-namespace migration and verify `037`/`038` behavior.
 
 ### 2026-09-15 - User-applied ownership migration verification
 

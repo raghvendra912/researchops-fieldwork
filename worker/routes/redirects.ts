@@ -93,6 +93,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return unavailable("The supplier is not assigned to this project.", 404);
+      const priorSessions = await serviceRows<{ project_supplier_id: string | null }>(env, `/rest/v1/survey_sessions?select=project_supplier_id&project_id=eq.${encodeURIComponent(project.id)}&respondent_ref=eq.${encodeURIComponent(respondentRef)}&limit=1`);
+      if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) return unavailable("This supplier attempt ID is already used by another source on this project", 409);
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : unavailable("Project traffic is not active", 409);
@@ -143,8 +145,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!outcomeToken) return unavailable("The respondent outcome route could not be created", 502);
       const callback = (outcome: Outcome) => `${url.origin}/r/outcome/${outcomeToken}/${outcome}`;
       const configuredParameters = Array.isArray(project.survey_parameters) ? project.survey_parameters.filter((value): value is SurveyParameter => { const item = value as Partial<SurveyParameter>; return typeof item?.name === "string" && typeof item?.value === "string"; }) : [];
-      const surveyUrl = buildSurveyUrl(surveyTemplate, configuredParameters, { ...answers, project_id: projectCode, respondent_id: respondentRef, session_id: sessionId, complete_url: callback("complete"), terminate_url: callback("terminate"), quota_full_url: callback("quota-full"), security_terminate_url: callback("security-terminate") });
-      if (!surveyUrl.searchParams.has("rid")) surveyUrl.searchParams.set("rid", respondentRef);
+      const surveyUrl = buildSurveyUrl(surveyTemplate, configuredParameters, { ...answers, project_id: projectCode, respondent_id: sessionId, session_id: sessionId, complete_url: callback("complete"), terminate_url: callback("terminate"), quota_full_url: callback("quota-full"), security_terminate_url: callback("security-terminate") });
+      if (!surveyUrl.searchParams.has("rid")) surveyUrl.searchParams.set("rid", sessionId);
       if (!surveyUrl.searchParams.has("complete_url")) surveyUrl.searchParams.set("complete_url", callback("complete"));
       if (!surveyUrl.searchParams.has("terminate_url")) surveyUrl.searchParams.set("terminate_url", callback("terminate"));
       if (!surveyUrl.searchParams.has("quota_full_url")) surveyUrl.searchParams.set("quota_full_url", callback("quota-full"));
@@ -171,18 +173,24 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     }
 
     const outcome = clientMatch![2].toLowerCase() as Outcome;
-    const requestedProjectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project") ?? url.searchParams.get("survey_id"), 40).toUpperCase(); const respondentRef = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("transaction_id") ?? url.searchParams.get("respondent") ?? url.searchParams.get("rid") ?? url.searchParams.get("uid"));
-    if (!respondentRef) return unavailable("Respondent ID is required", 400);
+    const requestedProjectCode = clean(url.searchParams.get("project_id") ?? url.searchParams.get("project") ?? url.searchParams.get("survey_id"), 40).toUpperCase(); const clientAttemptId = clean(url.searchParams.get("respondent_id") ?? url.searchParams.get("transaction_id") ?? url.searchParams.get("respondent") ?? url.searchParams.get("rid") ?? url.searchParams.get("uid"));
+    if (!clientAttemptId) return unavailable("Respondent ID is required", 400);
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${clientMatch![1]}&limit=1`); if (!clients[0]) return unavailable("Client link was not found", 404);
     const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
-    const sessions = await serviceRows<{ organization_id: string; project_supplier_id: string; is_test: boolean; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { supplier_id: string; suppliers: SupplierRow | SupplierRow[] } | { supplier_id: string; suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=organization_id,project_supplier_id,is_test,started_at,projects!inner(project_code,client_id),project_suppliers(supplier_id,suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&respondent_ref=eq.${encodeURIComponent(respondentRef)}&${projectFilter}&order=started_at.desc&limit=1`);
+    type ClientSession = { respondent_ref: string; is_test: boolean; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] };
+    const sessionSelect = "respondent_ref,is_test,projects!inner(project_code,client_id),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))";
+    const sessionQuery = (field: "id" | "respondent_ref") => `/rest/v1/survey_sessions?select=${sessionSelect}&${field}=eq.${encodeURIComponent(clientAttemptId)}&${projectFilter}&order=started_at.desc&limit=1`;
+    const isSessionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientAttemptId);
+    let sessions = isSessionId ? await serviceRows<ClientSession>(env, sessionQuery("id")) : [];
+    // Surveys launched before this separation still return the supplier reference.
+    if (!sessions.length) sessions = await serviceRows<ClientSession>(env, sessionQuery("respondent_ref"));
     const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return unavailable("Respondent routing session was not found", 404);
     const projectCode = project.project_code;
     const eventType = outcomes[outcome].eventType; const reasonCode = eventType === "TERMINATE" ? "CLIENT_TERMINATE" : eventType === "QUOTA_FULL" ? "QUOTA_FULL" : eventType === "QUALITY_TERMINATE" ? "QUALITY_REJECT" : undefined;
-    const result = await recordEvent(request, env, supplier, projectCode, respondentRef, eventType, "client-outcome", session.is_test, reasonCode ? { reasonCode } : {}); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
+    const result = await recordEvent(request, env, supplier, projectCode, session.respondent_ref, eventType, "client-outcome", session.is_test, reasonCode ? { reasonCode } : {}); if (!result.ok) return unavailable("The respondent outcome could not be recorded", 502);
     const target = supplier[outcomes[outcome].field];
-    if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, respondentRef, outcomes[outcome].eventType));
+    if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, session.respondent_ref, outcomes[outcome].eventType));
     return outcomePage(outcomes[outcome].eventType);
   } catch (error) {
     const id = requestId(request);
