@@ -1,5 +1,5 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions, type WorkspaceRole } from "../lib/authorization";
-import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
+import { isSupabaseConfigured, SupabaseRequestError, supabaseJson, type SupabaseEnv } from "../lib/supabase";
 import { getProjectCapabilities } from "../lib/project-authorization";
 import { projects as mockProjects } from "../../src/features/projects/mockProjects";
 
@@ -69,7 +69,13 @@ export async function handleProjectOwnershipApi(request: Request, pathname: stri
   const capability = await getProjectCapabilities(env, access.authorization, code);
   if (!capability?.can_access) return Response.json({ error: "Project not found" }, { status: 404 });
   if (request.method === "PUT" && !capability.can_manage_access) return Response.json({ error: "Project ownership administration denied" }, { status: 403 });
-  const current = await ownershipContext(env, access.authorization, code);
+  let current: Awaited<ReturnType<typeof ownershipContext>>;
+  try { current = await ownershipContext(env, access.authorization, code); }
+  catch (error) {
+    if (error instanceof SupabaseRequestError && error.status === 400 && ["42703", "PGRST200", "PGRST204"].includes(error.code ?? ""))
+      return Response.json({ error: "Project ownership requires migration 038." }, { status: 503 });
+    throw error;
+  }
   if (!current) return Response.json({ error: "Project not found" }, { status: 404 });
   if (request.method === "GET") return Response.json({ data: current.data, meta: { source: "supabase", canManage: capability.can_manage_access, managers: current.managers, salesPeople: current.salesPeople } }, { headers: { "cache-control": "private, no-store" } });
   const payload = parseBody(await request.json().catch(() => null) as Record<string, unknown> | null);

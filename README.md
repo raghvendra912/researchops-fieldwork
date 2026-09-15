@@ -87,6 +87,8 @@ Copy `.env.example` to `.env.local`, then supply your public Supabase URL and an
 
 Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, respondent outcome tracking, test/live traffic separation, versioned eligibility rules, atomic project/supplier/interlocked quota reservations, scoped access, repaired production RPC/RLS behavior, standardized outcome metrics, privacy-safe session context, controlled response-variable retention, respondent review/reconciliation, PM-wide portfolio visibility, performance indexes, and tenant-checked secondary PM/sales assignments. Apply through the highest numbered migration (currently `038`) before live verification. Review production table size and active traffic before applying the regular index builds in `037`.
 
+Until migration `038` is applied, project list and detail reads use the existing schema and the ownership editor shows a pending-migration message; secondary PM and sales assignments cannot be saved.
+
 Add your local and deployed `/reset-password` URLs to the Supabase Auth redirect allowlist before testing password recovery.
 
 For a local Supabase stack:

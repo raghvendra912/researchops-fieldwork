@@ -376,6 +376,40 @@ test("enforces workspace roles on protected project operations", async () => {
   }
 });
 
+test("serves the existing project portfolio and detail before ownership migration 038", async () => {
+  const originalFetch = globalThis.fetch;
+  let legacyReads = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/auth/v1/user")) return Response.json({ id: "user-1" });
+    if (url.includes("/organization_members")) return Response.json([{ organization_id: "org-1", role: "PM" }]);
+    if (url.includes("/rpc/project_capabilities")) return Response.json([{ project_id: "project-1", can_access: true, can_operate: true, can_review: true, can_manage_access: true }]);
+    if (url.includes("/rest/v1/projects")) {
+      const select = new URL(url).searchParams.get("select") ?? "";
+      if (select.includes("secondary_project_manager_id") || select.includes("sales_person_id"))
+        return Response.json({ code: "42703", message: "ownership column does not exist" }, { status: 400 });
+      legacyReads += 1;
+      if (select.startsWith("project_type")) return Response.json([{ project_type: "B2B", project_manager_id: "user-1", project_manager_name: "Test PM", status: "LIVE", clients: { name: "Test Client" } }]);
+      return Response.json([{ id: "project-1", project_code: "PRJ-1048", project_name: "Test project", project_type: "B2B", project_manager_id: "user-1", project_manager_name: "Test PM", status: "LIVE", client_cpi: 7, quota: 100, created_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-02T00:00:00Z", clients: { name: "Test Client", code: "TEST" }, project_markets: [{ country_code: "IN" }] }], { headers: { "content-range": "0-0/1" } });
+    }
+    if (url.includes("/project_event_metrics")) return Response.json([]);
+    if (url.includes("/rest/v1/clients")) return Response.json([{ name: "Test Client" }]);
+    throw new Error(`Unexpected Supabase request: ${url}`);
+  };
+  try {
+    const response = await request("/api/projects", { headers: { authorization: "Bearer valid-user-token" } }, { SUPABASE_URL: "https://example.supabase.co", SUPABASE_ANON_KEY: "public-anon-key" });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.data[0].id, "PRJ-1048");
+    assert.equal(body.data[0].secondaryManager, "");
+    assert.deepEqual(body.meta.facets.salesPeople, [{ value: "UNASSIGNED", label: "Unassigned" }]);
+    const detail = await request("/api/projects/PRJ-1048", { headers: { authorization: "Bearer valid-user-token" } }, { SUPABASE_URL: "https://example.supabase.co", SUPABASE_ANON_KEY: "public-anon-key" });
+    assert.equal(detail.status, 200);
+    assert.equal((await detail.json()).data.id, "PRJ-1048");
+    assert.equal(legacyReads, 3);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("throttles same-origin authentication traffic", async () => {
   const originalFetch = globalThis.fetch;
   let upstreamCalls = 0;

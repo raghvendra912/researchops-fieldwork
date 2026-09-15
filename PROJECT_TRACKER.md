@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-15
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: Linked Supabase history is verified through `036`. Local `main` contains the screenshot-aligned Project Center refinement, secondary PM/sales ownership, and a Flamingo Tool placeholder, browser-verified in credential-free demo mode. Migrations `037` and `038` are local schema files and have not been applied or verified against persistent/RLS data. GitHub push, hosted deployment, and authenticated multi-role proof remain pending.
+Overall state: GitHub `main` contains the screenshot-aligned Project Center refinement, secondary PM/sales ownership, Flamingo Tool placeholder, and a compatibility fallback for pre-`038` project reads. Linked Supabase history is verified through `036`; migrations `037` and `038` have not been applied or verified against persistent/RLS data. The hosted Flamingo placeholder, health, and readiness return HTTP 200, showing site uptake, but authenticated Project Center and multi-role proof remain pending.
 
 ## Resume protocol
 
@@ -94,7 +94,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 |---|---|---|---|
 | `PRJ-01` | Project Center table UI | READY | Browser-reviewed dense reference-style view now has the top navigation, compact two-row filters, display ID with market suffix, CC/PO, ST/RC/L24, CO/target, TE/OQ/QT, AB/IR/CO percentages, CPI, status, PM/SPM, LU date, last complete, CSV/XLSX/search/Analytics-cost/refresh controls, and responsive horizontal scrolling. Hosted authenticated proof remains. |
 | `PRJ-11` | Portfolio visibility by profile | READY | Migration `036` is present in linked Supabase and grants OWNER/ADMIN/PM read visibility across the organization portfolio while ANALYST/MEMBER remain limited to explicit project grants. The UI hides manager, commercial, client-code/PO, and recency administration columns from scoped profiles. Multi-role browser proof remains. |
-| `PRJ-12` | Secondary PM and sales ownership | READY | Migration `038` adds existing-workspace-member foreign keys, same-workspace/role constraints, audited assignment RPC, secondary PM operating/review access, and no new sales permission. Editor, sales filter, list data, and CSV/XLSX fields work in demo mode; linked migration and multi-role RLS proof remain. |
+| `PRJ-12` | Secondary PM and sales ownership | READY | Migration `038` adds existing-workspace-member foreign keys, same-workspace/role constraints, audited assignment RPC, secondary PM operating/review access, and no new sales permission. Editor, sales filter, list data, and CSV/XLSX fields work in demo mode; pre-migration project list/detail fallback keeps existing reads available. Linked migration and multi-role RLS proof remain. |
 | `PRJ-13` | Screenshot-style Project Center navigation | READY | Home/Project Center/Supplier Center/Client/Flamingo Tool/Setting/Exit appear across the Project Center desktop header; the existing shell remains available elsewhere and mobile navigation remains usable. Hosted browser proof remains. |
 | `FLM-01` | Flamingo Tool entry point | PROTOTYPE | A clearly labeled integration placeholder exists. URL, API contract, authentication, and user actions are undecided; no external tool is connected. |
 | `PRJ-02` | Project summary metrics | READY | Status counts, event outcomes, monthly Overview completes, and average respondent duration are connected in Supabase mode with demo fallback. |
@@ -271,6 +271,7 @@ Do not record secret values here. Mark only whether they are available.
 
 | Date | Check | Result |
 |---|---|---|
+| 2026-09-15 | GitHub main push and pre-`038` hosted compatibility | PUSHED / PARTIAL HOSTED PROOF - `f1a5c67` pushed to `github/main`. Hosted `/flamingo`, `/api/health`, and `/api/readiness` return HTTP 200; the placeholder copy is present. The follow-up compatibility build/test passes 35 tests with 5 environment skips, lint and TypeScript pass, and a simulated pre-`038` Supabase test proves list/detail reads fall back to the existing schema. Authenticated hosted project reads and migrations remain unverified. |
 | 2026-09-15 | Screenshot-aligned Project Center and ownership code | PASS LOCALLY - `npm test` builds and passes 34 tests with 5 environment skips; ESLint, `tsc --noEmit`, and `git diff --check` pass. Edge/Playwright demo browser suite passes 13/13 including filters, both metric views, CSV, ownership editing, Flamingo placeholder, and country selection. Desktop/mobile screenshots were reviewed. Linked migrations `037`/`038`, persistent RLS/audit, hosted auth, and deployment remain unverified. |
 | 2026-08-18 | `npm run build` | PASS |
 | 2026-08-18 | `tsc --noEmit` | PASS |
@@ -384,6 +385,13 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
+
+### 2026-09-15 - GitHub main rollout and pre-migration compatibility
+
+- Fetched approved GitHub `main`, confirmed local/remote parity, staged only project files and tracker, and pushed commit `f1a5c67` with the reference Project Center, ownership schema/editor, and Flamingo placeholder.
+- The hosted site returns HTTP 200 for health, readiness, and the new Flamingo route with its placeholder copy. This confirms a matching site build is visible, while authenticated Project Center/ownership behavior cannot be claimed before migration `038` and multi-role checks.
+- Added a narrow API fallback for project list and detail when optional ownership columns or FK joins are absent in the pre-`038` schema; the ownership editor reports that the migration is pending. The standard build/test passes 35 tests with 5 environment skips, lint/TypeScript pass, and a simulated old-schema regression proves both reads.
+- Current task: apply and verify migrations `037`/`038` in a controlled database window, then run authenticated ownership, RLS, audit, and Project Center tests. Next: fieldwork-intelligence proof and full hosted multi-role browser verification.
 
 ### 2026-09-15 - Qlabs reference Project Center implementation
 

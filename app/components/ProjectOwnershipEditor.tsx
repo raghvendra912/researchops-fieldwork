@@ -22,7 +22,7 @@ export function ProjectOwnershipEditor({ projectId, configured, token, onSaved }
     try {
       const response = await apiRequest<OwnershipResponse>(`/api/projects/${encodeURIComponent(projectId)}/ownership`, { headers });
       setOwnership(response.data); setManagers(response.meta.managers); setSalesPeople(response.meta.salesPeople); setCanManage(response.meta.canManage); setMessage("");
-    } catch { setMessage("Project ownership could not be loaded."); }
+    } catch (error) { setMessage(error instanceof Error && error.message.includes("migration 038") ? "Project ownership will be available after the database migration is applied." : "Project ownership could not be loaded."); }
   }, [configured, headers, projectId, token]);
 
   useEffect(() => { const initial = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(initial); }, [load]);

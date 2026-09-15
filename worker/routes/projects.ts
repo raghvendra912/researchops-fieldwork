@@ -339,9 +339,20 @@ function assignmentRow(row: { id?: string; supplier_id: string; supplier_project
 
 const databaseSortColumns: Record<ProjectSortKey, string> = { createdAt: "created_at", code: "project_code", name: "project_name", status: "status", cpi: "client_cpi" };
 
+function ownershipSchemaUnavailable(error: unknown) {
+  return error instanceof SupabaseRequestError && error.status === 400
+    && ["42703", "PGRST200", "PGRST204"].includes(error.code ?? "");
+}
+
+function projectSelect(clientRelation: string, ownership: boolean) {
+  const base = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,updated_at,${clientRelation},project_managers:user_profiles!projects_manager_profile_fkey(display_name),project_markets(country_code)`;
+  return ownership ? `${base},secondary_project_manager_id,sales_person_id,secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name)` : base;
+}
+
 async function supabaseList(env: ProjectApiEnv, authorization: string, query: ProjectListQuery, canOperate: boolean, userId: string, workspaceRole: "OWNER" | "ADMIN" | "PM" | "ANALYST" | "MEMBER") {
   const clientFilter = postgrestText(query.client);
-  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,secondary_project_manager_id,sales_person_id,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,updated_at,${clientFilter ? "clients!inner(name,code)" : "clients(name,code)"},project_managers:user_profiles!projects_manager_profile_fkey(display_name),secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name),project_markets(country_code)`;
+  const clientRelation = clientFilter ? "clients!inner(name,code)" : "clients(name,code)";
+  const select = projectSelect(clientRelation, true);
   const params = new URLSearchParams({ select, order: `${databaseSortColumns[query.sortBy]}.${query.sortDirection}` });
   const search = postgrestText(query.q);
   if (search) params.set("or", `(project_name.ilike.*${search}*,client_po.ilike.*${search}*)`);
@@ -361,9 +372,17 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
   if (query.scope === "mine" && userId) params.set("project_manager_id", `eq.${userId}`);
 
   const rangeStart = (query.page - 1) * query.pageSize;
-  const response = await supabaseRequest(env, `/rest/v1/projects?${params}`, authorization, {
-    headers: { Prefer: "count=exact", Range: `${rangeStart}-${rangeStart + query.pageSize - 1}` },
-  });
+  const requestOptions = { headers: { Prefer: "count=exact", Range: `${rangeStart}-${rangeStart + query.pageSize - 1}` } };
+  let ownershipAvailable = true;
+  let response: Response;
+  try { response = await supabaseRequest(env, `/rest/v1/projects?${params}`, authorization, requestOptions); }
+  catch (error) {
+    if (!ownershipSchemaUnavailable(error)) throw error;
+    ownershipAvailable = false;
+    params.set("select", projectSelect(clientRelation, false));
+    params.delete("sales_person_id");
+    response = await supabaseRequest(env, `/rest/v1/projects?${params}`, authorization, requestOptions);
+  }
   const rows = await response.json() as DatabaseProject[];
   const countHeader = response.headers.get("content-range") ?? "";
   const total = Number.parseInt(countHeader.split("/")[1] ?? "", 10);
@@ -374,16 +393,17 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
   const facetScope = query.scope === "mine" && userId ? `&project_manager_id=eq.${encodeURIComponent(userId)}` : "";
   const facetRows = await supabaseJson<Array<Pick<DatabaseProject, "project_type" | "project_manager_id" | "project_manager_name" | "project_managers" | "sales_person_id" | "sales_owner" | "status" | "clients">>>(
     env,
-    `/rest/v1/projects?select=project_type,project_manager_id,project_manager_name,sales_person_id,status,clients(name),project_managers:user_profiles!projects_manager_profile_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name)&order=created_at.desc&limit=1000${facetScope}`,
+    `/rest/v1/projects?select=project_type,project_manager_id,project_manager_name,status,clients(name),project_managers:user_profiles!projects_manager_profile_fkey(display_name)${ownershipAvailable ? ",sales_person_id,sales_owner:user_profiles!projects_sales_person_id_fkey(display_name)" : ""}&order=created_at.desc&limit=1000${facetScope}`,
     authorization,
   );
   const facetProjects = facetRows.map((row) => ({
     client: relationName(row.clients), manager: { value: row.project_manager_id ?? (row.project_manager_name ? `NAME:${row.project_manager_name}` : "UNASSIGNED"), label: row.project_manager_name || managerName(row.project_managers) }, salesPerson: { value: row.sales_person_id ?? "UNASSIGNED", label: row.sales_owner ? managerName(row.sales_owner) : "Unassigned" }, type: row.project_type ?? "Not set", status: row.status, completes: 0,
   }));
   const allClients = await supabaseJson<Array<{ name: string }>>(env, "/rest/v1/clients?select=name&order=name.asc&limit=1000", authorization);
-  const resolvedTotal = Number.isFinite(total) ? total : rows.length;
+  const salesAssignmentUnavailable = !ownershipAvailable && query.salesPerson && query.salesPerson !== "UNASSIGNED";
+  const resolvedTotal = salesAssignmentUnavailable ? 0 : Number.isFinite(total) ? total : rows.length;
   return {
-    data: rows.map((row) => toProject(row, metrics.get(row.project_code))),
+    data: salesAssignmentUnavailable ? [] : rows.map((row) => toProject(row, metrics.get(row.project_code))),
     meta: {
       total: resolvedTotal,
       page: query.page,
@@ -491,7 +511,12 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
 
       await reconcileAbandoned(env);
       const code = encodeURIComponent(detailMatch[1]);
-      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,secondary_project_manager_id,sales_person_id,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,updated_at,clients(name,code),project_managers:user_profiles!projects_manager_profile_fkey(display_name),secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
+      let rows: DatabaseProject[];
+      try { rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=${projectSelect("clients(name,code)", true)}&project_code=eq.${code}&limit=1`, access.authorization); }
+      catch (error) {
+        if (!ownershipSchemaUnavailable(error)) throw error;
+        rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=${projectSelect("clients(name,code)", false)}&project_code=eq.${code}&limit=1`, access.authorization);
+      }
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
       return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: capability?.can_operate === true, canReview: capability?.can_review === true, canManageAccess: capability?.can_manage_access === true } });
