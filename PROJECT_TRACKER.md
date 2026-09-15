@@ -4,7 +4,7 @@
 
 Last updated: 2026-09-15
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: GitHub `main` contains the screenshot-aligned Project Center refinement, secondary PM/sales ownership, Flamingo Tool placeholder, and a compatibility fallback for pre-`038` project reads. Linked Supabase history is verified through `036`; migrations `037` and `038` have not been applied or verified against persistent/RLS data. The hosted Flamingo placeholder, health, and readiness return HTTP 200, showing site uptake, but authenticated Project Center and multi-role proof remain pending.
+Overall state: GitHub `main` contains the screenshot-aligned Project Center and a pre-`038` read fallback. The user reports a hosted Project Center data-load failure. Public hosted Supabase probes confirm ownership columns and joins from `038` are absent (`42703`/`PGRST200`), while prior project joins work; the fallback's public client marker is absent, so its hosted uptake is unverified. Vercel CLI is logged out. Migrations `037` and `038`, authenticated hosted Project Center, and multi-role proof remain pending.
 
 ## Resume protocol
 
@@ -37,11 +37,11 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
-### Now - Project Center release verification and fieldwork intelligence proof
+### Now - restore hosted Project Center and verify the release
 
-1. Apply and verify migrations `037` and `038` in order in a controlled database window; assess lock impact of the regular index builds in `037`, then prove ownership constraints, audit records, secondary-PM permissions, sales non-permissions, and tenant isolation with authenticated users.
-2. Prove response-variable capture, reason mapping, retention cleanup, review authorization, and tenant isolation against the linked Supabase schema; browser-verify filtered XLSX download, all six worksheets, read-only supplier-link redaction, response-variable configuration, and respondent review controls.
-3. Deploy the matching verified revision and run hosted desktop/mobile, multi-role Project Center, ownership, health/readiness, and respondent-flow checks.
+1. Restore Vercel deployment access or its GitHub build trigger, deploy the tested pre-`038` compatibility revision, and confirm an authenticated `/api/projects` read no longer fails. Do not treat public health/readiness as proof of this protected path.
+2. Apply and verify migrations `037` and `038` in order in a controlled database window; assess lock impact of the regular index builds in `037`, then prove ownership constraints, audit records, secondary-PM permissions, sales non-permissions, and tenant isolation with authenticated users.
+3. Prove fieldwork response capture, retention, review, and tenant isolation; browser-verify the workbook and hosted multi-role flows, then continue provider certification.
 
 ### Next - external decision and credential gates
 
@@ -113,7 +113,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | `ELG-01` | Project eligibility rules | READY | Operators can manage up to 30 URL-variable rules using categorical and numeric operators; migration `025` is recorded in linked production history. Hosted eligible/ineligible routing and metric proof remain. |
 | `CLI-01` | Client directory UI | READY | Searchable numbered list remains above create/edit; View opens a compact modal with four same-origin outcome links carrying respondent/project placeholders and individual/copy-all actions; browser evidence passes. |
 | `CLI-02` | Client CRUD | READY | Client destination URLs are excluded while validated redirect-variable definitions persist through migration `021`; local API coverage passes and hosted migration/live verification remain. |
-| `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC mode, four outcome destinations, and copyable Test/Live links without the obsolete supplier-type choice. |
+| `SUP-01` | Supplier directory UI | READY | Create/edit UI includes contacts, STATIC/DYNAMIC metadata, and four supplier-return destinations. The View links modal now identifies the two supplier-level base routes and copies exactly those two; project-specific respondent Test/Live launches remain in Project details. Hosted uptake remains. |
 | `SUP-02` | Supplier CRUD | DONE | Live Worker integration proves tenant-scoped contact/redirect create/update, persistent reads, opaque token generation, constraints, and audit records. |
 | `SUP-03` | Project supplier assignment UI | READY | Operators manage supplier ID, CPI, quota, and traffic state while viewing separate TST plus production ST/RC/CO/TE/OQ/QT, IR, cost, and redirect mode. A bordered dialog presents Test and Live links in separate cards with dedicated copy/open actions; PAUSED/CLOSED stops live routing. |
 | `SUP-04` | Persistent supplier assignment | DONE | Live Worker integration proves atomic assignment replacement for supplier project ID, CPI, quota, status, tenant authorization, and audit history. |
@@ -248,6 +248,7 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-15 | Assign secondary PM only to a different PM in the same workspace and sales ownership to a workspace member, without adding sales permissions. | Uses the current role taxonomy and preserves existing authorization until a separate sales role is specified. |
 | 2026-09-15 | Route the Project Center `$` control to the existing Analytics supplier-cost view. | Reuses verified operational cost data while the financial model remains undefined. |
 | 2026-09-15 | Display a market-country suffix on Project IDs while keeping canonical codes for links and APIs; keep Flamingo Tool as a labeled placeholder. | Matches the reference without changing identifiers or claiming an integration contract that has not been supplied. |
+| 2026-09-15 | Label supplier directory URLs as a synthetic return check and launch-route base, and keep project-specific respondent Test/Live links in Project details. | Prevents suppliers from treating incomplete base URLs as production survey launches and separates supplier setup from the client's four outcome returns. |
 
 ## Known blockers and risks
 
@@ -266,11 +267,14 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-11` | RESOLVED - migration `035` objects are present in linked Supabase, its manually applied migration-history entry was repaired, local/remote history matches through `035`, and linked database lint reports no schema errors. | Complete authenticated multi-role integration and browser proof, then deploy the matching application revision. |
 | `BLK-12` | Linked CLI access token and local Docker/Podman are unavailable; migrations `037` and `038` cannot be executed or linted live in this workspace. Regular index builds in `037` can block writes on busy event/session tables. | Restore an authorized database session, assess table size/write traffic and schedule a controlled migration window; apply in order and run authenticated multi-role/RLS/audit checks before rollout. |
 | `BLK-13` | Flamingo Tool contract and workflow are not defined. | Keep the labeled placeholder until URL/API, auth, and user actions are supplied. |
+| `BLK-14` | Hosted Project Center reports data-load failure while the linked production schema lacks `038` ownership fields; local fallback tests pass but hosted uptake cannot be proven, and Vercel CLI reports logged out. | Restore Vercel deployment access or GitHub-to-Vercel uptake, deploy the compatibility revision, then test authenticated `/api/projects`; schedule `037`/`038` separately with database verification. |
+| `BLK-15` | Supplier STATIC/DYNAMIC is stored but does not change return URL construction; generic outcome/status query parameters have not been certified against CPX, BitLabs, or PureSpectrum contracts. | Obtain each provider's official integration contract, map its launch/return IDs and statuses, and test provider-specific callback/return behavior before external production traffic. |
 
 ## Verification record
 
 | Date | Check | Result |
 |---|---|---|
+| 2026-09-15 | Hosted Project Center schema and supplier-link review | DIAGNOSED / LOCAL FIX PASS - hosted public Supabase gateway returns HTTP 200 for legacy project columns/joins, HTTP 400 `42703` for ownership columns, and HTTP 400 `PGRST200` for ownership joins. Vercel CLI is logged out and the follow-up client marker is absent from 10 public assets; exact hosted fallback identity remains unproved. Supplier modal labels/copy-all bug is corrected locally; focused Edge interaction passes 1/1, standard build/test passes 35 with 5 environment skips, lint and TypeScript pass. Project Center now shows the safe API failure reason. |
 | 2026-09-15 | GitHub main push and pre-`038` hosted compatibility | PUSHED / PARTIAL HOSTED PROOF - `f1a5c67` pushed to `github/main`. Hosted `/flamingo`, `/api/health`, and `/api/readiness` return HTTP 200; the placeholder copy is present. The follow-up compatibility build/test passes 35 tests with 5 environment skips, lint and TypeScript pass, and a simulated pre-`038` Supabase test proves list/detail reads fall back to the existing schema. Authenticated hosted project reads and migrations remain unverified. |
 | 2026-09-15 | Screenshot-aligned Project Center and ownership code | PASS LOCALLY - `npm test` builds and passes 34 tests with 5 environment skips; ESLint, `tsc --noEmit`, and `git diff --check` pass. Edge/Playwright demo browser suite passes 13/13 including filters, both metric views, CSV, ownership editing, Flamingo placeholder, and country selection. Desktop/mobile screenshots were reviewed. Linked migrations `037`/`038`, persistent RLS/audit, hosted auth, and deployment remain unverified. |
 | 2026-08-18 | `npm run build` | PASS |
@@ -385,6 +389,14 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
+
+### 2026-09-15 - Hosted data-load diagnosis and supplier-link semantics
+
+- The reported Project Center banner is the generic UI response to a failed `/api/projects` request. Public hosted Supabase probes confirm the new `038` fields and FK joins are missing, while existing project reads work. The tested fallback is on GitHub `main`, but a public asset check cannot confirm hosted uptake; Vercel CLI reports logged out. Protected API evidence still requires an authenticated hosted session.
+- Reviewed the supplier directory and respondent route: its two visible URLs are a synthetic return-destination check and a launch-route base, not four client survey outcomes. The shared modal falsely said Client handoff and Copy all 4 links; its copy-all function only read client outcome keys and copied no supplier routes. Corrected the modal's purpose, labels, count, and clipboard contents, and documented where project-specific respondent launches live. Project Center now surfaces the API error reason rather than discarding it for a generic configuration banner.
+- Compared primary BitLabs and PureSpectrum integration documents: outcome callbacks/returns and respondent identifiers are standard, but the exact count, parameters, and provider handling vary. The current STATIC/DYNAMIC selector is metadata only; official vendor contract certification remains a separate blocker.
+- Verification: focused Edge supplier-modal flow 1/1, standard build/test 35 passed with 5 environment skips, lint and TypeScript pass; no live migration or protected hosted read was performed.
+- Current task: deploy and prove the pre-`038` compatibility revision on Vercel, then schedule and verify `037`/`038`. Next: provider-specific returns and fieldwork-intelligence proof.
 
 ### 2026-09-15 - GitHub main rollout and pre-migration compatibility
 

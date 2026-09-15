@@ -83,6 +83,23 @@ test("project search, refresh, clear filters, metric views, and CSV download wor
   expect(download.suggestedFilename()).toBe("researchops-projects.csv");
 });
 
+test("supplier directory explains its two base routes and copies both", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/suppliers", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "View links" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "CPX Research links" });
+  await expect(dialog.getByRole("heading", { name: "CPX Research entry routes" })).toBeVisible();
+  await expect(dialog.getByText("Return URL check")).toBeVisible();
+  await expect(dialog.getByText("Launch route base")).toBeVisible();
+  await expect(dialog.locator(".link-row code")).toHaveCount(2);
+  await dialog.getByRole("button", { name: "Copy all 2 routes" }).click();
+  await expect(dialog.getByRole("button", { name: "Copied all" })).toBeVisible();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied.split("\n")).toHaveLength(2);
+  expect(copied).toContain("/test");
+  expect(copied).toContain("/live");
+});
+
 test("secondary PM and sales ownership can be edited in demo mode", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Project ownership" })).toBeVisible();

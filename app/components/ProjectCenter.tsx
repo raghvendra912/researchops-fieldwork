@@ -112,10 +112,11 @@ export function ProjectCenter() {
       setProjects(response.data);
       setMeta(response.meta);
       setLoadError("");
-    }).catch(() => {
+    }).catch((error) => {
       if (controller.signal.aborted) return;
       setProjects([]);
-      setLoadError("Project data could not be loaded. Check the API and Supabase configuration.");
+      const reason = error instanceof Error ? error.message.trim().slice(0, 240) : "";
+      setLoadError(reason ? `Project data could not be loaded: ${reason}` : "Project data could not be loaded. Please refresh and try again.");
     });
     return () => controller.abort();
   }, [configured, page, pageSize, projectParams, refreshKey, session?.access_token]);

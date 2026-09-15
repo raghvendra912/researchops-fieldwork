@@ -55,7 +55,8 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
   }
 
   async function copyLink(label: string, link: string) { await navigator.clipboard.writeText(link); setCopied(label); window.setTimeout(() => setCopied(""), 1800); }
-  async function copyAll() { if (!linkRecord?.links) return; const links = linkRecord.links; await navigator.clipboard.writeText([["Complete", links.complete], ["Terminate", links.terminate], ["Quota Full", links.quotaFull], ["Security Terminate", links.securityTerminate]].filter((entry) => entry[1]).map(([label, link]) => `${label}: ${link}`).join("\n")); setCopied("all"); window.setTimeout(() => setCopied(""), 1800); }
+  const visibleLinks = Object.entries(linkRecord?.links ?? {}).filter((entry): entry is [string, string] => typeof entry[1] === "string" && Boolean(entry[1]));
+  async function copyAll() { if (!visibleLinks.length) return; await navigator.clipboard.writeText(visibleLinks.map(([label, link]) => `${linkLabel(kind, label)}: ${link}`).join("\n")); setCopied("all"); window.setTimeout(() => setCopied(""), 1800); }
   const editRedirects = editing?.redirects ?? emptyRedirects;
 
   return <>
@@ -74,11 +75,15 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
         <div className="field full directory-submit"><button className="button primary" type="submit">{editing ? "Save changes" : action}</button></div>
       </form>
     </section> : null}
-    {linkRecord ? <div className="modal-backdrop"><section aria-modal="true" className="panel links-modal" role="dialog" aria-label={`${linkRecord.name} links`}><div className="section-head"><div><div className="eyebrow">Client handoff</div><h2>{linkRecord.name} redirect links</h2><p>Copy these outcome URLs into the survey platform. It must replace the respondent and project placeholders on every return.</p></div><button className="button small ghost" type="button" onClick={() => setLinkRecord(null)}>Close</button></div>
-      <div className="info-list">{Object.entries(linkRecord.links ?? {}).map(([label, link]) => link ? <div className="info-row link-row" key={label}><span>{humanize(label)}</span><code>{link}</code><button className="button small ghost" type="button" onClick={() => void copyLink(label, link)}>{copied === label ? "Copied" : "Copy"}</button></div> : null)}</div><div className="modal-actions"><button className="button primary" type="button" onClick={() => void copyAll()}>{copied === "all" ? "Copied all" : "Copy all 4 links"}</button></div>
+    {linkRecord ? <div className="modal-backdrop"><section aria-modal="true" className="panel links-modal" role="dialog" aria-label={`${linkRecord.name} links`}><div className="section-head"><div><div className="eyebrow">{kind === "suppliers" ? "Supplier setup" : "Client handoff"}</div><h2>{linkRecord.name} {kind === "suppliers" ? "entry routes" : "outcome links"}</h2><p>{kind === "suppliers" ? "These supplier-level routes are not ready-to-send respondent links. The Test route sends a synthetic outcome to a configured supplier return URL; the Live route needs a project code and unique respondent ID. Copy project-specific Test and Live links from Project details → Supplier delivery → Links." : "Copy these four outcome URLs into the client survey platform. Replace the respondent placeholder on every return."}</p></div><button className="button small ghost" type="button" onClick={() => setLinkRecord(null)}>Close</button></div>
+      <div className="info-list">{visibleLinks.map(([label, link]) => <div className="info-row link-row" key={label}><span>{linkLabel(kind, label)}</span><code>{link}</code><button className="button small ghost" type="button" onClick={() => void copyLink(label, link)}>{copied === label ? "Copied" : "Copy"}</button></div>)}</div><div className="modal-actions"><button className="button primary" type="button" disabled={!visibleLinks.length} onClick={() => void copyAll()}>{copied === "all" ? "Copied all" : `Copy all ${visibleLinks.length} ${kind === "suppliers" ? "routes" : "links"}`}</button></div>
     </section></div> : null}
   </>;
 }
 
 function Field({ label, name, value, type = "text", required = false, pattern }: { label: string; name: string; value?: string; type?: string; required?: boolean; pattern?: string }) { return <div className="field"><label htmlFor={`directory-${name}`}>{label}</label><input className="control" id={`directory-${name}`} name={name} defaultValue={value} type={type} required={required} pattern={pattern} maxLength={type === "url" ? 2048 : 254} /></div>; }
 function humanize(value: string) { return value.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase()); }
+function linkLabel(kind: DirectoryKind, value: string) {
+  if (kind === "suppliers") return value === "test" ? "Return URL check" : value === "live" ? "Launch route base" : humanize(value);
+  return value === "quotaFull" ? "Quota Full" : value === "securityTerminate" ? "Security Terminate" : humanize(value);
+}
