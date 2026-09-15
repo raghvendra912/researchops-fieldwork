@@ -98,7 +98,7 @@ test("serves Worker health and project APIs", async () => {
 
   const created = await request("/api/projects", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
     body: JSON.stringify({ projectName: "API smoke project", client: "Northstar Bank", quota: 100, clientCpi: 8.5 }),
   });
   assert.equal(created.status, 201);
@@ -113,40 +113,40 @@ test("serves Worker health and project APIs", async () => {
     { projectName: "Invalid survey parameters", client: "Northstar Bank", quota: 100, clientCpi: 8.5, surveyParameters: [{ name: "bad name", value: "x" }] },
   ]) {
     const rejectedProject = await request("/api/projects", {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(invalidProject),
+      method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify(invalidProject),
     });
     assert.equal(rejectedProject.status, 400);
   }
 
   const updated = await request("/api/projects/PRJ-1048", {
-    method: "PATCH", headers: { "content-type": "application/json" },
+    method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
     body: JSON.stringify({ projectName: "Updated Wallet Study", clientPo: "PO-2", type: "B2C", category: "Financial Technology", quota: 600, clientCpi: 9.25, endDate: "2026-09-20", surveyUrl: "https://survey.example/start" }),
   });
   assert.equal(updated.status, 200);
   assert.equal((await updated.json()).data.name, "Updated Wallet Study");
 
-  const transitioned = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "LIVE" }) });
+  const transitioned = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "LIVE" }) });
   assert.equal(transitioned.status, 200);
   assert.equal((await transitioned.json()).data.status, "LIVE");
-  const rejectedTransition = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "PENDING" }) });
+  const rejectedTransition = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "PENDING" }) });
   assert.equal(rejectedTransition.status, 409);
 
   const markets = await request("/api/projects/PRJ-1048/markets");
   assert.equal(markets.status, 200);
   assert.equal((await markets.json()).data[0].countryCode, "IN");
-  const marketsUpdated = await request("/api/projects/PRJ-1048/markets", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 250, expectedLoiMinutes: 12, expectedIr: 42.5 }, { countryCode: "CA", languageCode: "fr", targetQuota: 150, expectedLoiMinutes: 10, expectedIr: 38 }] }) });
+  const marketsUpdated = await request("/api/projects/PRJ-1048/markets", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 250, expectedLoiMinutes: 12, expectedIr: 42.5 }, { countryCode: "CA", languageCode: "fr", targetQuota: 150, expectedLoiMinutes: 10, expectedIr: 38 }] }) });
   assert.equal(marketsUpdated.status, 200);
   assert.equal((await marketsUpdated.json()).data.length, 2);
-  const duplicateMarkets = await request("/api/projects/PRJ-1048/markets", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }, { countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }] }) });
+  const duplicateMarkets = await request("/api/projects/PRJ-1048/markets", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }, { countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }] }) });
   assert.equal(duplicateMarkets.status, 400);
 
   const eligibility = await request("/api/projects/PRJ-1048/eligibility");
   assert.equal(eligibility.status, 200);
   assert.equal((await eligibility.json()).data.length, 2);
-  const eligibilityUpdated = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: [{ variableKey: "age", operator: "BETWEEN", values: ["25", "55"], required: true }] }) });
+  const eligibilityUpdated = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ rules: [{ variableKey: "age", operator: "BETWEEN", values: ["25", "55"], required: true }] }) });
   assert.equal(eligibilityUpdated.status, 200);
   assert.equal((await eligibilityUpdated.json()).data[0].variableKey, "age");
-  const invalidEligibility = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: [{ variableKey: "Age!", operator: "BETWEEN", values: ["25"], required: true }] }) });
+  const invalidEligibility = await request("/api/projects/PRJ-1048/eligibility", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ rules: [{ variableKey: "Age!", operator: "BETWEEN", values: ["25"], required: true }] }) });
   assert.equal(invalidEligibility.status, 400);
 
   const quotaCells = await request("/api/projects/PRJ-1048/quota-cells");
@@ -154,25 +154,25 @@ test("serves Worker health and project APIs", async () => {
   const quotaCellBody = await quotaCells.json();
   assert.equal(quotaCellBody.data[0].name, "India · age 21–34");
   assert.deepEqual([quotaCellBody.data[0].completes, quotaCellBody.data[0].reserved, quotaCellBody.data[0].remaining], [47, 3, 70]);
-  const quotaCellsUpdated = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ cells: [{ name: "Women 25–44", targetQuota: 80, priority: 10, active: true, conditions: [{ variableKey: "gender", operator: "EQ", values: ["female"], required: true }, { variableKey: "age", operator: "BETWEEN", values: ["25", "44"], required: true }] }] }) });
+  const quotaCellsUpdated = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ cells: [{ name: "Women 25–44", targetQuota: 80, priority: 10, active: true, conditions: [{ variableKey: "gender", operator: "EQ", values: ["female"], required: true }, { variableKey: "age", operator: "BETWEEN", values: ["25", "44"], required: true }] }] }) });
   assert.equal(quotaCellsUpdated.status, 200);
   assert.equal((await quotaCellsUpdated.json()).data[0].targetQuota, 80);
-  const invalidQuotaCells = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ cells: [{ name: "Bad", targetQuota: 0, conditions: [] }] }) });
+  const invalidQuotaCells = await request("/api/projects/PRJ-1048/quota-cells", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ cells: [{ name: "Bad", targetQuota: 0, conditions: [] }] }) });
   assert.equal(invalidQuotaCells.status, 400);
 
   const responseVariables = await request("/api/projects/PRJ-1048/response-variables");
   assert.equal(responseVariables.status, 200);
   assert.equal((await responseVariables.json()).data[0].variableKey, "age");
-  const responseVariablesUpdated = await request("/api/projects/PRJ-1048/response-variables", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ variables: [{ variableKey: "postal_code", label: "Postal code", dataClassification: "SENSITIVE", retentionDays: 90, active: true }] }) });
+  const responseVariablesUpdated = await request("/api/projects/PRJ-1048/response-variables", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ variables: [{ variableKey: "postal_code", label: "Postal code", dataClassification: "SENSITIVE", retentionDays: 90, active: true }] }) });
   assert.equal(responseVariablesUpdated.status, 200);
-  const invalidResponseVariables = await request("/api/projects/PRJ-1048/response-variables", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ variables: [{ variableKey: "bad key", label: "Bad", retentionDays: 0 }] }) });
+  const invalidResponseVariables = await request("/api/projects/PRJ-1048/response-variables", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ variables: [{ variableKey: "bad key", label: "Bad", retentionDays: 0 }] }) });
   assert.equal(invalidResponseVariables.status, 400);
 
   const respondents = await request("/api/respondents");
   assert.equal(respondents.status, 200);
   const respondentBody = await respondents.json();
   assert.equal(respondentBody.meta.canReview, true);
-  const reviewed = await request(`/api/respondents/${respondentBody.data[0].id}/review`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ reviewType: "INTERNAL", status: "APPROVED" }) });
+  const reviewed = await request(`/api/respondents/${respondentBody.data[0].id}/review`, { method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ reviewType: "INTERNAL", status: "APPROVED" }) });
   assert.equal(reviewed.status, 200);
 
   const projectAccess = await request("/api/projects/PRJ-1048/access");
@@ -180,10 +180,10 @@ test("serves Worker health and project APIs", async () => {
   const projectAccessBody = await projectAccess.json();
   assert.equal(projectAccessBody.meta.canManage, true);
   assert.equal(projectAccessBody.data[0].accessRole, "REVIEWER");
-  const projectAccessUpdated = await request("/api/projects/PRJ-1048/access", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ grants: [{ userId: "00000000-0000-4000-8000-000000000011", accessRole: "EDITOR" }, { userId: "00000000-0000-4000-8000-000000000013", accessRole: "VIEWER" }] }) });
+  const projectAccessUpdated = await request("/api/projects/PRJ-1048/access", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ grants: [{ userId: "00000000-0000-4000-8000-000000000011", accessRole: "EDITOR" }, { userId: "00000000-0000-4000-8000-000000000013", accessRole: "VIEWER" }] }) });
   assert.equal(projectAccessUpdated.status, 200);
   assert.equal((await projectAccessUpdated.json()).data.length, 2);
-  const incompatibleAccess = await request("/api/projects/PRJ-1048/access", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ grants: [{ userId: "00000000-0000-4000-8000-000000000012", accessRole: "EDITOR" }] }) });
+  const incompatibleAccess = await request("/api/projects/PRJ-1048/access", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ grants: [{ userId: "00000000-0000-4000-8000-000000000012", accessRole: "EDITOR" }] }) });
   assert.equal(incompatibleAccess.status, 400);
 
   const assignments = await request("/api/projects/PRJ-1048/suppliers");
@@ -191,7 +191,7 @@ test("serves Worker health and project APIs", async () => {
   const assignmentBody = await assignments.json();
   assert.equal(assignmentBody.data[0].supplierName, "CPX Research");
   assert.equal(assignmentBody.data[0].testStarts, 0);
-  const assignmentsUpdated = await request("/api/projects/PRJ-1048/suppliers", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ assignments: [{ supplierId: "supplier-cpx", supplierProjectId: "CPX-NEW", supplierCpi: 7.75, targetQuota: 300, status: "ACTIVE" }] }) });
+  const assignmentsUpdated = await request("/api/projects/PRJ-1048/suppliers", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ assignments: [{ supplierId: "supplier-cpx", supplierProjectId: "CPX-NEW", supplierCpi: 7.75, targetQuota: 300, status: "ACTIVE" }] }) });
   assert.equal(assignmentsUpdated.status, 200);
   assert.equal((await assignmentsUpdated.json()).data[0].targetQuota, 300);
 
@@ -201,7 +201,7 @@ test("serves Worker health and project APIs", async () => {
   const ingested = await request("/api/events", { method: "POST", headers: { "content-type": "application/json", "x-researchops-timestamp": eventTimestamp, "x-researchops-signature": eventSignature }, body: eventBody }, { EVENT_INGESTION_SECRET: "test-event-secret" });
   assert.equal(ingested.status, 202);
   assert.equal((await ingested.json()).data.eventType, "START");
-  const unsigned = await request("/api/events", { method: "POST", headers: { "content-type": "application/json" }, body: eventBody }, { EVENT_INGESTION_SECRET: "test-event-secret" });
+  const unsigned = await request("/api/events", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: eventBody }, { EVENT_INGESTION_SECRET: "test-event-secret" });
   assert.equal(unsigned.status, 401);
 
   for (const provider of ["cpx", "bitlabs", "purespectrum"]) {
@@ -222,7 +222,7 @@ test("serves Worker health and project APIs", async () => {
   assert.equal(fraudBody.meta.canOperate, true);
   const fraudFlag = fraudBody.data[0];
   assert.equal(fraudFlag.ruleCode, "SPEEDING");
-  const resolvedFlag = await request(`/api/fraud-flags/${fraudFlag.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "DISMISSED" }) });
+  const resolvedFlag = await request(`/api/fraud-flags/${fraudFlag.id}`, { method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "DISMISSED" }) });
   assert.equal(resolvedFlag.status, 200);
   const analytics = await request("/api/analytics?from=2026-08-01&to=2026-08-31");
   assert.equal(analytics.status, 200);
@@ -235,19 +235,19 @@ test("serves Worker health and project APIs", async () => {
   const notifications = await request("/api/notifications");
   assert.equal(notifications.status, 200);
   const notice = (await notifications.json()).data[0];
-  const readNotice = await request(`/api/notifications/${notice.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: "{}" });
+  const readNotice = await request(`/api/notifications/${notice.id}`, { method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: "{}" });
   assert.equal(readNotice.status, 200);
   const rules = await request("/api/notification-rules");
   assert.equal(rules.status, 200);
   const ruleBody = await rules.json();
   assert.equal(ruleBody.data.length, 7);
   assert.equal(ruleBody.meta.canAdminister, true);
-  const savedRules = await request("/api/notification-rules", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: ruleBody.data }) });
+  const savedRules = await request("/api/notification-rules", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ rules: ruleBody.data }) });
   assert.equal(savedRules.status, 200);
-  const partialRules = await request("/api/notification-rules", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: ruleBody.data.slice(0, 6) }) });
+  const partialRules = await request("/api/notification-rules", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ rules: ruleBody.data.slice(0, 6) }) });
   assert.equal(partialRules.status, 400);
   const invalidThresholdRules = ruleBody.data.map((rule) => rule.eventType === "PACING_RISK" ? { ...rule, threshold: 101 } : rule);
-  const invalidThreshold = await request("/api/notification-rules", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rules: invalidThresholdRules }) });
+  const invalidThreshold = await request("/api/notification-rules", { method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ rules: invalidThresholdRules }) });
   assert.equal(invalidThreshold.status, 400);
 
   const organization = await request("/api/organizations/current");
@@ -255,9 +255,9 @@ test("serves Worker health and project APIs", async () => {
   const organizationBody = await organization.json();
   assert.equal(organizationBody.meta.source, "mock");
   assert.equal(organizationBody.data.timezone, "Asia/Kolkata");
-  const organizationUpdated = await request("/api/organizations/current", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Demo workspace", timezone: "UTC" }) });
+  const organizationUpdated = await request("/api/organizations/current", { method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ name: "Demo workspace", timezone: "UTC" }) });
   assert.equal(organizationUpdated.status, 200);
-  const invalidOrganizationUpdate = await request("/api/organizations/current", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "D", timezone: "Mars/Olympus" }) });
+  const invalidOrganizationUpdate = await request("/api/organizations/current", { method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ name: "D", timezone: "Mars/Olympus" }) });
   assert.equal(invalidOrganizationUpdate.status, 400);
 
   const clients = await request("/api/clients");
@@ -265,18 +265,18 @@ test("serves Worker health and project APIs", async () => {
   const clientsBody = await clients.json();
   assert.equal(clientsBody.data.length, 4);
   assert.equal(clientsBody.meta.canOperate, true);
-  const clientCreated = await request("/api/clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "New Client", code: "NEW_CLIENT", redirects: { completeUrl: "https://must-not-be-stored.example/complete" }, redirectVariables: [{ name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true }, { name: "project_id", source: "SYSTEM", defaultValue: "", required: true }] }) });
+  const clientCreated = await request("/api/clients", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ name: "New Client", code: "NEW_CLIENT", redirects: { completeUrl: "https://must-not-be-stored.example/complete" }, redirectVariables: [{ name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true }, { name: "project_id", source: "SYSTEM", defaultValue: "", required: true }] }) });
   assert.equal(clientCreated.status, 201);
   const createdClientBody = await clientCreated.json();
   assert.equal(createdClientBody.data.redirects, undefined);
   assert.equal(createdClientBody.data.redirectVariables.length, 2);
   assert.match(createdClientBody.data.links.complete, /\/r\/client\/[^/]+\/complete\?rid=\{\{respondent_id\}\}$/);
   assert.doesNotMatch(createdClientBody.data.links.complete, /project=/);
-  const clientUpdated = await request("/api/clients/client-northstar", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Northstar Financial", code: "NORTHSTAR_FIN" }) });
+  const clientUpdated = await request("/api/clients/client-northstar", { method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ name: "Northstar Financial", code: "NORTHSTAR_FIN" }) });
   assert.equal(clientUpdated.status, 200);
   assert.equal((await clientUpdated.json()).data.name, "Northstar Financial");
 
-  const supplierCreated = await request("/api/suppliers", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Specialist Panel", code: "SPECIALIST", supplierType: "SPECIALIST" }) });
+  const supplierCreated = await request("/api/suppliers", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ name: "Specialist Panel", code: "SPECIALIST", supplierType: "SPECIALIST" }) });
   assert.equal(supplierCreated.status, 201);
 
   const readiness = await request("/api/readiness");
@@ -309,39 +309,39 @@ test("enforces workspace roles on protected project operations", async () => {
 
     const forbidden = await request("/api/projects", {
       method: "POST",
-      headers: { ...headers, "content-type": "application/json" },
+      headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
       body: JSON.stringify({ projectName: "Forbidden create", client: "Client", quota: 10, clientCpi: 5 }),
     }, environment);
     assert.equal(forbidden.status, 403);
     assert.match((await forbidden.json()).error, /role does not allow/i);
 
     const forbiddenUpdate = await request("/api/projects/PRJ-1048", {
-      method: "PATCH", headers: { ...headers, "content-type": "application/json" },
+      method: "PATCH", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
       body: JSON.stringify({ projectName: "Forbidden", quota: 10, clientCpi: 5 }),
     }, environment);
     assert.equal(forbiddenUpdate.status, 403);
 
     const forbiddenTransition = await request("/api/projects/PRJ-1048/transitions", {
-      method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ status: "PAUSED" }),
+      method: "POST", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "PAUSED" }),
     }, environment);
     assert.equal(forbiddenTransition.status, 403);
     const forbiddenMarkets = await request("/api/projects/PRJ-1048/markets", {
-      method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }] }),
+      method: "PUT", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ markets: [{ countryCode: "US", languageCode: "en", targetQuota: 100, expectedLoiMinutes: 10, expectedIr: 40 }] }),
     }, environment);
     assert.equal(forbiddenMarkets.status, 403);
     const forbiddenAssignments = await request("/api/projects/PRJ-1048/suppliers", {
-      method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ assignments: [] }),
+      method: "PUT", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ assignments: [] }),
     }, environment);
     assert.equal(forbiddenAssignments.status, 403);
     const forbiddenOrganizationSettings = await request("/api/organizations/current", {
-      method: "PATCH", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ name: "Forbidden workspace", timezone: "UTC" }),
+      method: "PATCH", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ name: "Forbidden workspace", timezone: "UTC" }),
     }, environment);
     assert.equal(forbiddenOrganizationSettings.status, 403);
     const readableNotificationRules = await request("/api/notification-rules", { headers }, environment);
     assert.equal(readableNotificationRules.status, 200);
     assert.equal((await readableNotificationRules.json()).meta.canAdminister, false);
     const forbiddenNotificationRules = await request("/api/notification-rules", {
-      method: "PUT", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ rules: [] }),
+      method: "PUT", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ rules: [] }),
     }, environment);
     assert.equal(forbiddenNotificationRules.status, 403);
     const readableClients = await request("/api/clients", { headers }, environment);
@@ -351,7 +351,7 @@ test("enforces workspace roles on protected project operations", async () => {
     assert.equal(readableFraudFlags.status, 200);
     assert.equal((await readableFraudFlags.json()).meta.canOperate, false);
     const forbiddenFraudResolution = await request("/api/fraud-flags/00000000-0000-4000-8000-000000000099", {
-      method: "PATCH", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ status: "CONFIRMED" }),
+      method: "PATCH", headers: { ...headers, "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "CONFIRMED" }),
     }, environment);
     assert.equal(forbiddenFraudResolution.status, 403);
   } finally {

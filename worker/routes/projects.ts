@@ -456,12 +456,18 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (detailMatch && request.method === "GET") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.read);
       if (!access.ok) return authorizationError(access);
+
+      // SECURITY: Check project access BEFORE fetching sensitive data to prevent IDOR
+      const capability = await getProjectCapabilities(env, access.authorization, detailMatch[1]);
+      if (!capability?.can_access) {
+        return Response.json({ error: "Project not found" }, { status: 404 });
+      }
+
       await reconcileAbandoned(env);
       const code = encodeURIComponent(detailMatch[1]);
       const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,clients(name,code),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
-      const capability = await getProjectCapabilities(env, access.authorization, detailMatch[1]);
       return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: capability?.can_operate === true, canReview: capability?.can_review === true, canManageAccess: capability?.can_manage_access === true } });
     }
     const marketsMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/markets$/i);
@@ -507,7 +513,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       const assignments = parseAssignments(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!assignments) return Response.json({ error: "Valid, unique supplier assignments are required" }, { status: 400 });
       const rows = await supabaseJson<Array<{ id: string; supplier_id: string; supplier_name: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"] }>>(env, "/rest/v1/rpc/replace_project_suppliers", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: assignmentsMatch[1].toUpperCase(), p_assignments: assignments.map((item) => ({ supplier_id: item.supplierId, supplier_project_id: item.supplierProjectId, supplier_cpi: item.supplierCpi, target_quota: item.targetQuota, status: item.status })) }) });
-      return Response.json({ data: rows.map(assignmentRow), meta: { source: "supabase" } });
+      return Response.json({ data: rows.map((row) => assignmentRow(row)), meta: { source: "supabase" } });
     }
     if (detailMatch && request.method === "PATCH") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);

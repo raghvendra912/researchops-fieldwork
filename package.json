@@ -12,7 +12,7 @@
     "start": "vinext start",
     "tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1",
     "tunnel:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1 -Mode development -Port 3001",
-    "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
+    "test": "node scripts/build-test.mjs && node --experimental-strip-types --test tests/*.test.mjs",
     "test:e2e": "playwright test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vercel",
     "db:generate": "drizzle-kit generate"

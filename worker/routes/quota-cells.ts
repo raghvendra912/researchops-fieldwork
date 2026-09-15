@@ -62,7 +62,7 @@ export async function handleQuotaCellsApi(request: Request, pathname: string, en
     const capability = await getProjectCapabilities(env, access.authorization, projectCode); if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
     const cells = parseCells(await request.json().catch(() => null) as Record<string, unknown> | null); if (!cells) return Response.json({ error: "Valid, uniquely named quota cells are required" }, { status: 400 });
     const rows = await supabaseJson<Record<string, unknown>[]>(env, "/rest/v1/rpc/replace_project_quota_cells", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: projectCode, p_cells: cells.map((cell) => ({ name: cell!.name, target_quota: cell!.targetQuota, priority: cell!.priority, active: cell!.active, conditions: cell!.conditions.map((condition) => ({ variable_key: condition.variableKey, operator: condition.operator, values: condition.values, required: condition.required })) })) }) });
-    return Response.json({ data: rows.map(mapped), meta: { source: "supabase" } });
+    return Response.json({ data: rows.map((row) => mapped(row)), meta: { source: "supabase" } });
   }
   return null;
 }

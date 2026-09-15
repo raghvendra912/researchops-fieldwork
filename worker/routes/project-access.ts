@@ -49,9 +49,16 @@ export async function handleProjectAccessApi(request: Request, pathname: string,
   }
   if (request.method !== "GET" && request.method !== "PUT") return null;
   const access = await authorizeWorkspace(request, env, request.method === "PUT" ? workspacePermissions.operate : workspacePermissions.read); if (!access.ok) return authorizationError(access);
-  const current = await context(env, access.authorization, code); if (!current) return Response.json({ error: "Project not found or unavailable" }, { status: 404 });
+
+  // SECURITY: Check management permission BEFORE fetching sensitive grant data
   const capability = await getProjectCapabilities(env, access.authorization, code);
+  if (request.method === "GET" && !capability?.can_access) {
+    return Response.json({ error: "Project not found or unavailable" }, { status: 404 });
+  }
+
+  const current = await context(env, access.authorization, code); if (!current) return Response.json({ error: "Project not found or unavailable" }, { status: 404 });
   const canManage = capability?.can_manage_access === true;
+
   if (request.method === "GET") return Response.json({ data: current.grants, meta: { source: "supabase", canManage, members: current.members } });
   if (!canManage) return Response.json({ error: "Only an owner, administrator, or assigned project manager can manage project access" }, { status: 403 });
   const grants = parse(await request.json().catch(() => null) as Record<string, unknown> | null); if (!grants) return Response.json({ error: "Valid unique project access grants are required" }, { status: 400 });

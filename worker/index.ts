@@ -1,4 +1,3 @@
-/** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { handleProjectsApi } from "./routes/projects";
@@ -19,6 +18,7 @@ import { handleQuotaCellsApi } from "./routes/quota-cells";
 import { handleProjectAccessApi } from "./routes/project-access";
 import { handleSurveySetupApi } from "./routes/survey-setup";
 import { handleResponseVariablesApi } from "./routes/response-variables";
+import { securityHeaders, validateCSRF, csrfError } from "./lib/security.ts";
 
 interface Env {
   ASSETS: Fetcher;
@@ -74,7 +74,23 @@ const worker = {
     const url = new URL(request.url);
     const projectEnv = projectEnvironment(env);
     const apiRequestId=requestId(request);const apiStarted=Date.now();
-    const observed=(response:Response)=>{response.headers.set("x-request-id",apiRequestId);safeLog(response.status>=500?"error":response.status>=400?"warn":"info","api_request",{requestId:apiRequestId,method:request.method,path:url.pathname,status:response.status,latencyMs:Date.now()-apiStarted});return response;};
+    const observed=(response:Response)=>{
+      // Add security headers to all responses
+      const secured = securityHeaders(response);
+      secured.headers.set("x-request-id",apiRequestId);
+      safeLog(response.status>=500?"error":response.status>=400?"warn":"info","api_request",{requestId:apiRequestId,method:request.method,path:url.pathname,status:response.status,latencyMs:Date.now()-apiStarted});
+      return secured;
+    };
+
+    // CSRF protection for state-changing API requests
+    if (url.pathname.startsWith("/api/") && !validateCSRF(request)) {
+      // Exempt health/readiness checks and callbacks from CSRF
+      const exemptPaths = ["/api/health", "/api/readiness", "/api/events", "/api/callbacks/"];
+      const isExempt = exemptPaths.some(path => url.pathname === path || url.pathname.startsWith(path));
+      if (!isExempt) {
+        return observed(csrfError());
+      }
+    }
 
     if(url.pathname.startsWith("/supabase/")){const proxyResponse=await handleSupabaseProxy(request,url.pathname,projectEnv);if(proxyResponse)return observed(proxyResponse);}
 

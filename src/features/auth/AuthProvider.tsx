@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     const initialize = async () => {
       try {
-        if (globalThis.location?.pathname === "/reset-password") {
+        if (supabase && globalThis.location?.pathname === "/reset-password") {
           const recovery = parseRecoveryCallback(globalThis.location.href);
           if (recovery?.kind === "code") {
             const { error } = await supabase.auth.exchangeCodeForSession(recovery.code);
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (recovery) globalThis.history.replaceState({}, "", "/reset-password");
         }
 
-        const { data } = await supabase.auth.getSession();
+        const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
         if (!active) return;
         if (data.session) {
           setSession(data.session);
@@ -66,12 +66,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (import.meta.env.VITE_DEV_AUTO_LOGIN !== "true") return;
 
-        const response = await fetch("/api/testing/auto-login", { method: "POST" });
-        if (response.ok) {
-          const credentials = await response.json() as { access_token: string; refresh_token: string };
-          const { data: autoLogin, error } = await supabase.auth.setSession(credentials);
-          if (error) throw error;
-          if (active) setSession(autoLogin.session);
+        if (supabase) {
+          const response = await fetch("/api/testing/auto-login", { method: "POST" });
+          if (response.ok) {
+            const credentials = await response.json() as { access_token: string; refresh_token: string };
+            const { data: autoLogin, error } = await supabase.auth.setSession(credentials);
+            if (error) throw error;
+            if (active) setSession(autoLogin.session);
+          }
         }
       } catch {
         // The reset page presents a generic invalid/expired state without leaking token details.
@@ -81,14 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     void initialize();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const listener = supabase ? supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setLoading(false);
-    });
+    }) : null;
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
+      listener?.data.subscription.unsubscribe();
     };
   }, []);
 
@@ -117,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     async verifySignUpOtp(email, token) {
       if (!supabase) return;
-      await verifyEmailOtp((type) => supabase.auth.verifyOtp({ email, token, type }));
+      await verifyEmailOtp((type) => supabase!.auth.verifyOtp({ email, token, type }));
     },
     async signOut() {
       if (!supabase) return;

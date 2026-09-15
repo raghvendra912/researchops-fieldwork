@@ -45,7 +45,15 @@ export default defineConfig(async ({ mode }) => {
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
-  const environment = loadEnv(mode, process.cwd(), "");
+  // The automated suite asserts the clearly labeled demo experience, which is
+  // what the product shows when no browser-facing Supabase credentials exist.
+  // A developer machine's `.env.local` must not reach the test bundle, or the
+  // server-rendered shell would gate on a session the harness never
+  // establishes. `--mode test` therefore reads its environment from a
+  // deliberately credential-free directory instead of the project root.
+  const isTestBuild = process.env.RESEARCHOPS_TEST_BUILD === "true";
+  const envDir = isTestBuild ? `${process.cwd()}/tests/env` : process.cwd();
+  const environment = loadEnv(mode, envDir, "");
   let commitCount = "1";
   try {
     commitCount = execFileSync("git", ["rev-list", "--count", "HEAD"], { encoding: "utf8" }).trim();
@@ -66,6 +74,7 @@ export default defineConfig(async ({ mode }) => {
   }).filter((entry): entry is [string, string] => Boolean(entry[1])));
 
   return {
+    envDir,
     define: {
       "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
       "import.meta.env.VITE_BUILD_TIME": JSON.stringify(buildTime),

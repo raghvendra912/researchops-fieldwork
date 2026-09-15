@@ -191,7 +191,7 @@ export function ProjectCenter() {
       const respondents = await apiRequest<{ data: FieldworkSession[]; meta?: { truncated?: boolean } }>(`/api/respondents?export=1&projects=${exported.map((project) => encodeURIComponent(project.id)).join(",")}`, { headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined });
       if (respondents.meta?.truncated) throw new Error("The workbook exceeds the current 5,000-respondent limit. Narrow the Project Center filters and try again.");
       const bytes = buildFieldworkWorkbook(exported, specifications, respondents.data);
-      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const blob = new Blob([bytes as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `researchops-fieldwork-${new Date().toISOString().slice(0, 10)}.xlsx`; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
     } catch (error) { setLoadError(error instanceof Error ? error.message : "Fieldwork workbook could not be generated."); }
     finally { setExportingWorkbook(false); }
