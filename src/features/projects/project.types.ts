@@ -7,8 +7,13 @@ export interface Project {
   clientCode?: string;
   clientPo: string;
   market: string;
+  marketCountryCode?: string;
   type: string;
   manager: string;
+  secondaryManager?: string;
+  salesPerson?: string;
+  secondaryManagerId?: string;
+  salesPersonId?: string;
   status: ProjectStatus;
   starts: number;
   reached: number;
@@ -31,6 +36,7 @@ export interface Project {
   quota?: number;
   category?: string;
   createdAt?: string;
+  updatedAt?: string;
   startDate?: string;
   endDate?: string;
   surveyUrl?: string;

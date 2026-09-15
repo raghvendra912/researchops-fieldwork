@@ -18,6 +18,10 @@ type DatabaseProject = {
   project_manager_id: string | null;
   project_manager_name: string | null;
   project_managers?: { display_name: string } | { display_name: string }[] | null;
+  secondary_project_manager_id?: string | null;
+  sales_person_id?: string | null;
+  secondary_manager?: { display_name: string } | { display_name: string }[] | null;
+  sales_owner?: { display_name: string } | { display_name: string }[] | null;
   status: ProjectStatus;
   client_cpi: number | string | null;
   quota: number | null;
@@ -29,6 +33,7 @@ type DatabaseProject = {
   survey_parameters: unknown;
   security_terminate_url: string | null;
   created_at: string;
+  updated_at?: string;
   clients: { name: string; code?: string | null } | { name: string; code?: string | null }[] | null;
   project_markets: { country_code: string }[] | null;
 };
@@ -44,6 +49,7 @@ type ProjectListQuery = {
   projectId: string;
   client: string;
   manager: string;
+  salesPerson: string;
   statuses: ProjectStatus[];
   type: string;
   from: string;
@@ -59,6 +65,7 @@ const statuses: ProjectStatus[] = ["PENDING", "LIVE", "PAUSED", "ID_SUBMITTED", 
 const projectTypes = ["B2C", "B2B", "Healthcare", "Recontact", "Tracker", "Qualitative", "Quantitative", "Mixed method", "IHUT", "CLT"];
 const sortKeys: ProjectSortKey[] = ["createdAt", "code", "name", "status", "cpi"];
 const countryNames: Record<string, string> = { AU: "Australia", CA: "Canada", DE: "Germany", GB: "United Kingdom", IN: "India", SG: "Singapore", US: "United States" };
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function boundedInteger(value: string | null, fallback: number, minimum: number, maximum: number) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -71,6 +78,11 @@ function simpleText(value: string | null, maximum = 100) {
 
 function postgrestText(value: string) {
   return value.replace(/[,%()*]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function baseProjectIdSearch(value: string) {
+  const match = value.match(/^(.*)-([A-Z]{2})$/);
+  return match && validCountryCodes.has(match[2]) ? match[1] : value;
 }
 
 function dateValue(value: string | null) {
@@ -87,9 +99,10 @@ function readListQuery(request: Request): ProjectListQuery {
   const requestedSort = simpleText(params.get("sortBy"), 20) as ProjectSortKey;
   return {
     q: simpleText(params.get("q")),
-    projectId: simpleText(params.get("projectId"), 40).toUpperCase(),
+    projectId: baseProjectIdSearch(simpleText(params.get("projectId"), 40).toUpperCase()),
     client: simpleText(params.get("client")),
     manager: simpleText(params.get("manager")),
+    salesPerson: simpleText(params.get("salesPerson")),
     statuses: Array.from(new Set(requestedStatuses)),
     type: simpleText(params.get("type")),
     from: dateValue(params.get("from")),
@@ -126,8 +139,13 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     clientCode: relationCode(row.clients),
     clientPo: row.client_po ?? "",
     market: (countryNames[countryCode] ?? countryCode) || "Not set",
+    marketCountryCode: countryCode,
     type: row.project_type ?? "Not set",
     manager: row.project_manager_name || managerName(row.project_managers),
+    secondaryManager: row.secondary_manager ? managerName(row.secondary_manager) : "",
+    salesPerson: row.sales_owner ? managerName(row.sales_owner) : "",
+    secondaryManagerId: row.secondary_project_manager_id ?? undefined,
+    salesPersonId: row.sales_person_id ?? undefined,
     status: row.status,
     starts: metrics?.starts ?? 0,
     reached: metrics?.reached ?? 0,
@@ -150,6 +168,7 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     quota: row.quota ?? undefined,
     category: row.category ?? undefined,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     startDate: row.start_date ?? undefined,
     endDate: row.end_date ?? undefined,
     surveyUrl: row.survey_url ?? undefined,
@@ -172,6 +191,7 @@ function facetsFor(projects: Project[]) {
   return {
     clients: Array.from(new Set(projects.map((project) => project.client))).sort(),
     managers: Array.from(new Set(projects.map((project) => project.manager))).sort().map((manager) => ({ value: manager, label: manager })),
+    salesPeople: [{ value: "UNASSIGNED", label: "Unassigned" }, ...Array.from(new Set(projects.map((project) => project.salesPerson).filter(Boolean))).sort().map((name) => ({ value: name, label: name }))],
     types: Array.from(new Set([...projectTypes, ...projects.map((project) => project.type)])).sort(),
     statuses,
   };
@@ -186,15 +206,18 @@ function mockList(query: ProjectListQuery) {
       && matchesProjectId
       && (!query.client || project.client === query.client)
       && (!query.manager || project.manager === query.manager)
+      && (!query.salesPerson || (query.salesPerson === "UNASSIGNED" ? !project.salesPerson : project.salesPerson === query.salesPerson))
       && (!query.statuses.length || query.statuses.includes(project.status))
-      && (!query.type || project.type === query.type);
+      && (!query.type || project.type === query.type)
+      && (!query.from || Boolean(project.createdAt && project.createdAt.slice(0, 10) >= query.from))
+      && (!query.to || Boolean(project.createdAt && project.createdAt.slice(0, 10) <= query.to));
   });
   const sortValue = (project: Project) => {
     if (query.sortBy === "code") return project.id;
     if (query.sortBy === "name") return project.name;
     if (query.sortBy === "status") return project.status;
     if (query.sortBy === "cpi") return project.cpi;
-    return project.id;
+    return project.createdAt ?? project.id;
   };
   filtered.sort((left, right) => {
     const a = sortValue(left);
@@ -318,7 +341,7 @@ const databaseSortColumns: Record<ProjectSortKey, string> = { createdAt: "create
 
 async function supabaseList(env: ProjectApiEnv, authorization: string, query: ProjectListQuery, canOperate: boolean, userId: string, workspaceRole: "OWNER" | "ADMIN" | "PM" | "ANALYST" | "MEMBER") {
   const clientFilter = postgrestText(query.client);
-  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,${clientFilter ? "clients!inner(name,code)" : "clients(name,code)"},project_managers:user_profiles(display_name),project_markets(country_code)`;
+  const select = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,secondary_project_manager_id,sales_person_id,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,updated_at,${clientFilter ? "clients!inner(name,code)" : "clients(name,code)"},project_managers:user_profiles!projects_manager_profile_fkey(display_name),secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name),project_markets(country_code)`;
   const params = new URLSearchParams({ select, order: `${databaseSortColumns[query.sortBy]}.${query.sortDirection}` });
   const search = postgrestText(query.q);
   if (search) params.set("or", `(project_name.ilike.*${search}*,client_po.ilike.*${search}*)`);
@@ -333,6 +356,8 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
   if (query.manager === "UNASSIGNED") params.set("project_manager_id", "is.null");
   else if (query.manager.startsWith("NAME:")) params.set("project_manager_name", `eq.${postgrestText(query.manager.slice(5))}`);
   else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query.manager)) params.set("project_manager_id", `eq.${query.manager}`);
+  if (query.salesPerson === "UNASSIGNED") params.set("sales_person_id", "is.null");
+  else if (uuid.test(query.salesPerson)) params.set("sales_person_id", `eq.${query.salesPerson}`);
   if (query.scope === "mine" && userId) params.set("project_manager_id", `eq.${userId}`);
 
   const rangeStart = (query.page - 1) * query.pageSize;
@@ -347,13 +372,13 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
   const metricRows = codes.length ? await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=in.(${codes.join(",")})`, authorization) : [];
   const metrics = new Map(metricRows.map((row) => [row.project_code, row]));
   const facetScope = query.scope === "mine" && userId ? `&project_manager_id=eq.${encodeURIComponent(userId)}` : "";
-  const facetRows = await supabaseJson<Array<Pick<DatabaseProject, "project_type" | "project_manager_id" | "project_manager_name" | "project_managers" | "status" | "clients">>>(
+  const facetRows = await supabaseJson<Array<Pick<DatabaseProject, "project_type" | "project_manager_id" | "project_manager_name" | "project_managers" | "sales_person_id" | "sales_owner" | "status" | "clients">>>(
     env,
-    `/rest/v1/projects?select=project_type,project_manager_id,project_manager_name,status,clients(name),project_managers:user_profiles(display_name)&order=created_at.desc&limit=1000${facetScope}`,
+    `/rest/v1/projects?select=project_type,project_manager_id,project_manager_name,sales_person_id,status,clients(name),project_managers:user_profiles!projects_manager_profile_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name)&order=created_at.desc&limit=1000${facetScope}`,
     authorization,
   );
   const facetProjects = facetRows.map((row) => ({
-    client: relationName(row.clients), manager: { value: row.project_manager_id ?? (row.project_manager_name ? `NAME:${row.project_manager_name}` : "UNASSIGNED"), label: row.project_manager_name || managerName(row.project_managers) }, type: row.project_type ?? "Not set", status: row.status, completes: 0,
+    client: relationName(row.clients), manager: { value: row.project_manager_id ?? (row.project_manager_name ? `NAME:${row.project_manager_name}` : "UNASSIGNED"), label: row.project_manager_name || managerName(row.project_managers) }, salesPerson: { value: row.sales_person_id ?? "UNASSIGNED", label: row.sales_owner ? managerName(row.sales_owner) : "Unassigned" }, type: row.project_type ?? "Not set", status: row.status, completes: 0,
   }));
   const allClients = await supabaseJson<Array<{ name: string }>>(env, "/rest/v1/clients?select=name&order=name.asc&limit=1000", authorization);
   const resolvedTotal = Number.isFinite(total) ? total : rows.length;
@@ -371,6 +396,7 @@ async function supabaseList(env: ProjectApiEnv, authorization: string, query: Pr
       facets: {
         clients: Array.from(new Set(allClients.map((item) => item.name))).sort(),
         managers: Array.from(new Map(facetProjects.map((project) => [project.manager.value, project.manager])).values()).sort((a, b) => a.label.localeCompare(b.label)),
+        salesPeople: Array.from(new Map(facetProjects.map((project) => [project.salesPerson.value, project.salesPerson])).values()).sort((a, b) => a.label.localeCompare(b.label)),
         types: Array.from(new Set([...projectTypes, ...facetProjects.map((project) => project.type)])).sort(),
         statuses,
       },
@@ -465,7 +491,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
 
       await reconcileAbandoned(env);
       const code = encodeURIComponent(detailMatch[1]);
-      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,clients(name,code),project_managers:user_profiles(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
+      const rows = await supabaseJson<DatabaseProject[]>(env, `/rest/v1/projects?select=id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,secondary_project_manager_id,sales_person_id,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,updated_at,clients(name,code),project_managers:user_profiles!projects_manager_profile_fkey(display_name),secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name),project_markets(country_code)&project_code=eq.${code}&limit=1`, access.authorization);
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
       return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: capability?.can_operate === true, canReview: capability?.can_review === true, canManageAccess: capability?.can_manage_access === true } });

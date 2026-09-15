@@ -2,9 +2,9 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 Current milestone: Fieldwork intelligence and operational workbook
-Overall state: Screenshot-aligned Project Center commit `e282d44` is pushed to approved GitHub `main`. Migration `036` is present in linked Supabase and local/remote history matches through `036`; OWNER/ADMIN/PM are full-portfolio readers while ANALYST/MEMBER remain explicit-project scoped. Build, lint, and 17 focused tests pass. Production still serves the prior 10-asset bundle because GitHub-to-Vercel uptake is not connected and Vercel CLI remains logged out.
+Overall state: Linked Supabase history is verified through `036`. Local `main` contains the screenshot-aligned Project Center refinement, secondary PM/sales ownership, and a Flamingo Tool placeholder, browser-verified in credential-free demo mode. Migrations `037` and `038` are local schema files and have not been applied or verified against persistent/RLS data. GitHub push, hosted deployment, and authenticated multi-role proof remain pending.
 
 ## Resume protocol
 
@@ -37,11 +37,11 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
-### Now - fieldwork intelligence verification
+### Now - Project Center release verification and fieldwork intelligence proof
 
-1. Prove response-variable capture, reason mapping, retention cleanup, review authorization, and tenant isolation against the linked Supabase schema.
-2. Browser-verify filtered XLSX download, all six worksheets, read-only supplier-link redaction, response-variable configuration, and respondent review controls.
-3. Deploy the verified revision, then continue external identifier decisions, monitoring/reconciliation, and provider certification.
+1. Apply and verify migrations `037` and `038` in order in a controlled database window; assess lock impact of the regular index builds in `037`, then prove ownership constraints, audit records, secondary-PM permissions, sales non-permissions, and tenant isolation with authenticated users.
+2. Prove response-variable capture, reason mapping, retention cleanup, review authorization, and tenant isolation against the linked Supabase schema; browser-verify filtered XLSX download, all six worksheets, read-only supplier-link redaction, response-variable configuration, and respondent review controls.
+3. Deploy the matching verified revision and run hosted desktop/mobile, multi-role Project Center, ownership, health/readiness, and respondent-flow checks.
 
 ### Next - external decision and credential gates
 
@@ -92,9 +92,11 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 | ID | Feature | Status | Acceptance criteria / next action |
 |---|---|---|---|
-| `PRJ-01` | Project Center table UI | READY | Screenshot-aligned dense view exposes Project ID/name, CC, CC PO#, ST, RC, L24, CO/target, TE, OQ, QT, AB%, IR%, CV%, CPI, status, PM, LU date, last complete, and actions, with create-date ordering, filters, sticky identifiers, CSV/XLSX controls, and horizontal scrolling. Browser evidence and hosted rollout remain pending. |
+| `PRJ-01` | Project Center table UI | READY | Browser-reviewed dense reference-style view now has the top navigation, compact two-row filters, display ID with market suffix, CC/PO, ST/RC/L24, CO/target, TE/OQ/QT, AB/IR/CO percentages, CPI, status, PM/SPM, LU date, last complete, CSV/XLSX/search/Analytics-cost/refresh controls, and responsive horizontal scrolling. Hosted authenticated proof remains. |
 | `PRJ-11` | Portfolio visibility by profile | READY | Migration `036` is present in linked Supabase and grants OWNER/ADMIN/PM read visibility across the organization portfolio while ANALYST/MEMBER remain limited to explicit project grants. The UI hides manager, commercial, client-code/PO, and recency administration columns from scoped profiles. Multi-role browser proof remains. |
-| `PRJ-12` | Secondary PM and sales ownership | TODO | The reference introduces SPM and Sales Person as distinct persisted assignments. Add role taxonomy, project foreign keys/history, assignment editor, filters, audit events, and export fields after ownership rules are approved; the PM/SPM heading currently displays the existing primary PM only and does not fabricate missing ownership data. |
+| `PRJ-12` | Secondary PM and sales ownership | READY | Migration `038` adds existing-workspace-member foreign keys, same-workspace/role constraints, audited assignment RPC, secondary PM operating/review access, and no new sales permission. Editor, sales filter, list data, and CSV/XLSX fields work in demo mode; linked migration and multi-role RLS proof remain. |
+| `PRJ-13` | Screenshot-style Project Center navigation | READY | Home/Project Center/Supplier Center/Client/Flamingo Tool/Setting/Exit appear across the Project Center desktop header; the existing shell remains available elsewhere and mobile navigation remains usable. Hosted browser proof remains. |
+| `FLM-01` | Flamingo Tool entry point | PROTOTYPE | A clearly labeled integration placeholder exists. URL, API contract, authentication, and user actions are undecided; no external tool is connected. |
 | `PRJ-02` | Project summary metrics | READY | Status counts, event outcomes, monthly Overview completes, and average respondent duration are connected in Supabase mode with demo fallback. |
 | `PRJ-03` | Demo project API | DONE | The explicit no-credentials fallback covers list/detail/create/update, transitions, markets, and assignments for local demonstrations. |
 | `PRJ-04` | Persistent project read API | DONE | Live Worker integration proves authenticated tenant-scoped detail and filtered/paginated list reads from Supabase. |
@@ -243,6 +245,9 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Keep the project CSV as a stable summary and add a separate normalized multi-sheet fieldwork workbook. | Project rows and respondent rows have different cardinality; separate worksheets preserve usable Excel data without duplicating or flattening unrelated records into one CSV. |
 | 2026-09-14 | Never export raw IP addresses or fingerprint hashes; expose only coarse device class and explainable risk outcomes. | Supports operational fraud review while minimizing sensitive respondent data and preventing reusable identifiers from leaving the protected system. |
 | 2026-09-14 | Capture response variables only through a per-project allowlist with classification and retention. | Prevents arbitrary URL parameters from silently becoming durable respondent data and gives operators an explicit privacy control. |
+| 2026-09-15 | Assign secondary PM only to a different PM in the same workspace and sales ownership to a workspace member, without adding sales permissions. | Uses the current role taxonomy and preserves existing authorization until a separate sales role is specified. |
+| 2026-09-15 | Route the Project Center `$` control to the existing Analytics supplier-cost view. | Reuses verified operational cost data while the financial model remains undefined. |
+| 2026-09-15 | Display a market-country suffix on Project IDs while keeping canonical codes for links and APIs; keep Flamingo Tool as a labeled placeholder. | Matches the reference without changing identifiers or claiming an integration contract that has not been supplied. |
 
 ## Known blockers and risks
 
@@ -259,11 +264,14 @@ Do not record secret values here. Mark only whether they are available.
 | `BLK-09` | RESOLVED - migration `021` was applied through the authenticated Supabase dashboard. OTP template configuration and deletion of Auth users remain operator dashboard actions because browser control and local CLI execution are unavailable. | Place `{{ .Token }}` in the Magic Link email template and delete users only after confirming project ref `cmrktkzdptmywrtscalu`. |
 | `BLK-10` | RESOLVED - Vercel was linked, the invalid production server credential was replaced with the verified Supabase legacy `service_role` credential, and ROP-1137 Test routing now returns HTTP 302 to the configured survey. | Rotate the legacy credential later through a controlled Supabase/Vercel secret replacement; never store or print either credential in the repository. |
 | `BLK-11` | RESOLVED - migration `035` objects are present in linked Supabase, its manually applied migration-history entry was repaired, local/remote history matches through `035`, and linked database lint reports no schema errors. | Complete authenticated multi-role integration and browser proof, then deploy the matching application revision. |
+| `BLK-12` | Linked CLI access token and local Docker/Podman are unavailable; migrations `037` and `038` cannot be executed or linted live in this workspace. Regular index builds in `037` can block writes on busy event/session tables. | Restore an authorized database session, assess table size/write traffic and schedule a controlled migration window; apply in order and run authenticated multi-role/RLS/audit checks before rollout. |
+| `BLK-13` | Flamingo Tool contract and workflow are not defined. | Keep the labeled placeholder until URL/API, auth, and user actions are supplied. |
 
 ## Verification record
 
 | Date | Check | Result |
 |---|---|---|
+| 2026-09-15 | Screenshot-aligned Project Center and ownership code | PASS LOCALLY - `npm test` builds and passes 34 tests with 5 environment skips; ESLint, `tsc --noEmit`, and `git diff --check` pass. Edge/Playwright demo browser suite passes 13/13 including filters, both metric views, CSV, ownership editing, Flamingo placeholder, and country selection. Desktop/mobile screenshots were reviewed. Linked migrations `037`/`038`, persistent RLS/audit, hosted auth, and deployment remain unverified. |
 | 2026-08-18 | `npm run build` | PASS |
 | 2026-08-18 | `tsc --noEmit` | PASS |
 | 2026-08-18 | `node --test tests/rendered-html.test.mjs` | PASS - 2 tests |
@@ -376,6 +384,14 @@ Do not record secret values here. Mark only whether they are available.
 | 2026-09-14 | Screenshot-aligned dashboard GitHub rollout | SOURCE PUSHED / PRODUCTION UPTAKE BLOCKED - commit `e282d44` is on approved GitHub `main`; a delayed production scan still references 10 old assets and contains neither the create-date-order marker nor the fieldwork-workbook marker. Direct Vercel authentication remains required. |
 
 ## Session log
+
+### 2026-09-15 - Qlabs reference Project Center implementation
+
+- Refined the Project Center with a screenshot-style top nav, compact filters and toolbar, dense grid, market-suffixed display IDs, completion percentage, PM/SPM, update/complete dates, sales filter, CSV/XLSX fields, and responsive horizontal scrolling. The `$` control opens existing Analytics supplier cost.
+- Added migration `038` for audited secondary-PM/sales assignments, same-workspace role validation, and secondary-PM operating/review capability; added an ownership API/editor and demo behavior. No new sales permission was granted. The invariant is also checked when the primary manager or organization changes.
+- Added a clearly labeled Flamingo Tool placeholder because the separate integration contract and workflow have not been provided. Replaced runtime `Intl.DisplayNames` market labels with static English data after a server/browser hydration mismatch appeared in Edge.
+- Verification: standard build/test 34 passed, 5 environment skips; lint, TypeScript, and diff checks pass; full Edge browser suite 13/13 passes and desktop/mobile visual screenshots were reviewed. CLI authentication and Docker/Podman are unavailable, so no live migration, authenticated RLS/audit, or hosted deployment is claimed.
+- Current task: apply and verify `037`/`038` in a controlled database window, then run linked multi-role Project Center and fieldwork-intelligence proof. Next: deploy the matching revision and complete hosted browser/health checks.
 
 ### 2026-09-14 - Screenshot-aligned Project Center dashboard
 

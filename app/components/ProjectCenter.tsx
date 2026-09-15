@@ -10,7 +10,7 @@ import { buildFieldworkWorkbook, type FieldworkSession, type FieldworkSpecificat
 import { apiRequest } from "../../src/lib/api";
 
 type ManagerFacet = { value: string; label: string };
-type ProjectFacets = { clients: string[]; managers: ManagerFacet[]; types: string[]; statuses: ProjectStatus[] };
+type ProjectFacets = { clients: string[]; managers: ManagerFacet[]; salesPeople: ManagerFacet[]; types: string[]; statuses: ProjectStatus[] };
 type ProjectSummary = { statuses: Record<ProjectStatus, number>; totalCompletes: number };
 type ProjectMeta = {
   total: number;
@@ -35,6 +35,7 @@ const initialSummary = demoProjects.reduce<ProjectSummary>((summary, project) =>
 const initialFacets: ProjectFacets = {
   clients: Array.from(new Set(demoProjects.map((project) => project.client))).sort(),
   managers: Array.from(new Set(demoProjects.map((project) => project.manager))).sort().map((manager) => ({ value: manager, label: manager })),
+  salesPeople: [{ value: "UNASSIGNED", label: "Unassigned" }, ...Array.from(new Set(demoProjects.map((project) => project.salesPerson).filter(Boolean))).sort().map((name) => ({ value: name!, label: name! }))],
   types: Array.from(new Set(demoProjects.map((project) => project.type))).sort(),
   statuses: initialStatuses,
 };
@@ -47,22 +48,23 @@ function pagesAround(current: number, total: number) {
 
 export function ProjectCenter() {
   const { configured, session } = useAuth();
-  const [projects, setProjects] = useState<Project[]>(() => configured ? [] : demoProjects.slice(0, 5));
+  const [projects, setProjects] = useState<Project[]>(() => configured ? [] : demoProjects.slice(0, 25));
   const [meta, setMeta] = useState<ProjectMeta>({
     total: configured ? 0 : demoProjects.length,
     page: 1,
-    pageSize: 5,
-    totalPages: configured ? 1 : Math.ceil(demoProjects.length / 5),
+    pageSize: 25,
+    totalPages: configured ? 1 : Math.ceil(demoProjects.length / 25),
     source: "mock",
     canOperate: !configured,
     workspaceRole: "PM",
     fullPortfolio: true,
-    facets: configured ? { clients: [], managers: [], types: [], statuses: initialStatuses } : initialFacets,
+    facets: configured ? { clients: [], managers: [], salesPeople: [], types: [], statuses: initialStatuses } : initialFacets,
     summary: configured ? { statuses: { PENDING: 0, LIVE: 0, PAUSED: 0, ID_SUBMITTED: 0, INVOICED: 0, CLOSED: 0 }, totalCompletes: 0 } : initialSummary,
   });
   const [loadError, setLoadError] = useState("");
   const [client, setClient] = useState("ALL");
   const [manager, setManager] = useState("ALL");
+  const [salesPerson, setSalesPerson] = useState("ALL");
   const [selectedStatuses, setSelectedStatuses] = useState<ProjectStatus[]>([]);
   const [type, setType] = useState("ALL");
   const [from, setFrom] = useState("");
@@ -72,12 +74,18 @@ export function ProjectCenter() {
   const [appliedQuery, setAppliedQuery] = useState("");
   const [appliedProjectId, setAppliedProjectId] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(25);
   const [refreshKey, setRefreshKey] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportingWorkbook, setExportingWorkbook] = useState(false);
   const [trafficView, setTrafficView] = useState<"live" | "test">("live");
+  const [hydrated, setHydrated] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setHydrated(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const projectParams = useCallback((requestedPage: number, requestedPageSize: number) => {
     const params = new URLSearchParams({ page: String(requestedPage), pageSize: String(requestedPageSize), sortBy: "createdAt", sortDirection, scope: "all" });
@@ -85,12 +93,13 @@ export function ProjectCenter() {
     if (appliedProjectId) params.set("projectId", appliedProjectId);
     if (client !== "ALL") params.set("client", client);
     if (manager !== "ALL") params.set("manager", manager);
+    if (salesPerson !== "ALL") params.set("salesPerson", salesPerson);
     if (selectedStatuses.length) params.set("status", selectedStatuses.join(","));
     if (type !== "ALL") params.set("type", type);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     return params;
-  }, [appliedProjectId, appliedQuery, client, from, manager, selectedStatuses, sortDirection, to, type]);
+  }, [appliedProjectId, appliedQuery, client, from, manager, salesPerson, selectedStatuses, sortDirection, to, type]);
 
   useEffect(() => {
     if (configured && !session?.access_token) return;
@@ -119,6 +128,7 @@ export function ProjectCenter() {
   function resetFilters() {
     setClient("ALL");
     setManager("ALL");
+    setSalesPerson("ALL");
     setSelectedStatuses([]);
     setType("ALL");
     setFrom("");
@@ -130,10 +140,6 @@ export function ProjectCenter() {
     setSortDirection("desc");
     setPage(1);
     setRefreshKey((current) => current + 1);
-  }
-
-  function toggleStatus(status: ProjectStatus) {
-    resetPageAnd(() => setSelectedStatuses((current) => current.includes(status) ? current.filter((item) => item !== status) : [...current, status]));
   }
 
   function searchNow() {
@@ -201,51 +207,38 @@ export function ProjectCenter() {
   const lastResult = Math.min(meta.page * meta.pageSize, meta.total);
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <div className="eyebrow">Fieldwork control</div>
-          <h1 className="page-title">Project Center</h1>
-          <p className="page-subtitle">All workspace studies, delivery risk, and fieldwork controls.</p>
-        </div>
-        <div className="head-actions">
-          <button className="button ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button>
-          <button className="button" type="button" disabled={meta.total === 0 || exporting} onClick={() => void exportView()}>{exporting ? "Preparing CSV…" : "Download CSV"}</button>
-          <button className="button primary" type="button" disabled={meta.total === 0 || exportingWorkbook} onClick={() => void exportWorkbook()}>{exportingWorkbook ? "Preparing workbook…" : "Download Fieldwork Workbook"}</button>
-          {meta.canOperate ? <Link className="button primary" href="/projects/new"><span aria-hidden="true">＋</span> New project</Link> : <span className="status-pill status-PENDING">Read only</span>}
-        </div>
-      </div>
-
-      <section className="panel filter-panel" aria-label="Project filters">
-        <div className="filter-grid">
+    <div className="project-center-page">
+      <section className="reference-filter" aria-label="Project filters">
+        <div className="reference-filter-grid">
           <div className="field"><label htmlFor="from-date">Created from</label><input id="from-date" className="control" type="date" value={from} onChange={(event) => resetPageAnd(() => setFrom(event.target.value))} /></div>
           <div className="field"><label htmlFor="to-date">Created to</label><input id="to-date" className="control" type="date" value={to} onChange={(event) => resetPageAnd(() => setTo(event.target.value))} /></div>
-          <div className="field"><label htmlFor="create-sort">Create-date order</label><select id="create-sort" className="control" value={sortDirection} onChange={(event) => resetPageAnd(() => setSortDirection(event.target.value as "asc" | "desc"))}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select></div>
+          <div className="field"><label htmlFor="create-sort">Search by Create Date</label><select id="create-sort" className="control" value={sortDirection} onChange={(event) => resetPageAnd(() => setSortDirection(event.target.value as "asc" | "desc"))}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select></div>
+          {meta.fullPortfolio ? <div className="field"><label htmlFor="manager">Project Manager</label><select id="manager" className="control" value={manager} onChange={(event) => resetPageAnd(() => setManager(event.target.value))}><option value="ALL">All project managers</option>{meta.facets.managers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div> : <div className="field"><span className="field-label">Portfolio</span><span className="control static-control">Assigned projects</span></div>}
+          {meta.fullPortfolio ? <div className="field"><label htmlFor="sales-person-filter">Sales Person</label><select id="sales-person-filter" className="control" value={salesPerson} onChange={(event) => resetPageAnd(() => setSalesPerson(event.target.value))}><option value="ALL">All sales people</option>{meta.facets.salesPeople.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div> : <div className="field"><span className="field-label">Access</span><span className="control static-control">Read only</span></div>}
           <div className="field"><label htmlFor="client">Client</label><select id="client" className="control" value={client} onChange={(event) => resetPageAnd(() => setClient(event.target.value))}><option value="ALL">All clients</option>{meta.facets.clients.map((item) => <option key={item}>{item}</option>)}</select></div>
-          {meta.fullPortfolio ? <div className="field"><label htmlFor="manager">Project manager</label><select id="manager" className="control" value={manager} onChange={(event) => resetPageAnd(() => setManager(event.target.value))}><option value="ALL">All managers</option>{meta.facets.managers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div> : null}
-          <div className="field status-field"><span className="field-label">Statuses</span><div className="status-toggle-list" aria-label="Filter by project status">{initialStatuses.map((item) => <button className={`status-toggle ${selectedStatuses.includes(item) ? "selected" : ""}`} type="button" key={item} aria-pressed={selectedStatuses.includes(item)} onClick={() => toggleStatus(item)}>{item.replaceAll("_", " ")}</button>)}</div><span className="field-help">Click one or more statuses to filter.</span></div>
-          <div className="field"><label htmlFor="type">Project type</label><select id="type" className="control" value={type} onChange={(event) => resetPageAnd(() => setType(event.target.value))}><option value="ALL">All types</option>{meta.facets.types.map((item) => <option key={item}>{item}</option>)}</select></div>
-          <div className="field search-wrap"><label htmlFor="project-id-search">Internal project ID</label><input id="project-id-search" className="control search-control" placeholder="e.g. ROP-1050" value={projectIdQuery} onChange={(event) => setProjectIdQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") searchNow(); }} /></div>
-          <div className="field search-wrap"><label htmlFor="search">General search</label><input id="search" className="control search-control" placeholder="Project name or client PO" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") searchNow(); }} /></div>
+          <div className="field"><label htmlFor="status-filter">Project Status</label><select id="status-filter" className="control" value={selectedStatuses[0] ?? ""} onChange={(event) => resetPageAnd(() => setSelectedStatuses(event.target.value ? [event.target.value as ProjectStatus] : []))}><option value="">All statuses</option>{initialStatuses.map((item) => <option value={item} key={item}>{statusLabel(item)}</option>)}</select></div>
+          <div className="field"><label htmlFor="project-id-search">Project ID</label><input id="project-id-search" className="control" placeholder="Project ID" value={projectIdQuery} onChange={(event) => setProjectIdQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") searchNow(); }} /></div>
+          <div className="field"><label htmlFor="search">Search</label><input id="search" className="control" placeholder="Project name or client PO" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") searchNow(); }} /></div>
+          <div className="reference-actions"><button className="reference-icon-button" type="button" aria-label="Search projects" title="Search projects" onClick={searchNow}>⌕</button><details className="reference-download"><summary className="reference-icon-button" aria-label="Download projects" title="Download projects">⇩</summary><div className="reference-download-menu"><button type="button" disabled={meta.total === 0 || exporting} onClick={() => void exportView()}>{exporting ? "Preparing CSV…" : "Download CSV"}</button><button type="button" disabled={meta.total === 0 || exportingWorkbook} onClick={() => void exportWorkbook()}>{exportingWorkbook ? "Preparing workbook…" : "Download Fieldwork Workbook"}</button></div></details><Link className="reference-icon-button" href="/analytics#supplier-efficiency" aria-label="Open Analytics cost view" title="Open Analytics cost view">$</Link><button className="reference-icon-button" type="button" aria-label="Refresh projects" title="Refresh projects" onClick={() => setRefreshKey((current) => current + 1)}>⟳</button></div>
         </div>
-        <div className="filter-actions"><button className="button small" type="button" onClick={searchNow}>Search</button><button className="button small ghost" type="button" onClick={() => setRefreshKey((current) => current + 1)}>Refresh</button><button className="button small ghost" type="button" onClick={resetFilters}>Clear filters</button></div>
+        <div className="reference-filter-extra"><details><summary>More filters</summary><div className="field"><label htmlFor="type">Project type</label><select id="type" className="control" value={type} onChange={(event) => resetPageAnd(() => setType(event.target.value))}><option value="ALL">All types</option>{meta.facets.types.map((item) => <option key={item}>{item}</option>)}</select></div></details><button className="button small ghost" type="button" onClick={resetFilters}>Clear filters</button>{meta.canOperate ? <Link className="button small" href="/projects/new">New project</Link> : <span className="panel-note">Read only</span>}</div>
       </section>
 
       {loadError ? <div className="form-error data-error" role="alert">{loadError}</div> : null}
 
       <section className="panel" aria-label="Project results">
-        <div className="panel-head"><div><h2 className="panel-title">Active portfolio</h2><span className="panel-note">{meta.fullPortfolio ? `${meta.workspaceRole} portfolio view · all workspace projects` : `${meta.workspaceRole} scoped view · only assigned projects`} · {trafficView === "live" ? "IR = CO / (CO + TE) · CV = CO / RC" : "Test outcomes are excluded from live delivery, quota and cost"}</span></div><div className="traffic-switch" aria-label="Metric traffic view"><button type="button" className={trafficView === "live" ? "active" : ""} aria-pressed={trafficView === "live"} onClick={() => setTrafficView("live")}>Live metrics</button><button type="button" className={trafficView === "test" ? "active" : ""} aria-pressed={trafficView === "test"} onClick={() => setTrafficView("test")}>Test metrics</button></div></div>
+        <div className="panel-head"><div><h2 className="panel-title">Projects</h2><span className="panel-note">{meta.fullPortfolio ? `${meta.workspaceRole} portfolio view · all workspace projects` : `${meta.workspaceRole} scoped view · only assigned projects`} · {trafficView === "live" ? "IR = CO / (CO + TE) · CO (%) = CO / ST" : "Test outcomes are excluded from live delivery, quota and cost"}</span></div><div className="traffic-switch" aria-label="Metric traffic view"><button type="button" disabled={!hydrated} className={trafficView === "live" ? "active" : ""} aria-pressed={trafficView === "live"} onClick={() => setTrafficView("live")}>Live metrics</button><button type="button" disabled={!hydrated} className={trafficView === "test" ? "active" : ""} aria-pressed={trafficView === "test"} onClick={() => setTrafficView("test")}>Test metrics</button></div></div>
         <div className="table-wrap">
           <table className="data-table project-center-table">
-            <thead>{trafficView === "live" ? <tr><th>Project ID</th><th>Project Name</th>{meta.fullPortfolio ? <><th title="Client code">CC</th><th title="Client purchase order">CC PO#</th></> : null}<th title="Starts">ST</th><th title="Reached client">RC</th><th title="Completes in last 24 hours">L24</th><th title="Completes / target">CO</th><th title="Terminates">TE</th><th title="Over quota">OQ</th><th title="Quality terminates">QT</th><th title="Abandon rate">AB%</th><th title="Incidence rate">IR%</th><th title="Conversion rate">CV%</th>{meta.fullPortfolio ? <th title="Client cost per interview">CPI</th> : null}<th>Status</th>{meta.fullPortfolio ? <><th title="Project manager / secondary project manager">PM/SPM</th><th title="Last update date">LU Date</th><th>Last Complete</th></> : null}<th>Action</th></tr> : <tr><th>Project ID</th><th>Project Name</th><th>Test ST</th><th>Test CO</th><th>Test TE</th><th>Test OQ</th><th>Test QT</th><th>Test IR%</th><th>Status</th><th>Action</th></tr>}</thead>
+            <thead>{trafficView === "live" ? <tr><th>Project ID</th><th>Project Name</th>{meta.fullPortfolio ? <><th title="Client code">CC</th><th title="Client purchase order">CC PO#</th></> : null}<th title="Starts">ST</th><th title="Reached client">RC</th><th title="Completes in last 24 hours">L24</th><th title="Completes / target">CO</th><th title="Terminates">TE</th><th title="Over quota">OQ</th><th title="Quality terminates">QT</th><th title="Abandon rate">AB (%)</th><th title="Incidence rate">IR (%)</th><th title="Completion rate: completes divided by starts">CO (%)</th>{meta.fullPortfolio ? <th title="Client cost per interview">($) CPI</th> : null}<th>Status</th>{meta.fullPortfolio ? <><th title="Primary / secondary project manager">PM/SPM</th><th title="Project last update date">LU Date</th><th>Last Complete</th></> : null}<th>Action</th></tr> : <tr><th>Project ID</th><th>Project Name</th><th>Test ST</th><th>Test CO</th><th>Test TE</th><th>Test OQ</th><th>Test QT</th><th>Test IR%</th><th>Status</th><th>Action</th></tr>}</thead>
             <tbody>
               {projects.map((project) => (
                 <tr key={project.id}>
-                  <td><Link className="project-code" href={`/projects/${project.id}`}>{project.id}</Link></td>
+                  <td><Link className="project-code" href={`/projects/${project.id}`}>{displayProjectId(project)}</Link></td>
                   <td className="project-name-cell"><strong>{project.name}</strong><span>{project.client} · {project.market} · {project.type}</span></td>
-                  {trafficView === "live" ? <>{meta.fullPortfolio ? <><td>{project.clientCode || "—"}</td><td>{project.clientPo || "—"}</td></> : null}<td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td><strong>{project.completes.toLocaleString()}</strong>/{project.quota?.toLocaleString() ?? "—"}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td><td>{project.abandonRate.toFixed(1)}</td><td className="rate">{project.incidenceRate.toFixed(1)}</td><td>{project.conversionRate.toFixed(1)}</td>{meta.fullPortfolio ? <td>${project.cpi.toFixed(2)}</td> : null}</> : <><td>{project.testStarts ?? 0}</td><td>{project.testCompletes ?? 0}</td><td>{project.testTerminates ?? 0}</td><td>{project.testOverQuota ?? 0}</td><td>{project.testQualityTerm ?? 0}</td><td className="rate">{testIncidence(project).toFixed(1)}</td></>}
-                  <td><span className={`status-pill status-${project.status}`}>{project.status.replaceAll("_", " ")}</span></td>
-                  {trafficView === "live" && meta.fullPortfolio ? <><td>{project.manager}</td><td>{shortDate(project.lastEventAt ?? project.createdAt)}</td><td>{relativeTime(project.lastComplete)}</td></> : null}
+                  {trafficView === "live" ? <>{meta.fullPortfolio ? <><td>{project.clientCode || "—"}</td><td>{project.clientPo || "—"}</td></> : null}<td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td><strong>{project.completes.toLocaleString()}</strong>/{project.quota?.toLocaleString() ?? "—"}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td><td>{Math.round(project.abandonRate)}%</td><td className="rate">{Math.round(project.incidenceRate)}%</td><td>{project.starts ? Math.round(100 * project.completes / project.starts) : 0}%</td>{meta.fullPortfolio ? <td>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(project.cpi)}</td> : null}</> : <><td>{project.testStarts ?? 0}</td><td>{project.testCompletes ?? 0}</td><td>{project.testTerminates ?? 0}</td><td>{project.testOverQuota ?? 0}</td><td>{project.testQualityTerm ?? 0}</td><td className="rate">{Math.round(testIncidence(project))}%</td></>}
+                  <td><span className={`status-pill status-${project.status}`}>{statusLabel(project.status)}</span></td>
+                  {trafficView === "live" && meta.fullPortfolio ? <><td>{project.secondaryManager ? `${project.manager} / ${project.secondaryManager}` : project.manager}</td><td>{shortDate(project.updatedAt ?? project.createdAt)}</td><td>{relativeTime(project.lastComplete)}</td></> : null}
                   <td><Link className="button small ghost" href={`/projects/${project.id}`}>Open →</Link></td>
                 </tr>
               ))}
@@ -266,7 +259,7 @@ export function ProjectCenter() {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }
 
@@ -276,14 +269,25 @@ function testIncidence(project: Project) {
   return completes + terminates > 0 ? (completes / (completes + terminates)) * 100 : 0;
 }
 
+function statusLabel(status: ProjectStatus) {
+  return status.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function displayProjectId(project: Project) {
+  const market = project.marketCountryCode;
+  return market && !project.id.endsWith(`-${market}`) ? `${project.id}-${market}` : project.id;
+}
+
 function shortDate(value?: string) {
   if (!value || Number.isNaN(new Date(value).getTime())) return "—";
   return new Intl.DateTimeFormat("en-GB").format(new Date(value));
 }
 
 function relativeTime(value: string) {
+  if (/^[A-Za-z]{3}\s+\d{1,2}$/.test(value)) return value;
   const timestamp = new Date(value).getTime();
-  if (!value || value === "Not started" || Number.isNaN(timestamp)) return "Never";
+  if (!value || value === "Not started") return "Never";
+  if (Number.isNaN(timestamp)) return value;
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
   if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
   const hours = Math.floor(minutes / 60);

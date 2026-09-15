@@ -59,33 +59,50 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
 
 test("project search, refresh, clear filters, metric views, and CSV download work", async ({ page }) => {
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText("All workspace studies, delivery risk, and fieldwork controls.")).toBeVisible();
-  await page.getByLabel("Internal project ID").fill("PRJ-1048");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByRole("link", { name: "PRJ-1048" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Project Center navigation" })).toBeVisible();
+  await page.getByLabel("Project ID", { exact: true }).fill("PRJ-1048");
+  await page.getByRole("button", { name: "Search projects" }).click();
+  await expect(page.getByRole("link", { name: "PRJ-1048-IN" })).toBeVisible();
   await expect(page.getByText("PRJ-1047", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Test metrics" }).click();
   await expect(page.getByRole("columnheader", { name: "Test QT" })).toBeVisible();
   await page.getByRole("button", { name: "Live metrics" }).click();
-  await expect(page.getByRole("columnheader", { name: "CV%" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "CO (%)" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Refresh", exact: true }).last().click();
-  await expect(page.getByRole("link", { name: "PRJ-1048" })).toBeVisible();
+  await page.getByRole("button", { name: "Refresh projects" }).click();
+  await expect(page.getByRole("link", { name: "PRJ-1048-IN" })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(page.getByLabel("Internal project ID")).toHaveValue("");
-  await expect(page.getByText("PRJ-1047", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Project ID", { exact: true })).toHaveValue("");
+  await expect(page.getByText("PRJ-1047-US", { exact: true })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
+  await page.getByLabel("Download projects").click();
   await page.getByRole("button", { name: "Download CSV" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("researchops-projects.csv");
 });
 
+test("secondary PM and sales ownership can be edited in demo mode", async ({ page }) => {
+  await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Project ownership" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit ownership" }).click();
+  await page.getByLabel("Secondary PM").selectOption("00000000-0000-4000-8000-000000000012");
+  await page.getByLabel("Sales Person").selectOption("00000000-0000-4000-8000-000000000013");
+  await page.getByRole("button", { name: "Save ownership" }).click();
+  await expect(page.getByText("Project ownership saved.")).toBeVisible();
+});
+
+test("Flamingo Tool is a planned integration placeholder", async ({ page }) => {
+  await page.goto("/flamingo", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Flamingo Tool" })).toBeVisible();
+  await expect(page.getByText(/integration plan is ready/i)).toBeVisible();
+});
+
 test("supplier delivery separates test starts from live metrics", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Supplier delivery" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "TST" })).toHaveAttribute("title", /excluded from live metrics/i);
+  await expect(page.getByRole("columnheader", { name: "TST" })).toHaveAttribute("title", "Test starts");
   await expect(page.getByText("Test hits are separated from live delivery and cost.")).toBeVisible();
 });
 

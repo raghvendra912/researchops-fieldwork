@@ -11,6 +11,18 @@ export const projects: Project[] = [
   { id: "PRJ-1041", name: "Home Energy Decisions", client: "Evergreen Energy", clientPo: "EE-10073", market: "United States", type: "Consumer", manager: "Maya Shah", status: "PENDING", starts: 0, reached: 0, l24: 0, completes: 0, terminates: 0, overQuota: 0, qualityTerm: 0, abandonRate: 0, incidenceRate: 0, conversionRate: 0, cpi: 11.25, lastComplete: "Not started" },
 ];
 
+const demoDetails = [
+  { clientCode: "NB", marketCountryCode: "IN", quota: 999, createdAt: "2026-09-12T09:00:00Z", updatedAt: "2026-09-14T08:00:00Z", secondaryManager: "Maya Shah", salesPerson: "Priya Shah" },
+  { clientCode: "ARC", marketCountryCode: "US", quota: 999, createdAt: "2026-09-11T09:00:00Z", updatedAt: "2026-09-13T08:00:00Z", secondaryManager: "Raghav Mehta", salesPerson: "Kabir Rao" },
+  { clientCode: "HC", marketCountryCode: "GB", quota: 500, createdAt: "2026-09-10T09:00:00Z", updatedAt: "2026-09-12T08:00:00Z", salesPerson: "Priya Shah" },
+  { clientCode: "AA", marketCountryCode: "DE", quota: 700, createdAt: "2026-09-09T09:00:00Z", updatedAt: "2026-09-11T08:00:00Z", salesPerson: "Kabir Rao" },
+  { clientCode: "FF", marketCountryCode: "CA", quota: 100, createdAt: "2026-09-08T09:00:00Z", updatedAt: "2026-09-10T08:00:00Z" },
+  { clientCode: "MM", marketCountryCode: "AU", quota: 600, createdAt: "2026-09-07T09:00:00Z", updatedAt: "2026-09-09T08:00:00Z", salesPerson: "Priya Shah" },
+  { clientCode: "NB", marketCountryCode: "SG", quota: 500, createdAt: "2026-09-06T09:00:00Z", updatedAt: "2026-09-08T08:00:00Z", salesPerson: "Kabir Rao" },
+  { clientCode: "EE", marketCountryCode: "US", quota: 100, createdAt: "2026-09-05T09:00:00Z", updatedAt: "2026-09-07T08:00:00Z" },
+];
+projects.forEach((project, index) => Object.assign(project, demoDetails[index]));
+
 export const suppliers = [
   { name: "CPX Research", started: 410, reached: 361, complete: 158, terminate: 139, quota: 39, quality: 18, ir: 43.8, cpi: 8.2, cost: 1295.6 },
   { name: "BitLabs", started: 362, reached: 318, complete: 137, terminate: 128, quota: 32, quality: 12, ir: 43.1, cpi: 8.8, cost: 1205.6 },

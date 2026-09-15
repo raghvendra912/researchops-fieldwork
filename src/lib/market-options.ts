@@ -18,11 +18,17 @@ const countryLanguageCodes: Record<string, string[]> = {
   TC:["en"],TD:["fr","ar"],TF:["fr"],TG:["fr","ee"],TH:["th"],TJ:["tg","ru"],TK:["en"],TL:["pt"],TM:["tk","ru"],TN:["ar","fr"],TO:["to","en"],TR:["tr","ku"],TT:["en"],TV:["en"],TW:["zh"],TZ:["sw","en"],UA:["uk","ru"],UG:["en","sw"],UM:["en"],US:["en","es"],UY:["es"],UZ:["uz","ru"],VA:["it","la"],VC:["en"],VE:["es"],VG:["en"],VI:["en"],VN:["vi"],VU:["en","fr"],WF:["fr"],WS:["sm","en"],YE:["ar"],YT:["fr"],ZA:["en","zu","xh","af","st","tn"],ZM:["en"],ZW:["en","sn","nd"],
 };
 
-const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
-const languageNames = new Intl.DisplayNames(["en"], { type: "language" });
+import { marketNames } from "./market-names.ts";
 
-export const countryOptions = countryCodes.map((code) => ({ code, name: countryNames.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name));
-export const languageOptions = languageCodes.map((code) => ({ code, name: languageNames.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name));
+const countryNames = marketNames.countryCodes as Record<string, string>;
+const languageNames = marketNames.languageCodes as Record<string, string>;
+
+function stableNameOrder(a: { code: string; name: string }, b: { code: string; name: string }) {
+  return a.name < b.name ? -1 : a.name > b.name ? 1 : a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
+}
+
+export const countryOptions = countryCodes.map((code) => ({ code, name: countryNames[code] ?? code })).sort(stableNameOrder);
+export const languageOptions = languageCodes.map((code) => ({ code, name: languageNames[code] ?? code })).sort(stableNameOrder);
 export const validCountryCodes = new Set(countryCodes);
 export const validLanguageCodes = new Set(languageCodes);
 
@@ -32,9 +38,9 @@ export function languageOptionsForCountry(countryCode: string) {
 }
 
 export function countryName(code: string) {
-  return countryNames.of(code.toUpperCase()) ?? code.toUpperCase();
+  return countryNames[code.toUpperCase()] ?? code.toUpperCase();
 }
 
 export function languageName(code: string) {
-  return languageNames.of(code.toLowerCase()) ?? code.toLowerCase();
+  return languageNames[code.toLowerCase()] ?? code.toLowerCase();
 }

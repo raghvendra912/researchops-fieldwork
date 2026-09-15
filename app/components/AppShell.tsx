@@ -12,6 +12,7 @@ const primaryNavigation = [
   { href: "/projects", label: "Project Center", glyph: "PR" },
   { href: "/suppliers", label: "Suppliers", glyph: "SU" },
   { href: "/clients", label: "Clients", glyph: "CL" },
+  { href: "/flamingo", label: "Flamingo Tool", glyph: "FL" },
   { href: "/respondents", label: "Respondents", glyph: "RE" },
   { href: "/fraud", label: "Fraud review", glyph: "FR" },
   { href: "/notifications", label: "Notifications", glyph: "NO" },
@@ -155,7 +156,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`app-frame${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+    <div className={`app-frame${sidebarCollapsed ? " sidebar-collapsed" : ""}${pathname === "/projects" ? " reference-project-shell" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-header"><div className="brand-stack"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><div className="build-version" title={formatBuildTitle(buildTime)}>v.{appVersion} ({buildStamp})</div></div><button className="sidebar-toggle" type="button" disabled={!sidebarReady} onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
         <div className="nav-caption">Workspace</div>
@@ -176,13 +177,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="app-main">
-        <header className="topbar">
-          <div className="breadcrumb"><span>ResearchOps</span><span>/</span><strong>{title}</strong></div>
-          <div className="top-actions">
-            <span className="workspace-status"><span className="live-dot" /> All systems normal</span>
-            <Link className="icon-button" href="/notifications" aria-label={`${unreadNotifications} unread notifications`}>{unreadNotifications > 99 ? "99+" : unreadNotifications}</Link>
-            <Link className="icon-button" href="/settings" aria-label="Workspace settings">•••</Link>
-          </div>
+        <header className={`topbar${pathname === "/projects" ? " reference-topbar" : ""}`}>
+          {pathname === "/projects" ? <><Link className="reference-top-avatar" href="/dashboard" aria-label="ResearchOps home">{initials}</Link><nav className="reference-top-nav" aria-label="Project Center navigation"><Link href="/dashboard">Home</Link><details><summary>Project Center</summary><div className="reference-nav-menu"><Link href="/projects">All projects</Link><Link href="/projects/new">New project</Link><Link href="/respondents">Respondents</Link><Link href="/analytics">Analytics</Link></div></details><details><summary>Supplier Center</summary><div className="reference-nav-menu"><Link href="/suppliers">Suppliers</Link><Link href="/fraud">Fraud review</Link></div></details><Link href="/clients">Client</Link><Link href="/flamingo">Flamingo Tool</Link><details><summary>Setting</summary><div className="reference-nav-menu"><Link href="/settings">Workspace settings</Link><Link href="/notifications">Notifications {unreadNotifications ? `(${unreadNotifications})` : ""}</Link></div></details>{configured ? <button type="button" onClick={handleSignOut}>Exit</button> : null}</nav></> : <><div className="breadcrumb"><span>ResearchOps</span><span>/</span><strong>{title}</strong></div><div className="top-actions"><span className="workspace-status"><span className="live-dot" /> All systems normal</span><Link className="icon-button" href="/notifications" aria-label={`${unreadNotifications} unread notifications`}>{unreadNotifications > 99 ? "99+" : unreadNotifications}</Link><Link className="icon-button" href="/settings" aria-label="Workspace settings">•••</Link></div></>}
         </header>
         <div className="content">{children}</div>
       </main>

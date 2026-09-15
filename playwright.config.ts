@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const externalBaseUrl = process.env.E2E_BASE_URL;
 const localPort = process.env.DEV_PORT ?? "3001";
 const localBaseUrl = `http://127.0.0.1:${localPort}`;
+const browserPath = process.env.E2E_BROWSER_PATH;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -22,6 +23,6 @@ export default defineConfig({
     timeout: 180_000,
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "chromium", use: { ...devices["Desktop Chrome"], ...(browserPath ? { launchOptions: { executablePath: browserPath } } : {}) } },
   ],
 });

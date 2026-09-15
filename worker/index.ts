@@ -16,6 +16,7 @@ import { handleRedirectApi } from "./routes/redirects";
 import { handleEligibilityApi } from "./routes/eligibility";
 import { handleQuotaCellsApi } from "./routes/quota-cells";
 import { handleProjectAccessApi } from "./routes/project-access";
+import { handleProjectOwnershipApi } from "./routes/project-ownership";
 import { handleSurveySetupApi } from "./routes/survey-setup";
 import { handleResponseVariablesApi } from "./routes/response-variables";
 import { securityHeaders, validateCSRF, csrfError } from "./lib/security.ts";
@@ -129,6 +130,8 @@ const worker = {
       if (surveySetupResponse) return observed(surveySetupResponse);
       const projectAccessResponse = await handleProjectAccessApi(request, url.pathname, projectEnv);
       if (projectAccessResponse) return observed(projectAccessResponse);
+      const ownershipResponse = await handleProjectOwnershipApi(request, url.pathname, projectEnv);
+      if (ownershipResponse) return observed(ownershipResponse);
       const quotaCellsResponse = await handleQuotaCellsApi(request, url.pathname, projectEnv);
       if (quotaCellsResponse) return observed(quotaCellsResponse);
       const eligibilityResponse = await handleEligibilityApi(request, url.pathname, projectEnv);

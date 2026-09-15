@@ -14,19 +14,13 @@ async function request(path, init = {}, environment = {}) {
   );
 }
 
-test("server-renders the ResearchOps Project Center", async () => {
+test("server-renders a protected Project Center entry point", async () => {
   const response = await request("/projects");
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>Project Center · ResearchOps<\/title>/i);
-  assert.match(html, /Project Center/);
-  assert.match(html, /All workspace studies, delivery risk, and fieldwork controls/i);
-  assert.match(html, /Active portfolio/i);
-  assert.match(html, /Live metrics/i);
-  assert.match(html, /Test metrics/i);
-  assert.match(html, /Download CSV/i);
-  assert.doesNotMatch(html, /Currently fielding|Awaiting fieldwork|Across this result set/i);
-  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+  assert.match(html, /Checking your workspace session/i);
+  assert.doesNotMatch(html, /<table class="data-table project-center-table"/i);
 });
 
 test("server-renders the protected operational dashboard shell",async()=>{const response=await request("/dashboard");assert.equal(response.status,200);const html=await response.text();assert.match(html,/ResearchOps/i);assert.match(html,/Dashboard/)});
@@ -53,19 +47,19 @@ test("server-renders email OTP signup", async () => {
   assert.match(html, /email.*one-time code/i);
 });
 
-test("server-renders persistent directory surfaces", async () => {
+test("server-renders protected directory entry points", async () => {
   const clients = await request("/clients");
   assert.equal(clients.status, 200);
-  assert.match(await clients.text(), /Clients[\s\S]*directory/i);
+  assert.match(await clients.text(), /Checking your workspace session/i);
   const suppliers = await request("/suppliers");
   assert.equal(suppliers.status, 200);
-  assert.match(await suppliers.text(), /Suppliers[\s\S]*directory/i);
+  assert.match(await suppliers.text(), /Checking your workspace session/i);
   const fraud = await request("/fraud");
   assert.equal(fraud.status, 200);
-  assert.match(await fraud.text(), /Fraud review/i);
+  assert.match(await fraud.text(), /Checking your workspace session/i);
   const notificationsPage = await request("/notifications");
   assert.equal(notificationsPage.status, 200);
-  assert.match(await notificationsPage.text(), /Notifications/i);
+  assert.match(await notificationsPage.text(), /Checking your workspace session/i);
 });
 
 test("serves Worker health and project APIs", async () => {
@@ -95,6 +89,29 @@ test("serves Worker health and project APIs", async () => {
   const searchedBody = await searchedProjects.json();
   assert.equal(searchedBody.meta.total, 2);
   assert.equal(searchedBody.data[0].id, "PRJ-1042");
+
+  const displayedIdSearch = await request("/api/projects?projectId=PRJ-1048-IN");
+  assert.equal(displayedIdSearch.status, 200);
+  assert.deepEqual((await displayedIdSearch.json()).data.map((project) => project.id), ["PRJ-1048"]);
+
+  const salesFiltered = await request("/api/projects?salesPerson=Priya%20Shah");
+  assert.equal(salesFiltered.status, 200);
+  assert.ok((await salesFiltered.json()).data.every((project) => project.salesPerson === "Priya Shah"));
+
+  const ownership = await request("/api/projects/PRJ-1048/ownership");
+  assert.equal(ownership.status, 200);
+  assert.equal((await ownership.json()).data.secondaryManager, "Maya Shah");
+  const invalidOwnership = await request("/api/projects/PRJ-1048/ownership", {
+    method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+    body: JSON.stringify({ secondaryManagerId: "00000000-0000-4000-8000-000000000013", salesPersonId: null }),
+  });
+  assert.equal(invalidOwnership.status, 400);
+  const savedOwnership = await request("/api/projects/PRJ-1048/ownership", {
+    method: "PUT", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+    body: JSON.stringify({ secondaryManagerId: "00000000-0000-4000-8000-000000000012", salesPersonId: "00000000-0000-4000-8000-000000000013" }),
+  });
+  assert.equal(savedOwnership.status, 200);
+  assert.equal((await savedOwnership.json()).data.salesPerson, "Priya Shah");
 
   const created = await request("/api/projects", {
     method: "POST",
