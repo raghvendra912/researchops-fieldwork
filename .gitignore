@@ -49,3 +49,11 @@ yarn-error.log*
 # local agent/tooling settings; .claude/settings.local.json commonly holds
 # machine-local credentials that must never be committed
 .claude/
+
+# local diagnostics; public anon key cache and hosted env pulls stay out of git
+anon-key.txt
+.env.vercel
+chunk-scan.txt
+vercel-deploys.txt
+page.html
+signup.json
