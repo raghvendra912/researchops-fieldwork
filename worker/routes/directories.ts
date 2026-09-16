@@ -1,5 +1,6 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions, type WorkspaceRole } from "../lib/authorization";
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
+import { clientOutcomeTemplates, supplierLiveTemplate, supplierRoute } from "../domain/routing-links";
 
 type DirectoryKind = "clients" | "suppliers";
 type Status = "ACTIVE" | "INACTIVE";
@@ -32,13 +33,18 @@ function safeEmail(value: unknown) { const email = safeOptional(value, 254); ret
 function safeUrl(value: unknown) { const url = safeOptional(value, 2048); return !url ? null : /^https?:\/\//i.test(url) ? url : undefined; }
 function relationCount(value: unknown) { if (!Array.isArray(value)) return 0; const count = (value[0] as { count?: unknown } | undefined)?.count; return Number(count ?? 0); }
 
+function supplierLinks(origin: string, token: string) {
+  return { test: supplierRoute(origin, token, "test"), live: supplierLiveTemplate(origin, token) };
+}
+
+function clientLinks(origin: string, token: string) {
+  return clientOutcomeTemplates(origin, token);
+}
+
 function generatedLinks(kind: DirectoryKind, token: unknown, request: Request, allowed: boolean) {
-  if (!allowed || !token) return undefined;
+  if (!allowed || typeof token !== 'string' || !token) return undefined;
   const origin = new URL(request.url).origin;
-  const base = `${origin}/r/${kind === "clients" ? "client" : "supplier"}/${token}`;
-  return kind === "clients"
-    ? { complete: `${base}/complete?rid={{respondent_id}}`, terminate: `${base}/terminate?rid={{respondent_id}}`, quotaFull: `${base}/quota-full?rid={{respondent_id}}`, securityTerminate: `${base}/security-terminate?rid={{respondent_id}}` }
-    : { test: `${base}/test`, live: `${base}/live` };
+  return kind === 'clients' ? clientLinks(origin, token) : supplierLinks(origin, token);
 }
 
 function mapRecord(kind: DirectoryKind, row: Record<string, unknown>, request: Request, access: DirectoryAccess) {

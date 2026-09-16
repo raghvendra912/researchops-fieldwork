@@ -1,5 +1,32 @@
 import type { Project } from "./project.types";
 
+export type ProjectRoutingInfo = {
+  liveSurveyUrl: string;
+  testSurveyUrl: string;
+  suppliers: Array<{
+    supplierName: string;
+    supplierProjectId: string;
+    status: string;
+    testLink: string;
+    liveLink: string;
+  }>;
+};
+
+// Routing columns are derived from the live Project Center response, so every
+// new project automatically carries its tool-generated supplier links in CSV.
+export function projectRoutingColumns(project: Project): Array<[string, string]> {
+  const routing = project as Project & { routing?: ProjectRoutingInfo };
+  const suppliers = routing.supplierAssignments ?? [];
+  const liveLinks = suppliers.map((item) => item.liveLink ?? "").filter(Boolean);
+  const testLinks = suppliers.map((item) => item.testLink ?? "").filter(Boolean);
+  return [
+    ["Routing test links", testLinks.join(" | ")],
+    ["Routing live links", liveLinks.join(" | ")],
+    ["Routing supplier names", suppliers.map((item) => item.supplierName).join(" | ")],
+    ["Routing supplier statuses", suppliers.map((item) => `${item.supplierName}:${item.status}`).join(" | ")],
+  ];
+}
+
 const columns: Array<[string, (project: Project) => string | number]> = [
   ["Project ID", (project) => project.id],
   ["Project", (project) => project.name],
@@ -41,6 +68,10 @@ const columns: Array<[string, (project: Project) => string | number]> = [
   ["Supplier assignments", (project) => JSON.stringify(project.supplierAssignments ?? [])],
   ["Eligibility rules", (project) => JSON.stringify(project.eligibilityRules ?? [])],
   ["Quota cells", (project) => JSON.stringify(project.quotaCells ?? [])],
+  ["Routing test links", (project) => projectRoutingColumns(project)[0][1]],
+  ["Routing live links", (project) => projectRoutingColumns(project)[1][1]],
+  ["Routing supplier names", (project) => projectRoutingColumns(project)[2][1]],
+  ["Routing supplier statuses", (project) => projectRoutingColumns(project)[3][1]],
   ["Average duration seconds", (project) => project.averageDurationSeconds ?? ""],
   ["Last event at", (project) => project.lastEventAt ?? ""],
 ];
