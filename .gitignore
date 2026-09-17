@@ -63,3 +63,14 @@ qa-run.txt
 test-output.txt
 single-test.txt
 qa-token.txt
+
+# hosted QA scratch output (console dumps, probe bodies, short-link runs)
+qa-tests.txt
+qa-short.txt
+qa-prefix.txt
+sd.txt
+sdiag.txt
+sresp.txt
+s1.txt
+code.txt
+*.qa.txt

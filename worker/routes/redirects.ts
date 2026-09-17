@@ -63,19 +63,20 @@ async function recordEvent(request: Request, env: RedirectEnv, supplier: Supplie
   return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest, deviceType: deviceType(request), ...context } }, env);
 }
 
+const SUPPLIER_COLUMNS = "id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url";
+
 async function supplierByToken(env: RedirectEnv, token: string) {
-  const rows = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=eq.${encodeURIComponent(token)}&limit=1`);
-  if (rows[0]) return rows[0];
-  // Short-code links (/s/<8hex>) carry only the token prefix; resolve the full
-  // supplier by matching the redirect_token prefix. The column is a uuid, so
-  // PostgREST ilike cannot cast it — use a bounded uuid range instead.
-  if (/^[0-9a-f]{8}$/i.test(token)) {
-    const lower = `${token}-0000-0000-0000-000000000000`;
-    const upper = `${token}-ffff-ffff-ffff-ffffffffffff`;
-    const candidates = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=gte.${lower}&redirect_token=lte.${upper}&limit=2`);
-    return candidates.length === 1 ? candidates[0] : undefined;
-  }
-  return undefined;
+  // Short-code links (/s/<8 hex>) carry only the token prefix. The column is a
+  // uuid, so an equality filter on a partial token fails upstream in PostgreSQL
+  // (invalid input syntax for type uuid). Resolve short codes with a bounded
+  // uuid range instead, and keep the exact-match path for full tokens.
+  const shortCode = /^[0-9a-f]{8}$/i.test(token);
+  const filter = shortCode
+    ? `redirect_token=gte.${token}-0000-0000-0000-000000000000&redirect_token=lte.${token}-ffff-ffff-ffff-ffffffffffff`
+    : `redirect_token=eq.${encodeURIComponent(token)}`;
+  const rows = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=${SUPPLIER_COLUMNS}&${filter}&limit=2`);
+  if (!shortCode) return rows[0];
+  return rows.length === 1 ? rows[0] : undefined;
 }
 
 export async function handleRedirectApi(request: Request, pathname: string, env: RedirectEnv): Promise<Response | null> {
