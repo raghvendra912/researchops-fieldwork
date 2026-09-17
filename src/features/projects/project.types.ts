@@ -43,7 +43,7 @@ export interface Project {
   testSurveyUrl?: string;
   surveyParameters?: Array<{ name: string; value: string }>;
   markets?: Array<{ countryCode: string; languageCode: string; targetQuota: number; expectedLoiMinutes: number; expectedIr: number }>;
-  supplierAssignments?: Array<{ supplierName: string; supplierProjectId: string; supplierCpi: number; targetQuota: number; status: string }>;
+  supplierAssignments?: Array<{ supplierName: string; supplierProjectId: string; supplierCpi: number; targetQuota: number; status: string; testLink?: string; liveLink?: string }>;
   eligibilityRules?: Array<{ variableKey: string; operator: string; values: string[]; required: boolean; active: boolean }>;
   quotaCells?: Array<{ name: string; targetQuota: number; priority: number; active: boolean; conditions: unknown }>;
   securityTerminateUrl?: string;

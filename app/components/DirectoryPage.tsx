@@ -22,7 +22,7 @@ const demoRecords: Record<DirectoryKind, DirectoryRecord[]> = {
 export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind: DirectoryKind; eyebrow: string; title: string; subtitle: string; action: string }) {
   const { configured, session } = useAuth();
   const [records, setRecords] = useState<DirectoryRecord[]>(() => configured ? [] : demoRecords[kind]);
-  const [query, setQuery] = useState(""); const [formOpen, setFormOpen] = useState(false); const [editing, setEditing] = useState<DirectoryRecord | null>(null); const [linkRecord, setLinkRecord] = useState<DirectoryRecord | null>(null); const [error, setError] = useState(""); const [source, setSource] = useState<"mock" | "supabase">("mock"); const [canOperate, setCanOperate] = useState(!configured); const [copied, setCopied] = useState("");
+  const [query, setQuery] = useState(""); const [statusFilter, setStatusFilter] = useState("ALL"); const [formOpen, setFormOpen] = useState(false); const [editing, setEditing] = useState<DirectoryRecord | null>(null); const [linkRecord, setLinkRecord] = useState<DirectoryRecord | null>(null); const [error, setError] = useState(""); const [source, setSource] = useState<"mock" | "supabase">("mock"); const [canOperate, setCanOperate] = useState(!configured); const [copied, setCopied] = useState("");
   const accessToken = session?.access_token;
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
     void apiRequest<{ data: DirectoryRecord[]; meta: { source: "mock" | "supabase"; canOperate?: boolean } }>(`/api/${kind}`, { headers }).then((response) => { setRecords(response.data); setSource(response.meta.source); setCanOperate(response.meta.canOperate === true); setError(""); }).catch(() => setError(`${title} could not be loaded.`));
   }, [accessToken, configured, kind, title]);
 
-  const filtered = useMemo(() => { const term = query.trim().toLowerCase(); return records.filter((record) => !term || [record.name, record.code, record.contactEmail].some((value) => value.toLowerCase().includes(term))); }, [query, records]);
+  const filtered = useMemo(() => { const term = query.trim().toLowerCase(); return records.filter((record) => (!term || [record.name, record.code, record.contactEmail].some((value) => value.toLowerCase().includes(term))) && (statusFilter === "ALL" || record.status === statusFilter)); }, [query, statusFilter, records]);
   function openCreate() { setEditing(null); setFormOpen(true); setError(""); }
   function openEdit(record: DirectoryRecord) { setEditing(record); setFormOpen(true); setError(""); }
   function openLinks(record: DirectoryRecord) { setLinkRecord(record); setCopied(""); }
@@ -62,7 +62,14 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
   return <>
     <div className="page-head"><div><div className="eyebrow">{eyebrow}</div><h1 className="page-title">{title}</h1><p className="page-subtitle">{subtitle}</p></div>{canOperate ? <button className="button primary" type="button" onClick={openCreate}>＋ {action}</button> : <span className="status-pill status-PENDING">{kind === "clients" ? "Admin managed" : "Read only"}</span>}</div>
     {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
-    <section className="panel"><div className="panel-head"><h2 className="panel-title">{title} directory</h2><div className="field search-wrap" style={{ width: 300 }}><input aria-label={`Search ${title.toLowerCase()}`} className="control search-control" placeholder="Search name, code or contact email" value={query} onChange={(event) => setQuery(event.target.value)} /></div></div>
+    <section className="reference-filter" aria-label={`${title} filters`}>
+      <div className="reference-filter-grid">
+        <div className="field"><label htmlFor="directory-status">Status</label><select id="directory-status" className="control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></div>
+        <div className="field"><label htmlFor="directory-search">Search</label><input id="directory-search" className="control" placeholder="Name, code or contact email" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+        <div className="reference-filter-extra"><button className="button small ghost" type="button" onClick={() => { setStatusFilter("ALL"); setQuery(""); }}>Clear filters</button></div>
+      </div>
+    </section>
+    <section className="panel"><div className="panel-head"><h2 className="panel-title">{title} directory</h2><span className="panel-note">{source === "supabase" ? "Supabase workspace data" : "Demo data"}</span></div>
       <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>#</th><th>Name</th><th>Contact</th>{kind === "suppliers" ? <th>Redirect mode</th> : null}<th>Projects</th><th>Status</th><th>Links</th>{canOperate ? <th>Actions</th> : null}</tr></thead><tbody>{filtered.map((record, index) => <tr key={record.id}><td>{index + 1}</td><td className="project-name-cell"><strong>{record.name}</strong><span>{record.code}</span></td><td className="project-name-cell"><strong>{record.contactName || "Not set"}</strong><span>{record.contactEmail || record.phone || "No contact details"}</span></td>{kind === "suppliers" ? <td>{record.redirectMode}</td> : null}<td className="rate">{record.projectCount}</td><td><span className={`status-pill status-${record.status}`}>{record.status}</span></td><td>{record.links ? <button className="button small ghost" type="button" onClick={() => openLinks(record)}>View links</button> : "Restricted"}</td>{canOperate ? <td><div className="row-actions"><button className="button small ghost" type="button" onClick={() => openEdit(record)}>Edit</button><button className="button small ghost" type="button" onClick={() => void toggleStatus(record)}>{record.status === "ACTIVE" ? "Deactivate" : "Activate"}</button></div></td> : null}</tr>)}{filtered.length === 0 ? <tr><td colSpan={canOperate ? (kind === "suppliers" ? 8 : 7) : (kind === "suppliers" ? 7 : 6)} style={{ textAlign: "center", padding: 32, color: "var(--muted)" }}>No matching records.</td></tr> : null}</tbody></table></div>
       <div className="table-footer"><span>{filtered.length} of {records.length} records</span><span>{source === "supabase" ? "Supabase workspace data" : "Demo data"}</span></div>
     </section>
