@@ -16,7 +16,7 @@ export type ProjectRoutingInfo = {
 // new project automatically carries its tool-generated supplier links in CSV.
 export function projectRoutingColumns(project: Project): Array<[string, string]> {
   const routing = project as Project & { routing?: ProjectRoutingInfo };
-  const suppliers = routing.supplierAssignments ?? [];
+  const suppliers = (routing.supplierAssignments ?? []) as Array<Partial<ProjectRoutingInfo["suppliers"][number]>>;
   const liveLinks = suppliers.map((item) => item.liveLink ?? "").filter(Boolean);
   const testLinks = suppliers.map((item) => item.testLink ?? "").filter(Boolean);
   return [

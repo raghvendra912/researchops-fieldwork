@@ -1,6 +1,6 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions, type WorkspaceRole } from "../lib/authorization";
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
-import { clientOutcomeTemplates, supplierLiveTemplate, supplierRoute } from "../domain/routing-links";
+import { clientOutcomeTemplates, supplierLiveTemplate, supplierRoute, supplierShortTemplate } from "../domain/routing-links";
 
 type DirectoryKind = "clients" | "suppliers";
 type Status = "ACTIVE" | "INACTIVE";
@@ -34,7 +34,7 @@ function safeUrl(value: unknown) { const url = safeOptional(value, 2048); return
 function relationCount(value: unknown) { if (!Array.isArray(value)) return 0; const count = (value[0] as { count?: unknown } | undefined)?.count; return Number(count ?? 0); }
 
 function supplierLinks(origin: string, token: string) {
-  return { test: supplierRoute(origin, token, "test"), live: supplierLiveTemplate(origin, token) };
+  return { test: supplierRoute(origin, token, "test"), live: supplierLiveTemplate(origin, token), short: supplierShortTemplate(origin, token) };
 }
 
 function clientLinks(origin: string, token: string) {

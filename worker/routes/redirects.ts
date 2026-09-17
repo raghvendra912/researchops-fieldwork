@@ -2,7 +2,7 @@ import { ingestNormalizedEvent, type EventEnv } from "./events";
 import { riskMetadata } from "../lib/fraud";
 import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
-import { outcomeRouteFromSession, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
+import { outcomeRouteFromSession, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
 import { requestId, safeLog } from "../lib/observability";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
@@ -65,11 +65,18 @@ async function recordEvent(request: Request, env: RedirectEnv, supplier: Supplie
 
 async function supplierByToken(env: RedirectEnv, token: string) {
   const rows = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=eq.${encodeURIComponent(token)}&limit=1`);
-  return rows[0];
+  if (rows[0]) return rows[0];
+  // Short-code links (/s/<8hex>) carry only the token prefix; resolve the full
+  // supplier by matching the redirect_token prefix like the industry tools do.
+  if (/^[0-9a-f]{8}$/i.test(token)) {
+    const candidates = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=ilike.${token}*&limit=2`);
+    return candidates.length === 1 ? candidates[0] : undefined;
+  }
+  return undefined;
 }
 
 export async function handleRedirectApi(request: Request, pathname: string, env: RedirectEnv): Promise<Response | null> {
-  const supplierRoute = parseSupplierRoute(pathname);
+  const supplierRoute = parseSupplierRoute(pathname) ?? parseSupplierShortRoute(pathname);
   const clientRoute = parseClientRoute(pathname);
   const outcomeRoute = parseOutcomeRoute(pathname);
   if (!supplierRoute && !clientRoute && !outcomeRoute) return null;

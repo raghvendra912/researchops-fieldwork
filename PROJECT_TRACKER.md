@@ -404,6 +404,15 @@ Do not record secret values here. Mark only whether they are available.
 
 ## Session log
 
+### 2026-09-16 - Industry-standard short links (Cint/Toluna style)
+
+- Added `/s/<8-hex-short-code>` supplier routes as clean aliases of `/r/supplier/<uuid>/...`: `supplierShortTemplate`, `parseSupplierShortRoute`, prefix `ilike` resolution in the supplier redirect flow (exact-token query first, then 8-hex prefix fallback, capped at 2 candidates), and `/s/` dispatch in `worker/index.ts`.
+- Added standard status-code aliases (`C`=complete, `T`=terminate, `Q`=quota-full, `S`=security-terminate) alongside the existing word outcomes, so supplier return URLs can use either convention.
+- Exposed `shortLink` end to end: directories supplier links response, project supplier assignment links (`/api/projects` spec rows), the `supplierAssignments` type, and the Project Center Links dialog (new clean-link card with copy).
+- Old `/r/...` links remain fully valid (back-compat); short links share the same routing engine, session IDs, and metrics.
+- Verified: `tsc --noEmit` exit 0, `node --test` routing suites 3+4 pass / 0 fail, `npm run lint` clean. Pending: live hosted probe of `/s/` route and Links dialog after Vercel deploy; then user's urgent project launch.
+- Current task: hosted `/s/` probe + urgent project launch support. Next: remaining `039` live checks, `038` proofs, provider gates.
+
 ### 2026-09-16 - `039` confirmed live and equal-ref proven
 
 - Probed the hosted `supplier_scoped_ref_ready` capability RPC: returned `200 true`, independently confirming migration `039` is active on hosted Supabase.

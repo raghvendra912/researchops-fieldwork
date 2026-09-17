@@ -95,7 +95,7 @@ const worker = {
 
     if(url.pathname.startsWith("/supabase/")){const proxyResponse=await handleSupabaseProxy(request,url.pathname,projectEnv);if(proxyResponse)return observed(proxyResponse);}
 
-    if (url.pathname.startsWith("/r/")) {
+    if (url.pathname.startsWith("/r/") || url.pathname.startsWith("/s/")) {
       const redirectResponse = await handleRedirectApi(request, url.pathname, projectEnv);
       if (redirectResponse) return observed(redirectResponse);
     }
