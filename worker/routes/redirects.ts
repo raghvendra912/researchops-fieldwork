@@ -67,9 +67,12 @@ async function supplierByToken(env: RedirectEnv, token: string) {
   const rows = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=eq.${encodeURIComponent(token)}&limit=1`);
   if (rows[0]) return rows[0];
   // Short-code links (/s/<8hex>) carry only the token prefix; resolve the full
-  // supplier by matching the redirect_token prefix like the industry tools do.
+  // supplier by matching the redirect_token prefix. The column is a uuid, so
+  // PostgREST ilike cannot cast it — use a bounded uuid range instead.
   if (/^[0-9a-f]{8}$/i.test(token)) {
-    const candidates = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=ilike.${token}*&limit=2`);
+    const lower = `${token}-0000-0000-0000-000000000000`;
+    const upper = `${token}-ffff-ffff-ffff-ffffffffffff`;
+    const candidates = await serviceRows<SupplierRow>(env, `/rest/v1/suppliers?select=id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url&redirect_token=gte.${lower}&redirect_token=lte.${upper}&limit=2`);
     return candidates.length === 1 ? candidates[0] : undefined;
   }
   return undefined;
