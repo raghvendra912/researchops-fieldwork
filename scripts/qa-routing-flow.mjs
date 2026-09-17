@@ -1,6 +1,17 @@
-import { readFileSync } from "node:fs";
-const anonKey = readFileSync("anon-key.txt", "utf8").trim();
 const ORIGIN = "https://www.asrv.co.in";
+// Anon key is public by design (auto-discovered from the deployed app's client bundle).
+async function discoverAnonKey() {
+  if (process.env.QA_ANON_KEY) return process.env.QA_ANON_KEY;
+  const page = await (await fetch(`${ORIGIN}/login`)).text();
+  const chunks = [...new Set([...page.matchAll(/\/_next\/static\/chunks\/[A-Za-z0-9_.-]+\.js/g)].map((m) => m[0]))];
+  for (const c of chunks) {
+    const t = await (await fetch(`${ORIGIN}${c}`)).text();
+    const m = t.match(/eyJhbGciOi[A-Za-z0-9._-]{40,}/);
+    if (m) { console.log("anon key discovered from", c.split("/").pop()); return m[0]; }
+  }
+  throw new Error("anon key not found in client bundle");
+}
+const anonKey = await discoverAnonKey();
 const run = Date.now();
 let cookie = "";
 async function api(path, { method = "GET", body, auth } = {}) {
@@ -10,15 +21,26 @@ async function api(path, { method = "GET", body, auth } = {}) {
   const setCookie = res.headers.get("set-cookie");
   if (setCookie) cookie = setCookie.split(";")[0];
   const text = await res.text();
-  let json = null; try { json = JSON.parse(text); } catch {}
+  let json = null; try { json = JSON.parse(text); } catch { json = null; }
   return { status: res.status, json, text: text.slice(0, 250) };
 }
 function log(label, r) { console.log(`${label}: ${r.status} ${r.json ? JSON.stringify(r.json).slice(0, 200) : r.text.slice(0, 140)}`); return r; }
+async function routingDiag(label, res) {
+  const body = await res.text();
+  const err = body.match(/"error":"([^"]*)"/)?.[1];
+  const fix = body.match(/"fix":"([^"]*)"/)?.[1];
+  console.log(`${label}: ${res.status}${err ? " error=" + err : ""}${fix ? " fix=" + fix : ""}`);
+  return { status: res.status, location: res.headers.get("location"), body };
+}
 
 const email = `qa-routing-${run}@example.com`, password = "QaProbe!2026x";
-let r = await api("/api/auth/signup", { method: "POST", body: { email, password } });
-log("signup-proxy", r);
-if (r.status >= 400) { r = await api("/supabase/auth/v1/signup", { method: "POST", body: { email, password } }); log("signup-supabase", r); }
+let r = null;
+for (let attempt = 0; attempt < 5; attempt++) {
+  r = await api("/supabase/auth/v1/signup", { method: "POST", body: { email, password } });
+  console.log(`signup attempt ${attempt + 1}:`, r.status);
+  if (r.status < 400) break;
+  await new Promise((ok) => setTimeout(ok, 20000 * (attempt + 1)));
+}
 const access = r.json?.access_token || r.json?.data?.access_token;
 if (!access) { console.log("NO SESSION — stop"); process.exit(1); }
 r = await api("/api/organizations", { method: "POST", auth: access, body: { name: `QA Routing ${run}` } }); log("org-create", r);
@@ -60,5 +82,24 @@ if (rid) {
     const replay = await fetch(outcomeUrl, { redirect: "manual" });
     console.log("OUTCOME complete (replay):", replay.status, replay.headers.get("location"));
   }
+}
+// 039 live equal-ref test: two suppliers, same external ref -> two distinct sessions
+const sup2 = await api("/api/suppliers", { method: "POST", auth: access, body: { name: `QA Supplier B ${run}`, code: `QB${run}`, redirectMode: "DYNAMIC", contactName: "QA", redirects: { completeUrl: "https://supplier-b.example.test/complete", terminateUrl: "https://supplier-b.example.test/terminate", quotaFullUrl: "https://supplier-b.example.test/quota", securityTerminateUrl: "https://supplier-b.example.test/security" } } });
+const supB = sup2.json?.data || sup2.json;
+await api(`/api/projects/${encodeURIComponent(project.id)}/suppliers`, { method: "PUT", auth: access, body: { assignments: [{ supplierId: supplier.id, supplierCpi: 5, targetQuota: 50, status: "ACTIVE" }, { supplierId: supB.id, supplierCpi: 5, targetQuota: 50, status: "ACTIVE" }] } });
+const supList = await api("/api/suppliers", { auth: access });
+const supAObj = (supList.json?.data || []).find((s) => s.name === `QA Supplier ${run}`) || {};
+const supBObj = (supList.json?.data || []).find((s) => s.name === `QA Supplier B ${run}`) || {};
+const tokA = JSON.stringify(supAObj.links || "").match(/\/r\/supplier\/([0-9a-f-]{36})\//)?.[1];
+const tokB = JSON.stringify(supBObj.links || "").match(/\/r\/supplier\/([0-9a-f-]{36})\//)?.[1];
+const hitA = await routingDiag("hitA", await fetch(`${ORIGIN}/r/supplier/${tokA}/live?project=${project.id}&respondent=SAME-REF-777`, { redirect: "manual" }));
+const hitB = await routingDiag("hitB", await fetch(`${ORIGIN}/r/supplier/${tokB}/live?project=${project.id}&respondent=SAME-REF-777`, { redirect: "manual" }));
+const ridA = new URL(hitA.location || "https://x/?rid=none").searchParams.get("rid");
+const ridB = new URL(hitB.location || "https://x/?rid=none").searchParams.get("rid");
+console.log("EQUAL-REF 039:", hitA.status, hitB.status, "ridA=", ridA, "ridB=", ridB, "distinct=", ridA !== ridB && !!ridA && !!ridB);
+// Frontend pages
+for (const p of ["/login", "/projects", "/dashboard"]) {
+  const res = await fetch(ORIGIN + p, { redirect: "manual" });
+  console.log("PAGE", p, "->", res.status, (res.headers.get("location") || "").slice(0, 60));
 }
 console.log("\nDONE run", run);
