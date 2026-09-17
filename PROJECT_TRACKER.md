@@ -35,6 +35,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 | TODO | Not implemented. |
 | BLOCKED | Cannot continue until the named dependency or credential is available. |
 
+## Directory UI checkpoint — 2026-09-16
+
+- Change: moved the Clients/Suppliers Clear filters action below the filter grid, matching the Project Center action-row structure. No routing or other page behavior changed.
+- Verification: TypeScript `--noEmit` and DirectoryPage ESLint passed (exit 0). Targeted Playwright run: client handoff passed; supplier directory failed because the existing test expects two links but the current UI renders three. Full directory browser verification is not marked passed.
+- Current task: commit and push this bounded layout checkpoint.
+- Next task/blocker: reconcile the supplier browser expectation with the already-existing short-link contract, then verify directory filtering/reset. Broader UI alignment remains unfinished.
+- Session log: completed the pending single-component layout change; deliberately deferred unrelated changes and recorded the failing browser check rather than claiming full success.
+
+
 ## Current focus
 
 ### Now - restore hosted Project Center and verify the release
