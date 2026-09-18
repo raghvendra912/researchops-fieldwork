@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { projectsToCsv, projectRoutingColumns } from "../src/features/projects/project-export.ts";
+import { buildSurveyUrl, previewSurveyUrl } from "../worker/domain/survey-url.ts";
 import {
   clientOutcomeTemplates,
   fillLiveTemplate,
@@ -53,4 +54,29 @@ test("every new project carries tool routing info in CSV", () => {
   assert.match(csv, /Routing live links/);
   assert.match(csv, /\/r\/supplier\/token\/live/);
   assert.equal(ROUTING_HELP.newProjectChecklist.length, 8);
+});
+
+test("survey URL values split the TOID attempt id from the supplier panelist id", () => {
+  const context = { project_id: "ROP-42", transaction_id: "SESS-UUID-1", session_id: "SESS-UUID-1", respondent_id: "SUP-9" };
+  const survey = buildSurveyUrl("https://survey.example/start", [
+    { name: "pid", value: "{{transaction_id}}" },
+    { name: "uid", value: "{{respondent_id}}" },
+    { name: "attempt", value: "{[TOID]}" },
+    { name: "panelist", value: "[unique_id]" },
+    { name: "rid", value: "{[rid]}" },
+    { name: "cube", value: "[#scid#]" },
+    { name: "code", value: "{{project_code}}" },
+  ], context);
+  const params = survey.searchParams;
+  assert.equal(params.get("pid"), "SESS-UUID-1");
+  assert.equal(params.get("uid"), "SUP-9");
+  assert.equal(params.get("attempt"), "SESS-UUID-1");
+  assert.equal(params.get("panelist"), "SUP-9");
+  assert.equal(params.get("rid"), "SESS-UUID-1");
+  assert.equal(params.get("cube"), "SESS-UUID-1");
+  assert.equal(params.get("code"), "ROP-42");
+  const preview = previewSurveyUrl("https://survey.example/start?rid={[rid]}", [{ name: "pid", value: "{{transaction_id}}" }, { name: "uid", value: "{{respondent_id}}" }]);
+  assert.match(preview, /rid=TOID-SAMPLE-1/);
+  assert.match(preview, /pid=TOID-SAMPLE-1/);
+  assert.match(preview, /uid=USER-SAMPLE-1/);
 });

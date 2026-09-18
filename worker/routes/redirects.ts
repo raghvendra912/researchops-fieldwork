@@ -171,7 +171,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!outcomeToken) return help("The respondent outcome route could not be created", 502, { stage: routingStage });
       const callback = (outcome: Outcome) => outcomeRouteFromSession(url.origin, outcomeToken, outcome);
       const configuredParameters = Array.isArray(project.survey_parameters) ? project.survey_parameters.filter((value): value is SurveyParameter => { const item = value as Partial<SurveyParameter>; return typeof item?.name === "string" && typeof item?.value === "string"; }) : [];
-      const surveyUrl = buildSurveyUrl(surveyTemplate, configuredParameters, { ...answers, project_id: projectCode, respondent_id: sessionId, session_id: sessionId, complete_url: callback("complete"), terminate_url: callback("terminate"), quota_full_url: callback("quota-full"), security_terminate_url: callback("security-terminate") });
+      const surveyUrl = buildSurveyUrl(surveyTemplate, configuredParameters, { ...answers, project_id: projectCode, transaction_id: sessionId, respondent_id: respondentRef, session_id: sessionId, complete_url: callback("complete"), terminate_url: callback("terminate"), quota_full_url: callback("quota-full"), security_terminate_url: callback("security-terminate") });
       if (!surveyUrl.searchParams.has("rid")) surveyUrl.searchParams.set("rid", sessionId);
       if (!surveyUrl.searchParams.has("complete_url")) surveyUrl.searchParams.set("complete_url", callback("complete"));
       if (!surveyUrl.searchParams.has("terminate_url")) surveyUrl.searchParams.set("terminate_url", callback("terminate"));
