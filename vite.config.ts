@@ -45,13 +45,26 @@ export default defineConfig(async ({ mode }) => {
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
-  // The automated suite asserts the clearly labeled demo experience, which is
-  // what the product shows when no browser-facing Supabase credentials exist.
-  // A developer machine's `.env.local` must not reach the test bundle, or the
-  // server-rendered shell would gate on a session the harness never
-  // establishes. `--mode test` therefore reads its environment from a
-  // deliberately credential-free directory instead of the project root.
+  // The automated suite server-renders protected pages and asserts the
+  // "Checking your workspace session" gate, so the test bundle must look
+  // auth-configured while never reaching real infrastructure. A developer
+  // machine's `.env.local` must not reach the test bundle, or the
+  // server-rendered shell would inherit unpredictable credentials.
+  // `--mode test` therefore reads its environment from a deliberately
+  // credential-free directory instead of the project root.
   const isTestBuild = process.env.RESEARCHOPS_TEST_BUILD === "true";
+  if (isTestBuild) {
+    // Vite's import.meta.env inherits process.env VITE_* entries even when
+    // envDir points at the credential-free directory, so a shell that
+    // exported Supabase credentials (local dev, tunnels, CI) would silently
+    // change the auth configuration of the test bundle. Strip them and pin
+    // non-secret placeholders instead: the suite server-renders protected
+    // pages and asserts the "Checking your workspace session" gate, which
+    // needs a configured client but must never reach real infrastructure.
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("VITE_")) delete process.env[key];
+    }
+  }
   const envDir = isTestBuild ? `${process.cwd()}/tests/env` : process.cwd();
   const environment = loadEnv(mode, envDir, "");
   let commitCount = "1";
@@ -81,6 +94,12 @@ export default defineConfig(async ({ mode }) => {
       "import.meta.env.VITE_DEV_AUTO_LOGIN": JSON.stringify(
         devAutoLoginEnabled ? "true" : "false",
       ),
+      ...(isTestBuild
+        ? {
+            "import.meta.env.VITE_SUPABASE_URL": JSON.stringify("https://test-suite.supabase.invalid"),
+            "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify("test-suite-anon-key"),
+          }
+        : {}),
     },
     server: {
       host: "127.0.0.1",

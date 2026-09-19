@@ -3,9 +3,10 @@
 // `vinext build` always builds in Vite's `production` mode and ignores
 // `--mode`, so the suite cannot select a different mode through the CLI. It
 // sets an explicit flag instead, which `vite.config.ts` turns into a
-// credential-free `envDir`. That keeps a developer's `.env.local` out of the
-// test bundle so the server-rendered shell reflects the documented demo
-// experience the suite asserts.
+// credential-free `envDir` plus pinned non-secret placeholder Supabase
+// values. That keeps a developer's `.env.local` (and any shell-exported
+// `VITE_*` variables) out of the test bundle while still server-rendering
+// the protected "Checking your workspace session" gate the suite asserts.
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
