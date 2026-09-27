@@ -66,6 +66,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: commit and push the unified UI plus full-width project creation workspace, then verify production deployment uptake and public health/readiness.
 - Next task/blocker: visually confirm `/projects/new` in an authenticated hosted session; public deployment checks cannot inspect the protected post-login form.
 - Session log (2026-09-28): unified public account and product shells, expanded project creation to the full workspace width, preserved direct route navigation and form behavior, and completed compile/lint/build/test/diff verification before release.
+- Deployment result: commit `31905d1` was pushed to `origin/main`; Vercel production deployment `researchops-fieldwork-mtu6lzj72-raghvendra912s-projects.vercel.app` reached Ready. The production domain returns HTTP 200 for `/api/health`, `/api/readiness`, and `/login`, and its deployed stylesheet contains both `project-create-layout` and `auth-workspace-page`. Authenticated visual inspection of the protected creation form remains the only unclaimed check.
 
 ## Decipium client-link routing checkpoint — 2026-09-22
 
