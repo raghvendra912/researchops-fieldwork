@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-27
+Last updated: 2026-09-28
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -48,6 +48,24 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task/blocker: hosted authenticated UI verification remains pending; local Playwright development startup/hydration is too slow for the available command window, and local `vinext start` resolves stale `.vinext` output. Broader UI alignment remains unfinished.
 - Session log (2026-09-27): audited and preserved the existing UI work, reconciled supplier routes, added SSR-safe demo links and an isolated demo-build switch, completed compile/lint/standard-suite verification, pushed `c8dbc44`, verified the resulting Ready production deployment and public health/readiness, and kept protected browser verification open rather than claiming a pass without an authenticated session.
 
+## Whole-tool UI unification checkpoint — 2026-09-27
+
+- Standardized every product route on the Project Center shell: Overview, Project Center, project creation/detail, Suppliers, Clients, Flamingo, Respondents, Fraud review, Notifications, Analytics, Settings, and onboarding now share the same top navigation, page width, reference-filter header, square panels, table/action conventions, and responsive navigation behavior.
+- Added shared `AuthPageFrame` and migrated login, signup, forgot-password, and reset-password routes to the same reference-filter/panel/table-footer visual language. Authentication and recovery behavior is unchanged.
+- Removed remaining route usage of the legacy `login-page`, `auth-card-page`, `onboarding-shell`, `page-head`, `form-shell`, and `metric-strip` shells. Added a rendered-HTML regression proving all four public account routes use the unified UI primitives.
+- Verification: `npx tsc --noEmit`, full ESLint, `npm run build`, and `git diff --check` pass. The standard suite reports 46 passed and 6 environment-gated skips. Browser/hosted visual proof remains the next release check; no data, authorization, routing, or database contract changed.
+- Current task: commit, push, and verify the unified public account shell and production release uptake; authenticated hosted product-page visual proof remains credential-gated.
+
+
+## Full-width project creation checkpoint — 2026-09-28
+
+- Reworked the New project workspace so setup progress is a compact horizontal four-step strip and the creation form occupies the full available page width beneath it instead of being constrained to a narrow right column.
+- Kept the existing creation fields, validation, submission behavior, and direct `/projects/new` navigation contract unchanged; Project Center and the shared top navigation both continue to open the dedicated creation route directly.
+- The full-width form retains three-column desktop grouping where appropriate and collapses to a single column on mobile; the progress strip collapses to two columns on smaller screens.
+- Verification: `npx tsc --noEmit`, `npm run lint`, `npm run build`, `npm test` (46 passed, 6 environment-gated skips), and `git diff --check` pass. Authenticated hosted visual proof remains credential-gated.
+- Current task: commit and push the unified UI plus full-width project creation workspace, then verify production deployment uptake and public health/readiness.
+- Next task/blocker: visually confirm `/projects/new` in an authenticated hosted session; public deployment checks cannot inspect the protected post-login form.
+- Session log (2026-09-28): unified public account and product shells, expanded project creation to the full workspace width, preserved direct route navigation and form behavior, and completed compile/lint/build/test/diff verification before release.
 
 ## Decipium client-link routing checkpoint — 2026-09-22
 

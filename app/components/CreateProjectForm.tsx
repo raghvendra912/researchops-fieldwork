@@ -64,8 +64,8 @@ export function CreateProjectForm() {
     {createdId ? <div className="success-banner"><span>Pending project {createdId} created and assigned to the signed-in operator.</span><Link href={`/projects/${createdId}`}>Open project →</Link></div> : null}
     {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
     <form onSubmit={submit}>
-      <div className="dashboard-grid" style={{ alignItems: "start" }}>
-      <section className="panel"><div className="panel-head"><h2 className="panel-title">Setup progress</h2><span className="panel-note">4 steps · pending project</span></div><div className="info-list">{steps.map(([number, label, hint], index) => <div className="info-row" key={number}><span>{number} · {label}</span><strong>{index === 0 ? "Current" : hint}</strong></div>)}</div><div className="table-footer"><span>A dated pending project is created when you submit</span></div></section>
+      <div className="project-create-layout">
+      <section className="panel project-create-progress"><div className="panel-head"><h2 className="panel-title">Setup progress</h2><span className="panel-note">4 steps · pending project</span></div><div className="info-list">{steps.map(([number, label, hint], index) => <div className={`info-row${index === 0 ? " active" : ""}`} key={number}><span>{number} · {label}</span><strong>{index === 0 ? "Current" : hint}</strong></div>)}</div></section>
       <div className="panel form-panel">
         <section className="form-section"><div className="section-head"><div><h2>Project information</h2><p>Choose an existing client and controlled study classification.</p></div><span className="status-pill status-PENDING">PENDING</span></div><div className="form-grid">
           <div className="field full"><label htmlFor="project-name">Project name</label><input className="control" id="project-name" name="projectName" required /></div>

@@ -47,6 +47,18 @@ test("server-renders email OTP signup", async () => {
   assert.match(html, /email.*one-time code/i);
 });
 
+test("public account routes share the Project Center UI system", async () => {
+  for (const path of ["/login", "/signup", "/forgot-password", "/reset-password"]) {
+    const response = await request(path);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /class="auth-workspace-page"/i);
+    assert.match(html, /class="reference-filter"/i);
+    assert.match(html, /class="panel auth-uniform-panel"/i);
+    assert.match(html, /Workspace access/i);
+  }
+});
+
 test("server-renders protected directory entry points", async () => {
   const clients = await request("/clients");
   assert.equal(clients.status, 200);
