@@ -15,8 +15,8 @@ type DirectoryRecord = {
 
 const emptyRedirects: Redirects = { completeUrl: "", terminateUrl: "", quotaFullUrl: "", securityTerminateUrl: "" };
 const demoRecords: Record<DirectoryKind, DirectoryRecord[]> = {
-  clients: [{ id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE", projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", redirects: emptyRedirects }],
-  suppliers: [{ id: "supplier-cpx", name: "CPX Research", code: "CPX", status: "ACTIVE", projectCount: 3, contactName: "Supply team", address: "Remote", contactEmail: "supply@cpx.example", phone: "+1 000 000 0000", redirectMode: "STATIC", redirects: emptyRedirects }],
+  clients: [{ id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE", projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", redirects: emptyRedirects, links: { complete: "/r/client/client-northstar/complete?rid={{respondent_id}}", terminate: "/r/client/client-northstar/terminate?rid={{respondent_id}}", quotaFull: "/r/client/client-northstar/quota-full?rid={{respondent_id}}", securityTerminate: "/r/client/client-northstar/security-terminate?rid={{respondent_id}}" } }],
+  suppliers: [{ id: "supplier-cpx", name: "CPX Research", code: "CPX", status: "ACTIVE", projectCount: 3, contactName: "Supply team", address: "Remote", contactEmail: "supply@cpx.example", phone: "+1 000 000 0000", redirectMode: "STATIC", redirects: emptyRedirects, links: { test: "/r/supplier/supplier-cpx/test", live: "/r/supplier/supplier-cpx/live?project={{project_id}}&respondent={{respondent_id}}" } }],
 };
 
 export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind: DirectoryKind; eyebrow: string; title: string; subtitle: string; action: string }) {
@@ -55,24 +55,31 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
   }
 
   async function copyLink(label: string, link: string) { await navigator.clipboard.writeText(link); setCopied(label); window.setTimeout(() => setCopied(""), 1800); }
-  const visibleLinks = Object.entries(linkRecord?.links ?? {}).filter((entry): entry is [string, string] => typeof entry[1] === "string" && Boolean(entry[1]));
+  const visibleLinks = Object.entries(linkRecord?.links ?? {}).filter((entry): entry is [string, string] => {
+    if (typeof entry[1] !== "string" || !entry[1]) return false;
+    return kind !== "suppliers" || entry[0] === "test" || entry[0] === "live";
+  });
   async function copyAll() { if (!visibleLinks.length) return; await navigator.clipboard.writeText(visibleLinks.map(([label, link]) => `${linkLabel(kind, label)}: ${link}`).join("\n")); setCopied("all"); window.setTimeout(() => setCopied(""), 1800); }
   const editRedirects = editing?.redirects ?? emptyRedirects;
 
   return <>
-    <div className="page-head"><div><div className="eyebrow">{eyebrow}</div><h1 className="page-title">{title}</h1><p className="page-subtitle">{subtitle}</p></div>{canOperate ? <button className="button primary" type="button" onClick={openCreate}>＋ {action}</button> : <span className="status-pill status-PENDING">{kind === "clients" ? "Admin managed" : "Read only"}</span>}</div>
-    {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
+    <div className="project-center-page">
     <section className="reference-filter" aria-label={`${title} filters`}>
       <div className="reference-filter-grid">
         <div className="field"><label htmlFor="directory-status">Status</label><select id="directory-status" className="control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></div>
         <div className="field"><label htmlFor="directory-search">Search</label><input id="directory-search" className="control" placeholder="Name, code or contact email" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
-        <div className="field"><button className="button small ghost" type="button" onClick={() => { setStatusFilter("ALL"); setQuery(""); }}>Clear filters</button></div>
+        <div className="field"><span className="field-label">Source</span><span className="control static-control">{source === "supabase" ? "Supabase workspace data" : "Demo data"}</span></div>
+        <div className="field"><span className="field-label">Access</span><span className="control static-control">{canOperate ? "Can operate" : (kind === "clients" ? "Admin managed" : "Read only")}</span></div>
+        <div className="reference-actions">{canOperate ? <button className="reference-icon-button" type="button" aria-label={`Add ${kind}`} title={`Add ${kind}`} onClick={openCreate}>+</button> : null}<button className="reference-icon-button" type="button" aria-label="Clear directory filters" title="Clear directory filters" onClick={() => { setStatusFilter("ALL"); setQuery(""); }}>✕</button></div>
       </div>
+      <div className="reference-filter-extra"><span className="panel-note">{title} · {subtitle}</span></div>
     </section>
     <section className="panel"><div className="panel-head"><h2 className="panel-title">{title} directory</h2><span className="panel-note">{source === "supabase" ? "Supabase workspace data" : "Demo data"}</span></div>
       <div className="table-wrap"><table className="data-table" style={{ minWidth: 900 }}><thead><tr><th>#</th><th>Name</th><th>Contact</th>{kind === "suppliers" ? <th>Redirect mode</th> : null}<th>Projects</th><th>Status</th><th>Links</th>{canOperate ? <th>Actions</th> : null}</tr></thead><tbody>{filtered.map((record, index) => <tr key={record.id}><td>{index + 1}</td><td className="project-name-cell"><strong>{record.name}</strong><span>{record.code}</span></td><td className="project-name-cell"><strong>{record.contactName || "Not set"}</strong><span>{record.contactEmail || record.phone || "No contact details"}</span></td>{kind === "suppliers" ? <td>{record.redirectMode}</td> : null}<td className="rate">{record.projectCount}</td><td><span className={`status-pill status-${record.status}`}>{record.status}</span></td><td>{record.links ? <button className="button small ghost" type="button" onClick={() => openLinks(record)}>View links</button> : "Restricted"}</td>{canOperate ? <td><div className="row-actions"><button className="button small ghost" type="button" onClick={() => openEdit(record)}>Edit</button><button className="button small ghost" type="button" onClick={() => void toggleStatus(record)}>{record.status === "ACTIVE" ? "Deactivate" : "Activate"}</button></div></td> : null}</tr>)}{filtered.length === 0 ? <tr><td colSpan={canOperate ? (kind === "suppliers" ? 8 : 7) : (kind === "suppliers" ? 7 : 6)} style={{ textAlign: "center", padding: 32, color: "var(--muted)" }}>No matching records.</td></tr> : null}</tbody></table></div>
-      <div className="table-footer"><span>Showing 1–{filtered.length} of {records.length} {kind === "suppliers" ? "suppliers" : "clients"}</span></div>
+      <div className="table-footer"><span>Showing 1–{filtered.length} of {records.length} {kind === "suppliers" ? "suppliers" : "clients"}</span>{canOperate ? <button className="button small ghost" type="button" onClick={openCreate}>＋ {action} →</button> : <span className="panel-note">{eyebrow}</span>}</div>
     </section>
+    </div>
+    {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
     {formOpen ? <section className="panel directory-form" style={{ marginTop: 16 }}>
       <div className="section-head"><div><h2>{editing ? `Edit ${editing.name}` : action}</h2><p>{kind === "clients" ? "Maintain client identity and contact details. Redirect destinations are intentionally managed outside this record." : "Maintain supplier contact and redirect destinations."}</p></div><button className="button small ghost" type="button" onClick={() => setFormOpen(false)}>Close</button></div>
       <form className="form-grid three" onSubmit={save}>

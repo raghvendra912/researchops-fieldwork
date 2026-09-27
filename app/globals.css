@@ -71,9 +71,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .workspace-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; margin-right: 6px; }
 .content { padding: 32px; max-width: 1600px; margin: 0 auto; }
 
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
-.page-title { margin: 6px 0 7px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(32px, 4vw, 46px); line-height: .98; font-weight: 500; letter-spacing: -0.035em; }
-.page-subtitle { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+/* Global UI system: every product page uses the Project Center reference pattern. */
 .eyebrow { color: var(--brand); }
 .head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .button { min-height: 40px; border-radius: 10px; padding: 0 16px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 750; }
@@ -89,12 +87,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .panel-title { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: -.01em; }
 .panel-note { color: var(--muted); font-size: 11px; }
 
-.metric-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-.metric-card { min-height: 108px; padding: 18px 19px; position: relative; overflow: hidden; }
-.metric-card::after { content: ""; width: 72px; height: 72px; border-radius: 50%; position: absolute; right: -20px; bottom: -32px; background: var(--metric-tint, #e9ece8); opacity: .8; }
-.metric-top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 11px; font-weight: 700; }
-.metric-value { margin-top: 14px; font-family: Georgia, serif; font-size: 32px; line-height: 1; }
-.metric-delta { color: var(--green); font-size: 10px; font-weight: 750; }
+/* Shared outcome totals: replaces the retired metric-strip/metric-card pattern. */
 
 .filter-panel { padding: 17px; margin-bottom: 16px; }
 .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 14px 10px; align-items: start; }
@@ -276,14 +269,7 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .activity-item span { display: block; color: var(--muted); font-size: 9px; margin-top: 3px; }
 .activity-time { color: var(--muted); font-size: 9px; }
 
-.form-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: start; }
-.steps { padding: 10px; position: sticky; top: 88px; }
-.step { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; padding: 11px 10px; border-radius: 10px; color: var(--muted); }
-.step.active { background: #f4ece7; color: var(--ink); }
-.step-number { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; background: #ebede9; font-size: 10px; font-weight: 800; }
-.step.active .step-number { background: var(--brand); color: white; }
-.step strong { display: block; font-size: 11px; }
-.step span { display: block; font-size: 9px; margin-top: 2px; }
+/* Project form uses the shared Project Center grid: progress panel + detail panel. */
 .form-panel { overflow: hidden; }
 .form-section { padding: 22px; border-bottom: 1px solid var(--line); }
 .form-section:last-child { border-bottom: 0; }
@@ -310,17 +296,17 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .choice-card input { accent-color: var(--brand); }
 .choice-card strong { display: block; font-size: 11px; }
 .choice-card span { display: block; color: var(--muted); font-size: 9px; margin-top: 3px; }
-.form-actions { position: sticky; bottom: 0; padding: 14px 20px; border-top: 1px solid var(--line); background: rgba(255,254,251,.94); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: space-between; }
-.save-note { color: var(--muted); font-size: 10px; }
+/* Retired form-actions/save-note selectors: forms now close with the shared table-footer actions. */
 .success-banner { margin-bottom: 16px; padding: 14px 16px; border: 1px solid #b9dacf; border-radius: 12px; background: #e7f4ef; color: #12634f; display: flex; justify-content: space-between; gap: 16px; font-size: 11px; font-weight: 700; }
 
-.detail-hero { padding: 22px; margin-bottom: 16px; display: flex; justify-content: space-between; gap: 24px; align-items: center; background: #1d2a26; color: white; }
+.detail-hero { padding: 22px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 24px; align-items: center; background: #1d2a26; color: white; }
 .detail-hero h1 { margin: 4px 0 8px; font: 500 34px/1 Georgia, serif; }
 .detail-hero p { margin: 0; color: #b6c5bf; font-size: 11px; }
 .hero-metrics { display: grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); gap: 28px; }
 .hero-metric span { color: #98aaa3; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .hero-metric strong { display: block; margin-top: 6px; font: 500 24px/1 Georgia, serif; }
-.split-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(270px, .65fr); gap: 16px; }
+/* Retired split-grid alias: dashboard-grid is the shared two-column product layout. */
+.split-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .7fr); gap: 16px; }
 .info-list { padding: 8px 20px; }
 .info-row { padding: 12px 0; border-bottom: 1px solid #ecece7; display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
 .info-row:last-child { border-bottom: 0; }
@@ -377,7 +363,7 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .supplier-link-card .modal-actions { margin-top: auto; }
 .variable-required { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 10px; font-weight: 700; }
 .button:disabled { cursor: not-allowed; opacity: .62; }
-.empty-panel { min-height: 380px; padding: 48px; display: grid; place-items: center; text-align: center; }
+.empty-panel { min-height: 240px; padding: 0 48px 48px; display: grid; place-items: center; text-align: center; gap: 12px; }
 .empty-panel h2 { font: 500 28px Georgia, serif; margin: 0 0 10px; }
 .empty-panel p { color: var(--muted); max-width: 500px; line-height: 1.6; font-size: 12px; }
 .onboarding-shell { min-height: calc(100vh - 132px); display: grid; place-items: center; }
@@ -413,15 +399,10 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
   .topbar { height: 58px; padding: 0 17px; }
   .workspace-status { display: none; }
   .content { padding: 22px 16px 90px; }
-  .page-head { align-items: start; flex-direction: column; }
-  .page-title { font-size: 38px; }
-  .metric-strip { grid-template-columns: repeat(2, 1fr); }
   .outcome-grid, .outcome-grid.project { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filter-grid { grid-template-columns: repeat(2, 1fr); }
   .search-wrap { grid-column: 1 / -1; }
-  .form-shell { grid-template-columns: 1fr; }
-  .steps { position: static; display: flex; overflow-x: auto; }
-  .step { min-width: 150px; }
+  /* Retired form-shell/steps selectors are intentionally unstyled; the form uses dashboard-grid + panels. */
   .form-grid, .form-grid.three, .supplier-grid, .supplier-select-row, .parameter-row { grid-template-columns: 1fr; }
   .detail-hero { align-items: start; flex-direction: column; }
   .login-page { grid-template-columns: 1fr; }

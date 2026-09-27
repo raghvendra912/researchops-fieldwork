@@ -1,9 +1,5 @@
 import Link from "../../components/NavigationLink";
 
 export default function FlamingoPage() {
-  return <div className="panel empty-panel" role="status">
-    <h1 className="page-title">Flamingo Tool</h1>
-    <p>This tool is planned for ResearchOps. Its workflow and connection will be added when the integration plan is ready.</p>
-    <Link className="button" href="/projects">Back to Project Center</Link>
-  </div>;
+  return <div className="project-center-page"><section className="reference-filter" aria-label="Flamingo scope"><div className="reference-filter-grid"><div className="field"><span className="field-label">Tool</span><span className="control static-control">Flamingo</span></div><div className="field"><span className="field-label">Status</span><span className="control static-control">Planned integration</span></div><div className="field"><span className="field-label">Workflow</span><span className="control static-control">Pending contract</span></div><div className="field"><span className="field-label">Navigation</span><Link className="control static-control" href="/projects">← Project Center</Link></div><div className="reference-actions"><Link className="reference-icon-button" href="/projects" aria-label="Back to Project Center" title="Back to Project Center">←</Link></div></div><div className="reference-filter-extra"><span className="panel-note">Flamingo Tool · Planned for ResearchOps; workflow and connection arrive with the integration plan.</span></div></section><section className="panel empty-panel" role="status"><div className="panel-head"><h2 className="panel-title">Flamingo Tool</h2><span className="panel-note">Placeholder</span></div><p>This tool is planned for ResearchOps. Its workflow and connection will be added when the integration plan is ready.</p></section><div className="table-footer"><span>Placeholder retains existing contract-free behavior</span><Link className="button small ghost" href="/projects">Back to Project Center →</Link></div></div>;
 }

@@ -2,8 +2,8 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-18
-Current milestone: Fieldwork intelligence and operational workbook
+Last updated: 2026-09-27
+Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
 ## Resume protocol
@@ -40,9 +40,24 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Change: moved the Clients/Suppliers Clear filters action below the filter grid, matching the Project Center action-row structure. No routing or other page behavior changed.
 - Verification: TypeScript `--noEmit` and DirectoryPage ESLint passed (exit 0). Targeted Playwright run: client handoff passed; supplier directory failed because the existing test expects two links but the current UI renders three. Full directory browser verification is not marked passed.
 - Current task: commit and push this bounded layout checkpoint.
-- Next task/blocker: reconcile the supplier browser expectation with the already-existing short-link contract, then verify directory filtering/reset. Broader UI alignment remains unfinished.
-- Session log: completed the pending single-component layout change; deliberately deferred unrelated changes and recorded the failing browser check rather than claiming full success.
+- 2026-09-23 update: whole-tool UI system is IN PROGRESS — New project, Clients/Suppliers, Analytics, Settings, Project workspace, Respondents, Fraud review, Notifications, and Flamingo placeholder were rebuilt on the shared `project-center-page` + `reference-filter` + `panel`/`outcome-grid`/`table-footer` pattern; retired page-head/metric-strip/form-shell/steps/form-actions selectors are intentionally unstyled CSS comments. Routing/data contracts untouched. `tsc --noEmit` in this environment cannot run to completion (terminal observation failure), so type/build/test verification is still pending.
+- 2026-09-27 verification update: the supplier directory now exposes only the intended `test` and `live` base routes, matching the existing two-link browser contract. Demo client/supplier records also carry their same-origin route templates during SSR so the table no longer falsely labels them `Restricted` before API enrichment. A credential-free `RESEARCHOPS_DEMO_BUILD=true` build mode isolates browser verification from local Supabase credentials without changing normal builds. `npx tsc --noEmit`, repeated `npm run build`, changed-file ESLint, and the standard suite pass; the suite reports 45 passed and 6 environment-gated skips. `git diff --check` passes.
+- Browser verification remains unclaimed: the fresh demo development run rendered and clicked the supplier `View links` action, but the dialog did not hydrate within the assertion window; the client route remained in first-load compilation long enough to exceed a 120-second test timeout. Production-mode attempts additionally exposed that `vinext start` serves the old 2026-09-12 `.vinext` artifact instead of the fresh `dist` output in this workspace. No stale artifacts were deleted.
+- Current task: commit and push the compile/test-clean whole-tool UI checkpoint, then browser-verify directory filtering/reset and both route dialogs in a responsive hosted or normally hydrated environment.
+- Next task/blocker: hosted authenticated UI verification remains pending; local Playwright development startup/hydration is too slow for the available command window, and local `vinext start` resolves stale `.vinext` output. Broader UI alignment remains unfinished.
+- Session log (2026-09-27): audited and preserved the existing UI work, reconciled supplier routes, added SSR-safe demo links and an isolated demo-build switch, completed compile/lint/standard-suite verification, and recorded the remaining browser-runtime limitation without claiming a pass.
 
+
+## Decipium client-link routing checkpoint — 2026-09-22
+
+- Improved the survey-routing editor with screenshot-style replace-key language plus separate generated Live and Test client-link previews. Preview generation now preserves and resolves placeholders already present in the pasted URL query instead of dropping that query.
+- Made the hosted routing QA utility accept a supplied survey URL and an option to leave supplier outcome destinations blank so ResearchOps-branded terminal pages can be verified directly.
+- Created isolated hosted QA project `ROP-1177` using `https://dst1.decipium.com/survey/prodlink.php?id=82272&sid=44507&vid=XXXX`, with `vid={{transaction_id}}`. The live routing response was HTTP 302 to Decipium with `vid` replaced by the generated session UUID and all four signed ResearchOps outcome URLs attached.
+- Emulated the client's complete return: ResearchOps returned HTTP 200 with title `Survey completed | ResearchOps`, and the respondent persisted as `COMPLETE` with the original supplier reference. A repeated complete outcome remained HTTP 200, and the existing equal-reference supplier-scoping check also passed.
+- Verified the user's tenant project `ROP-1178` through its supplied Test Link: the router returned HTTP 302 to Decipium, preserved `id=82272` and `sid=44507`, replaced `vid` and `rid` with session UUID `7482a42c-2cfe-4b1c-aa30-06874d6f7693`, and attached all four per-session outcome URLs. Calling the generated Complete outcome returned HTTP 200 with `Survey completed | ResearchOps` / `Survey completed`, proving the requested ResearchOps terminal page is active for this assignment.
+- Verification: targeted routing-link tests pass 4/4. Full `npm test` and `npm run build` reached Vinext compilation but exceeded the unusually slow local command window; no compiler error was reported, and a standalone TypeScript check likewise timed out without diagnostics.
+- Current task: preserve this verified client-link integration while continuing the existing remaining migration `039`, ownership, audit, role, and tenant-isolation release proofs.
+- Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
 

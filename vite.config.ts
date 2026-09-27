@@ -53,7 +53,8 @@ export default defineConfig(async ({ mode }) => {
   // `--mode test` therefore reads its environment from a deliberately
   // credential-free directory instead of the project root.
   const isTestBuild = process.env.RESEARCHOPS_TEST_BUILD === "true";
-  if (isTestBuild) {
+  const isDemoBuild = process.env.RESEARCHOPS_DEMO_BUILD === "true";
+  if (isTestBuild || isDemoBuild) {
     // Vite's import.meta.env inherits process.env VITE_* entries even when
     // envDir points at the credential-free directory, so a shell that
     // exported Supabase credentials (local dev, tunnels, CI) would silently
@@ -65,7 +66,7 @@ export default defineConfig(async ({ mode }) => {
       if (key.startsWith("VITE_")) delete process.env[key];
     }
   }
-  const envDir = isTestBuild ? `${process.cwd()}/tests/env` : process.cwd();
+  const envDir = isTestBuild || isDemoBuild ? `${process.cwd()}/tests/env` : process.cwd();
   const environment = loadEnv(mode, envDir, "");
   let commitCount = "1";
   try {
@@ -99,7 +100,12 @@ export default defineConfig(async ({ mode }) => {
             "import.meta.env.VITE_SUPABASE_URL": JSON.stringify("https://test-suite.supabase.invalid"),
             "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify("test-suite-anon-key"),
           }
-        : {}),
+        : isDemoBuild
+          ? {
+              "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(""),
+              "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(""),
+            }
+          : {}),
     },
     server: {
       host: "127.0.0.1",

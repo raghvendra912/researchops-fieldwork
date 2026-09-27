@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "./NavigationLink";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
@@ -49,17 +50,19 @@ export function FraudReview() {
     }
   }
 
-  return <>
-    <div className="page-head">
-      <div>
-        <div className="eyebrow">Quality operations</div>
-        <h1 className="page-title">Fraud review</h1>
-        <p className="page-subtitle">Review explainable duplicate, speeding, and quality signals.</p>
+  return <div className="project-center-page">
+    <section className="reference-filter" aria-label="Fraud review scope">
+      <div className="reference-filter-grid">
+        <div className="field"><span className="field-label">Area</span><span className="control static-control">Quality operations</span></div>
+        <div className="field"><span className="field-label">Signals</span><span className="control static-control">Duplicate · speeding · quality</span></div>
+        <div className="field"><span className="field-label">Evidence</span><span className="control static-control">Explainable flags</span></div>
+        <div className="field"><span className="field-label">Access</span><span className="control static-control">{canOperate ? "Can operate" : "Read only"}</span></div>
+        <div className="reference-actions"><Link className="reference-icon-button" href="/respondents" aria-label="Open respondent ledger" title="Open respondent ledger">☰</Link></div>
       </div>
-      {canOperate ? null : <span className="status-pill status-PENDING">Read only</span>}
-    </div>
+      <div className="reference-filter-extra"><span className="panel-note">Fraud review · Review explainable duplicate, speeding, and quality signals.</span></div>
+    </section>
     {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
-    <section className="panel">
+    <section className="panel"><div className="panel-head"><h2 className="panel-title">Quality flags</h2><span className="panel-note">Duplicate · speeding · quality</span></div>
       <div className="table-wrap">
         <table className="data-table">
           <thead><tr><th>Respondent</th><th>Project</th><th>Rule</th><th>Severity</th><th>Evidence</th><th>Status</th><th>Decision</th></tr></thead>
@@ -76,6 +79,7 @@ export function FraudReview() {
           </tr>)}</tbody>
         </table>
       </div>
+      <div className="table-footer"><span>Explainable evidence · operator decisions</span></div>
     </section>
-  </>;
+  </div>;
 }
