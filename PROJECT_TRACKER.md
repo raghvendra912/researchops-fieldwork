@@ -81,6 +81,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Fresh project-detail metrics checkpoint — 2026-09-30
+
+- Removed the hosted project-detail flash of unrelated demo metrics. Configured environments now show a neutral loading state until the authenticated project API returns the current project record and respondent totals; demo data remains available only in unconfigured demo mode.
+- Rechecked the ROP-1178 Decipium routing path: the existing hosted proof shows that ResearchOps attached all four per-session outcome URLs and that the generated ResearchOps outcome endpoint works. The Decipium-branded disqualification page means its screen-out branch did not invoke the supplied terminate callback.
+- Verification: `npx tsc --noEmit`, targeted ESLint, the production build inside `npm test`, the complete standard suite (46 passed, 6 environment-gated skips), the focused routing/respondent-ID suites (8/8), and `git diff --check` pass. An earlier parallel build/test attempt raced on the shared `dist` directory and returned `EEXIST`; the required isolated rerun completed successfully.
+- Current task: verify the fresh-metrics loading state in an authenticated browser and deploy it.
+- Next task: configure Decipium survey `id=82272`, `sid=44507` to send complete, terminate, quota-full, and security outcomes to the corresponding per-session ResearchOps callback URLs, then run a real ROP-1178-IN screen-out.
+- Session log (2026-09-30): diagnosed the reported Decipium screen-out page, reconfirmed ResearchOps routing tests, and prevented stale demo counts from appearing while a hosted project detail request loads.
+
 ### Now - restore hosted Project Center and verify the release
 
 1. Confirm the remaining `039` live checks. Hosted activation is now independently confirmed: the `supplier_scoped_ref_ready` capability RPC returned `200 true`, and the live equal-reference test passed (`ROP-1143` run — two suppliers posted the same external ref `SAME-REF-777` on the same project and each received a distinct ResearchOps session UUID with correct supplier-scoped return routing). Concurrent-quota, terminal-outcome distribution, and assignment-history checks remain.

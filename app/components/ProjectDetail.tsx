@@ -28,6 +28,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const [canOperate, setCanOperate] = useState(!configured);
   const [message, setMessage] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [hasLoadedLiveProject, setHasLoadedLiveProject] = useState(!configured);
   const token = session?.access_token;
 
   const loadProject = useCallback(async () => {
@@ -41,6 +42,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
       setMessage("");
     } catch {
       setMessage("Project details could not be loaded.");
+    } finally {
+      setHasLoadedLiveProject(true);
     }
   }, [configured, projectId, token]);
 
@@ -49,6 +52,13 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     const timer = window.setInterval(() => void loadProject(), 30_000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [loadProject]);
+
+  if (!hasLoadedLiveProject) {
+    return <div className="project-center-page">
+      <section className="reference-filter" aria-label="Project scope"><div className="reference-filter-grid"><div className="field"><span className="field-label">Project</span><span className="control static-control">{projectId}</span></div><div className="field"><span className="field-label">Metrics</span><span className="control static-control">Loading fresh data…</span></div></div><div className="reference-filter-extra"><span className="panel-note">Fetching the current project record and respondent totals.</span></div></section>
+      <section className="panel" aria-busy="true"><div className="panel-head"><div><h1 className="panel-title">Loading project</h1><span className="panel-note">Counts will appear when the live response is ready.</span></div></div></section>
+    </div>;
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage(""); const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
