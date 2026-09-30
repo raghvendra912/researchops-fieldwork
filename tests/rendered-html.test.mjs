@@ -417,6 +417,7 @@ test("serves the existing project portfolio and detail before ownership migratio
     assert.deepEqual(body.meta.facets.salesPeople, [{ value: "UNASSIGNED", label: "Unassigned" }]);
     const detail = await request("/api/projects/PRJ-1048", { headers: { authorization: "Bearer valid-user-token" } }, { SUPABASE_URL: "https://example.supabase.co", SUPABASE_ANON_KEY: "public-anon-key" });
     assert.equal(detail.status, 200);
+    assert.equal(detail.headers.get("cache-control"), "private, no-store");
     assert.equal((await detail.json()).data.id, "PRJ-1048");
     assert.equal(legacyReads, 3);
   } finally { globalThis.fetch = originalFetch; }

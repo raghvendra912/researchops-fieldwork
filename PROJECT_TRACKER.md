@@ -81,6 +81,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Project refresh and duration checkpoint — 2026-09-30
+
+- Fixed project-detail refresh to bypass browser/intermediary caches with a unique request query, Fetch `no-store`, and a `private, no-store` API response. The refresh control now disables during the request and changes the Updated field to `Refreshing…`, making completion visible before the new timestamp and metrics render.
+- Corrected Avg. duration presentation: projects with zero live completes now show `—` instead of a stale/inapplicable duration, and valid durations longer than one hour render as hours/minutes rather than thousands of minutes.
+- Verification: `npx tsc --noEmit`, changed-file ESLint, production build, full standard suite (46 passed, 6 environment-gated skips), the new detail-response cache assertion, and `git diff --check` pass. A direct rendered-suite attempt initially read the pre-change compiled Worker; the required build-first standard suite then passed completely.
+- Current task: deploy the refresh/duration correction and verify production health/readiness.
+- Next task: authenticated browser confirmation that ROP-1178-IN shows `—` with zero live completes and that clicking Refresh visibly advances the Updated time using a fresh response.
+- Session log (2026-09-30): traced the misleading duration and inert-looking refresh to missing freshness controls plus unconditional duration rendering, implemented client/server no-cache behavior and visible refresh state, corrected zero/long duration display, and completed the full regression suite.
+
 ## Fresh project-detail metrics checkpoint — 2026-09-30
 
 - Removed the hosted project-detail flash of unrelated demo metrics. Configured environments now show a neutral loading state until the authenticated project API returns the current project record and respondent totals; demo data remains available only in unconfigured demo mode.

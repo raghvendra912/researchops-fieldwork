@@ -522,7 +522,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       }
       if (!rows[0]) return Response.json({ error: "Project not found" }, { status: 404 });
       const metricRows = await supabaseJson<ProjectMetrics[]>(env, `/rest/v1/project_event_metrics?select=*&project_code=eq.${code}&limit=1`, access.authorization);
-      return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: capability?.can_operate === true, canReview: capability?.can_review === true, canManageAccess: capability?.can_manage_access === true } });
+      return Response.json({ data: toProject(rows[0], metricRows[0]), meta: { source: "supabase", canOperate: capability?.can_operate === true, canReview: capability?.can_review === true, canManageAccess: capability?.can_manage_access === true } }, { headers: { "cache-control": "private, no-store" } });
     }
     const marketsMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)\/markets$/i);
     if (marketsMatch && request.method === "GET") {
