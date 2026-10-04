@@ -47,6 +47,7 @@ export interface Project {
   eligibilityRules?: Array<{ variableKey: string; operator: string; values: string[]; required: boolean; active: boolean }>;
   quotaCells?: Array<{ name: string; targetQuota: number; priority: number; active: boolean; conditions: unknown }>;
   securityTerminateUrl?: string;
+  geoSecurityEnabled?: boolean;
   averageDurationSeconds?: number;
   lastComplete: string;
   lastEventAt?: string;

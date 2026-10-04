@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-09-28
+Last updated: 2026-10-03
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -80,6 +80,36 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Actionable live activity checkpoint — 2026-10-04
+
+- Status: DONE locally. Dashboard Live activity rows are now keyboard-accessible links instead of inert display rows; hover/focus styling makes the interaction visible, and All alerts continues to open the full notification inbox.
+- Quality alerts resolve their project code and open Fraud review filtered to that project. Project lifecycle, pacing, and quota alerts open the related project workspace. Callback or unrecognized alerts open Notifications safely.
+- Fraud review now honors the `?project=` alert target, explains the active scope, offers Clear project filter, and shows an explicit empty result when no flags match.
+- Verification: targeted TypeScript and changed-file ESLint pass; activity-target unit coverage passes; final `npm test` passes with 49 passed, 0 failed, and 6 environment-gated skips; `git diff --check` passes.
+- Current/next task: deploy the accumulated verified UI/API changes after migration `040` is applied, then browser-check a real ROP-1178 quality alert and its filtered Fraud review destination.
+- Session log (2026-10-04): converted the screenshot-reported Live activity panel into actionable routing, connected quality events to project-filtered review, added deterministic routing tests, and completed the full standard regression suite.
+
+## Geo-location security and launch confirmation checkpoint — 2026-10-04
+
+- Status: READY — implementation and local regression verification are complete; hosted use requires migration `040_geo_security.sql` and deployment.
+- Added an opt-in Geo-location security checkbox during project creation. Enabled projects compare hosting-edge country evidence with configured project markets, retain privacy-limited country/region/city plus `MATCH`, `MISMATCH`, or `UNKNOWN`, and security-terminate known country mismatches. Browser GPS and raw IP storage/export are intentionally excluded.
+- Added geolocation columns to the Fieldwork Workbook Survey Logs sheet and the project-level setting to Project Summary. Added an explicit launch confirmation describing the survey, supplier, quota, and security readiness check; the API now also requires `launchConfirmed: true` for transitions to `LIVE`.
+- Added migration `040` for the project setting, session evidence, constrained result values, audited operator configuration, tenant/role enforcement, and service-only evidence capture.
+- Verification: `npx tsc --noEmit` passes; changed-file ESLint and `git diff --check` pass; the final `npm test` passes with 48 passed, 0 failed, and 6 environment-gated skips. Added focused coverage for privacy-limited workbook evidence, migration role/signature constraints, and rejection of unconfirmed launches. The first standard-suite run correctly exposed three stale test/mock contracts; those were updated or kept migration-compatible and the full rerun passed.
+- Decision: use coarse hosting-edge geolocation rather than precise coordinates. Unknown location evidence is reported but not blocked; only a known mismatch is rejected. This limits privacy impact and avoids false rejection when a host supplies no geo header.
+- Blocker/next task: apply migration `040` in an approved environment, deploy the matching Worker/UI, then verify one matching and one mismatching launch plus the downloaded XLSX. Do not deploy the application before the migration because the new reads require its columns/functions.
+- Session log (2026-10-04): implemented opt-in geo security from project setup through routing, persistence, respondent export, and Excel; added UI/API launch double-checking; documented migration/deployment ordering; corrected a pre-deployment migration reference to a nonexistent organization helper, avoided unnecessary configuration RPCs for unchecked projects, added focused regression coverage, and completed compile plus full standard-suite verification without altering unrelated hydration QA changes already in the worktree.
+
+## Release verification and deterministic browser QA checkpoint — 2026-10-03
+
+- Ran a fresh production routing proof against `https://www.asrv.co.in` using isolated QA project `ROP-1179`. Organization, client, supplier, project, assignment, and LIVE transition creation all succeeded; the supplier launch returned HTTP 302 with a new ResearchOps session UUID and four per-session outcome URLs; the client COMPLETE return restored the original supplier reference; the respondent persisted as `COMPLETE` with a three-second duration; and replaying the outcome remained idempotent.
+- Reproved migration `039` supplier scoping in production: two suppliers launched the same external reference and received distinct ResearchOps session UUIDs, both with HTTP 302 survey handoff. Public `/login`, `/projects`, and `/dashboard` returned HTTP 200.
+- Made browser interaction checks deterministic by exposing a non-secret `data-hydrated` state on the application frame. Updated outdated browser assertions to the current unified Workspace navigation, current test-survey label, and lowercase default `pid` parameter contract. No routing, authorization, or data behavior changed.
+- Verification: `npx tsc --noEmit` passes; the standard build/test suite passes with 46 passed, 0 failed, and 6 environment-gated skips; changed-file ESLint passes; full Playwright Chromium passes 14/14 on a fresh isolated port; and `git diff --check` passes. Full-repository ESLint emitted no diagnostics but exceeded the five-minute command window, so it is not recorded as a pass.
+- Current task: deploy the deterministic hydration marker/browser QA update and verify production health/readiness, then complete the remaining hosted migration `038` ownership/RLS/audit/tenant-isolation proofs and migration `039` concurrent-quota/assignment-history proofs with an approved disposable integration environment.
+- Blockers: Docker is still unavailable on PATH. The cached hosted Supabase values are production credentials, so service-role integration suites were not pointed at production merely to clear test skips. Official provider sandboxes, Decipium callback configuration, authenticated multi-role hosted accounts, financial decisions, email/error-tracking selections, and Cloudflare production access remain external gates.
+- Session log (2026-10-03): audited repository/environment capability, ran compile/build/standard/browser verification, executed fresh production routing and equal-reference proofs, repaired stale/flaky browser coverage around delayed Vinext hydration, and kept privileged production database proofs explicitly open rather than using service-role access unsafely.
 
 ## Project refresh and duration checkpoint — 2026-09-30
 

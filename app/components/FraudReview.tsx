@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "./NavigationLink";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
 
@@ -23,6 +23,7 @@ export function FraudReview() {
   const [flags, setFlags] = useState<Flag[]>([]);
   const [canOperate, setCanOperate] = useState(!configured);
   const [error, setError] = useState("");
+  const projectFilter = useSyncExternalStore(() => () => {}, () => new URLSearchParams(window.location.search).get("project")?.trim().toUpperCase() ?? "", () => "");
   const token = session?.access_token;
 
   useEffect(() => {
@@ -35,6 +36,8 @@ export function FraudReview() {
       })
       .catch(() => setError("Fraud flags could not be loaded."));
   }, [configured, token]);
+
+  const visibleFlags = projectFilter ? flags.filter((flag) => flag.session.project.projectCode === projectFilter) : flags;
 
   async function resolve(flag: Flag, status: "CONFIRMED" | "DISMISSED") {
     try {
@@ -59,14 +62,14 @@ export function FraudReview() {
         <div className="field"><span className="field-label">Access</span><span className="control static-control">{canOperate ? "Can operate" : "Read only"}</span></div>
         <div className="reference-actions"><Link className="reference-icon-button" href="/respondents" aria-label="Open respondent ledger" title="Open respondent ledger">☰</Link></div>
       </div>
-      <div className="reference-filter-extra"><span className="panel-note">Fraud review · Review explainable duplicate, speeding, and quality signals.</span></div>
+      <div className="reference-filter-extra"><span className="panel-note">Fraud review · {projectFilter ? `Showing alerts for ${projectFilter}` : "Review explainable duplicate, speeding, and quality signals."}</span>{projectFilter ? <Link className="panel-note" href="/fraud">Clear project filter</Link> : null}</div>
     </section>
     {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
     <section className="panel"><div className="panel-head"><h2 className="panel-title">Quality flags</h2><span className="panel-note">Duplicate · speeding · quality</span></div>
       <div className="table-wrap">
         <table className="data-table">
           <thead><tr><th>Respondent</th><th>Project</th><th>Rule</th><th>Severity</th><th>Evidence</th><th>Status</th><th>Decision</th></tr></thead>
-          <tbody>{flags.map((flag) => <tr key={flag.id}>
+          <tbody>{visibleFlags.map((flag) => <tr key={flag.id}>
             <td><strong>{flag.session.respondentRef}</strong></td>
             <td>{flag.session.project.projectCode} · {flag.session.project.projectName}</td>
             <td>{flag.ruleCode.replaceAll("_", " ")}</td>
@@ -76,7 +79,7 @@ export function FraudReview() {
             <td>{flag.status === "OPEN" && canOperate && flag.canReview !== false
               ? <div className="row-actions"><button className="button small" type="button" onClick={() => void resolve(flag, "CONFIRMED")}>Confirm</button><button className="button small ghost" type="button" onClick={() => void resolve(flag, "DISMISSED")}>Dismiss</button></div>
               : flag.status === "OPEN" ? "Awaiting operator" : "Reviewed"}</td>
-          </tr>)}</tbody>
+          </tr>)}{visibleFlags.length === 0 ? <tr><td colSpan={7} style={{ padding: 28, textAlign: "center" }}>No quality flags match this project.</td></tr> : null}</tbody>
         </table>
       </div>
       <div className="table-footer"><span>Explainable evidence · operator decisions</span></div>

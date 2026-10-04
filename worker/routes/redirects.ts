@@ -12,7 +12,7 @@ import { serviceRows } from "../lib/supabase-read";
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
-type LiveProject = { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
+type LiveProject = { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; geo_security_enabled?: boolean; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
 type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: LiveProject | LiveProject[] };
 type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
 type QuotaCellRow = { id: string; name: string; target_quota: number; priority: number; active: boolean; conditions: unknown };
@@ -56,6 +56,16 @@ function deviceType(request: Request) {
   if (/ipad|tablet/i.test(agent)) return "TABLET";
   if (/mobile|android|iphone/i.test(agent)) return "MOBILE";
   return agent ? "DESKTOP" : "UNKNOWN";
+}
+
+function geoEvidence(request: Request, enabled: boolean, targetCountries: string[]) {
+  const cf = (request as Request & { cf?: { country?: string; regionCode?: string; region?: string; city?: string } }).cf;
+  const countryCode = clean(request.headers.get("x-vercel-ip-country") ?? request.headers.get("cf-ipcountry") ?? cf?.country ?? "", 2).toUpperCase();
+  const regionCode = clean(request.headers.get("x-vercel-ip-country-region") ?? cf?.regionCode ?? cf?.region ?? "", 80);
+  const city = clean(request.headers.get("x-vercel-ip-city") ?? cf?.city ?? "", 120);
+  const targets = targetCountries.map((value) => value.toUpperCase());
+  const status = !enabled ? "NOT_ENABLED" : !/^[A-Z]{2}$/.test(countryCode) ? "UNKNOWN" : targets.includes(countryCode) ? "MATCH" : "MISMATCH";
+  return { countryCode, regionCode, city, status };
 }
 
 async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false, context: Record<string, unknown> = {}) {
@@ -114,7 +124,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const respondentRef = readRespondentRef(url.searchParams);
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help("Project and respondent are required", 400, { fix: ROUTING_HELP.supplierLiveExample });
       routingStage = "project assignment lookup";
-      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
       const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
       if (!assignment || !project) return help("The supplier is not assigned to this project.", 404, { fix: "Assign this supplier to the project in Project details → Supplier delivery." });
       if (!await supplierScopedRefReady(env)) {
@@ -151,6 +161,13 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return help("The respondent session could not be started", 502, { stage: routingStage }); }
+      const geo = geoEvidence(request, project.geo_security_enabled === true, project.project_markets.map((item) => item.country_code));
+      if (project.geo_security_enabled === true && startBody?.data?.sessionId) await serviceRpc(env, "capture_session_geolocation", { p_session_id: startBody.data.sessionId, p_country_code: geo.countryCode, p_region_code: geo.regionCode, p_city: geo.city, p_check_status: geo.status });
+      if (geo.status === "MISMATCH") {
+        if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
+        await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "geo-security", isTest, { reasonCode: "GEO_COUNTRY_MISMATCH", detectedCountry: geo.countryCode });
+        return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : help("The respondent location does not match the project market", 403);
+      }
       const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
       if (!surveyTemplate) {
         if (!isTest && reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);

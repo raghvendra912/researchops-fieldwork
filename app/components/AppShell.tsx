@@ -156,7 +156,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`app-frame reference-project-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+    <div className={`app-frame reference-project-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`} data-hydrated={sidebarReady ? "true" : "false"}>
       <aside className="sidebar">
         <div className="sidebar-header"><div className="brand-stack"><Link className="brand-lockup" href="/dashboard" aria-label="ResearchOps home"><span className="brand-mark">r</span><span>ResearchOps</span></Link><div className="build-version" title={formatBuildTitle(buildTime)}>v.{appVersion} ({buildStamp})</div></div><button className="sidebar-toggle" type="button" disabled={!sidebarReady} onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? "›" : "‹"}</button></div>
         <div className="nav-caption">Workspace</div>

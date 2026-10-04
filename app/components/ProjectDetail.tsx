@@ -70,9 +70,10 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   }
 
   async function transition(status: ProjectStatus) {
+    if (status === "LIVE" && !window.confirm("Launch this project now? Confirm the survey URL, suppliers, quotas, and security settings have been double-checked.")) return;
     if (status === "CLOSED" && !window.confirm("Close this project? This lifecycle state is final.")) return;
     setBusy(true); setMessage("");
-    try { await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/transitions`, { method: "POST", headers: token ? { authorization: `Bearer ${token}` } : undefined, body: JSON.stringify({ status }) }); setProject((current) => ({ ...current, status })); setMessage(`Project moved to ${status}.`); }
+    try { await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/transitions`, { method: "POST", headers: token ? { authorization: `Bearer ${token}` } : undefined, body: JSON.stringify({ status, launchConfirmed: status === "LIVE" }) }); setProject((current) => ({ ...current, status })); setMessage(`Project moved to ${status}.`); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Project status could not be changed."); } finally { setBusy(false); }
   }
 

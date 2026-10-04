@@ -10,20 +10,18 @@ test("health and readiness endpoints are available", async ({ request }) => {
   await expect(readiness.json()).resolves.toMatchObject({ status: "ready", application: "healthy", api: "healthy" });
 });
 
-test("desktop sidebar collapses, persists, and exposes build identity", async ({ page }) => {
+async function waitForHydration(page: import("@playwright/test").Page) {
+  await expect(page.locator(".app-frame")).toHaveAttribute("data-hydrated", "true", { timeout: 20_000 });
+}
+
+test("desktop unified navigation and build identity are visible", async ({ page }) => {
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".app-frame")).toBeVisible();
+  await waitForHydration(page);
   await expect(page.locator(".build-version")).toContainText(/^v/);
-
-  const toggle = page.getByRole("button", { name: "Collapse sidebar" });
-  await expect(toggle).toBeVisible();
-  await expect(toggle).toBeEnabled();
-  await toggle.click();
-  await expect(page.locator(".app-frame")).toHaveClass(/sidebar-collapsed/);
-  await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-
-  await page.reload();
-  await expect(page.locator(".app-frame")).toHaveClass(/sidebar-collapsed/);
+  await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
+  const workspaceNavigation = page.getByRole("navigation", { name: "Workspace navigation" });
+  await expect(workspaceNavigation.getByText("Project Center", { exact: true })).toBeVisible();
 });
 
 test("mobile navigation remains usable without the desktop toggle", async ({ page }) => {
@@ -35,6 +33,7 @@ test("mobile navigation remains usable without the desktop toggle", async ({ pag
 
 test("client handoff exposes clean outcome URLs", async ({ page }) => {
   await page.goto("/clients", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
   await page.getByRole("button", { name: "View links" }).first().click();
 
   const dialog = page.getByRole("dialog");
@@ -59,7 +58,8 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
 
 test("project search, refresh, clear filters, metric views, and CSV download work", async ({ page }) => {
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("navigation", { name: "Project Center navigation" })).toBeVisible();
+  await waitForHydration(page);
+  await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   await page.getByLabel("Project ID", { exact: true }).fill("PRJ-1048");
   await page.getByRole("button", { name: "Search projects" }).click();
   await expect(page.getByRole("link", { name: "PRJ-1048-IN" })).toBeVisible();
@@ -86,6 +86,7 @@ test("project search, refresh, clear filters, metric views, and CSV download wor
 test("supplier directory explains its two base routes and copies both", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/suppliers", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
   await page.getByRole("button", { name: "View links" }).first().click();
   const dialog = page.getByRole("dialog", { name: "CPX Research links" });
   await expect(dialog.getByRole("heading", { name: "CPX Research entry routes" })).toBeVisible();
@@ -181,8 +182,8 @@ test("new project market selection covers all countries and preferred languages"
   await expect(page.getByLabel("Language")).toHaveValue("en");
   await expect(page.getByLabel("Language").locator('optgroup[label^="Common in Canada"] option')).toHaveCount(2);
   await expect(page.getByLabel("Live survey URL")).toBeVisible();
-  await expect(page.getByLabel("Test survey URL (optional)")).toBeVisible();
-  await expect(page.getByLabel("Survey parameter name 1")).toHaveValue("PID");
+  await expect(page.getByLabel("Test survey URL (test client link, optional)")).toBeVisible();
+  await expect(page.getByLabel("Survey parameter name 1")).toHaveValue("pid");
   await expect(page.getByLabel("Survey parameter value 2")).toHaveValue("{{respondent_id}}");
   await page.getByText("Select suppliers", { exact: true }).click();
   await page.getByLabel("Assign CPX Research").check();

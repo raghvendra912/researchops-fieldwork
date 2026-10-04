@@ -10,6 +10,7 @@ export type FieldworkSpecification = {
   suppliers: Array<{ supplierName: string; supplierProjectId: string; supplierCpi: number; targetQuota: number; status: string; redirectMode?: string; testLink?: string; liveLink?: string }>;
   eligibilityRules: Array<{ variableKey: string; operator: string; values: string[]; required: boolean; active: boolean; sortOrder?: number }>;
   quotaCells: Array<{ name: string; targetQuota: number; priority: number; active: boolean; conditions: unknown; completes?: number; reserved?: number; remaining?: number }>;
+  geoSecurityEnabled?: boolean;
 };
 
 export type FieldworkSession = {
@@ -38,6 +39,10 @@ export type FieldworkSession = {
   riskFlagCount?: number;
   internalApprovalStatus?: string;
   vendorApprovalStatus?: string;
+  geoCountryCode?: string;
+  geoRegionCode?: string;
+  geoCity?: string;
+  geoCheckStatus?: string;
   variables?: Array<{ key: string; value: string; source?: string; capturedAt?: string }>;
 };
 
@@ -95,16 +100,16 @@ function workbookFiles(sheets: Sheet[]) {
 }
 
 function projectSummary(projects: Project[], specifications: Map<string, FieldworkSpecification>): Cell[][] {
-  const header = ["Project ID", "Project", "Client", "Client PO", "Type", "Category", "Manager", "Secondary PM", "Sales Person", "Status", "Created at (UTC)", "Last updated at (UTC)", "Start date", "End date", "Primary market", "Target completes", "Client CPI", "Expected LOI minutes", "Expected IR %", "Live starts", "Reached client", "Completes", "Terminates", "Over quota", "Quality terminates", "IR %", "Completion rate (CO/ST) %", "Conversion %", "Test starts", "Test completes", "Test terminates", "Test quota full", "Test quality terminates", "Average duration seconds", "Live survey URL", "Test survey URL"];
+  const header = ["Project ID", "Project", "Client", "Client PO", "Type", "Category", "Manager", "Secondary PM", "Sales Person", "Status", "Geo-location security", "Created at (UTC)", "Last updated at (UTC)", "Start date", "End date", "Primary market", "Target completes", "Client CPI", "Expected LOI minutes", "Expected IR %", "Live starts", "Reached client", "Completes", "Terminates", "Over quota", "Quality terminates", "IR %", "Completion rate (CO/ST) %", "Conversion %", "Test starts", "Test completes", "Test terminates", "Test quota full", "Test quality terminates", "Average duration seconds", "Live survey URL", "Test survey URL"];
   return [header, ...projects.map((project) => {
-    const spec = specifications.get(project.id); const market = spec?.markets[0];
-    return [project.id, project.name, project.client, project.clientPo, project.type, project.category, project.manager, project.secondaryManager, project.salesPerson, project.status, project.createdAt, project.updatedAt, project.startDate, project.endDate, project.market, project.quota, project.cpi, market?.expectedLoiMinutes, market?.expectedIr, project.starts, project.reached, project.completes, project.terminates, project.overQuota, project.qualityTerm, project.incidenceRate, project.starts ? Math.round(100 * project.completes / project.starts) : 0, project.conversionRate, project.testStarts, project.testCompletes, project.testTerminates, project.testOverQuota, project.testQualityTerm, project.averageDurationSeconds, spec?.liveSurveyUrl, spec?.testSurveyUrl];
+    const storedSpec = specifications.get(project.id); const spec = storedSpec ? { ...storedSpec, geoSecurityEnabled: project.geoSecurityEnabled ?? storedSpec.geoSecurityEnabled } : storedSpec; const market = spec?.markets[0];
+    return [project.id, project.name, project.client, project.clientPo, project.type, project.category, project.manager, project.secondaryManager, project.salesPerson, project.status, spec?.geoSecurityEnabled ? "Enabled" : "Disabled", project.createdAt, project.updatedAt, project.startDate, project.endDate, project.market, project.quota, project.cpi, market?.expectedLoiMinutes, market?.expectedIr, project.starts, project.reached, project.completes, project.terminates, project.overQuota, project.qualityTerm, project.incidenceRate, project.starts ? Math.round(100 * project.completes / project.starts) : 0, project.conversionRate, project.testStarts, project.testCompletes, project.testTerminates, project.testOverQuota, project.testQualityTerm, project.averageDurationSeconds, spec?.liveSurveyUrl, spec?.testSurveyUrl];
   })];
 }
 
 export function buildFieldworkWorkbook(projects: Project[], specs: FieldworkSpecification[], sessions: FieldworkSession[]) {
   const byProject = new Map(specs.map((spec) => [spec.projectCode, spec]));
-  const surveyLogs: Cell[][] = [["Session ID", "Respondent reference", "Project ID", "Project", "Client", "Country", "Language", "Project status", "Traffic", "Final status", "Started at (UTC)", "Reached client at (UTC)", "Terminal at (UTC)", "Duration seconds", "Duration", "Supplier", "Supplier project ID", "Supplier CPI", "Provider transaction ID", "Termination reason", "Reason source", "Device type", "Risk status", "Risk flag count", "Internal approval", "Vendor approval"], ...sessions.map((session) => [session.id, session.respondentRef, session.projectCode, session.projectName, session.clientName, session.countryCode, session.languageCode, session.projectStatus, session.isTest ? "TEST" : "LIVE", session.status, session.startedAt, session.reachedClientAt, session.completedAt, session.durationSeconds, session.durationSeconds == null ? "" : `${Math.floor(session.durationSeconds / 60)}m ${session.durationSeconds % 60}s`, session.supplierName, session.supplierProjectId, session.supplierCpi, session.providerTransactionId, session.terminationReasonCode, session.terminationReasonSource, session.deviceType ?? "UNKNOWN", session.riskStatus ?? "CLEAR", session.riskFlagCount ?? 0, session.internalApprovalStatus ?? "NOT_REVIEWED", session.vendorApprovalStatus ?? "NOT_REVIEWED"] )];
+  const surveyLogs: Cell[][] = [["Session ID", "Respondent reference", "Project ID", "Project", "Client", "Target country", "Language", "Detected country", "Detected region", "Detected city", "Geo security result", "Project status", "Traffic", "Final status", "Started at (UTC)", "Reached client at (UTC)", "Terminal at (UTC)", "Duration seconds", "Duration", "Supplier", "Supplier project ID", "Supplier CPI", "Provider transaction ID", "Termination reason", "Reason source", "Device type", "Risk status", "Risk flag count", "Internal approval", "Vendor approval"], ...sessions.map((session) => [session.id, session.respondentRef, session.projectCode, session.projectName, session.clientName, session.countryCode, session.languageCode, session.geoCountryCode, session.geoRegionCode, session.geoCity, session.geoCheckStatus ?? "NOT_ENABLED", session.projectStatus, session.isTest ? "TEST" : "LIVE", session.status, session.startedAt, session.reachedClientAt, session.completedAt, session.durationSeconds, session.durationSeconds == null ? "" : `${Math.floor(session.durationSeconds / 60)}m ${session.durationSeconds % 60}s`, session.supplierName, session.supplierProjectId, session.supplierCpi, session.providerTransactionId, session.terminationReasonCode, session.terminationReasonSource, session.deviceType ?? "UNKNOWN", session.riskStatus ?? "CLEAR", session.riskFlagCount ?? 0, session.internalApprovalStatus ?? "NOT_REVIEWED", session.vendorApprovalStatus ?? "NOT_REVIEWED"] )];
   const screenConditions: Cell[][] = [["Project ID", "Variable key", "Operator", "Values", "Required", "Active", "Sort order"]];
   const quotaTable: Cell[][] = [["Project ID", "Quota cell", "Conditions", "Target", "Reserved", "Completed", "Remaining", "Priority", "Active"]];
   const vendorLinks: Cell[][] = [["Project ID", "Supplier", "Supplier project ID", "Supplier CPI", "Target quota", "Assignment status", "Redirect mode", "Test link", "Live link/template"]];

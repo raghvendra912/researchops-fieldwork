@@ -150,7 +150,7 @@ test("Worker and Supabase persist operator, event, fraud, and provider workflows
   assert.equal(assignments[0].supplierId, supplier.id);
 
   const live = expectStatus(await call(`/api/projects/${project.id}/transitions`, {
-    token, method: "POST", body: { status: "LIVE" },
+    token, method: "POST", body: { status: "LIVE", launchConfirmed: true },
   }), 200).data;
   assert.equal(live.status, "LIVE");
 
@@ -352,7 +352,7 @@ test("latest routing migrations isolate UAT, enforce eligibility, and reserve qu
     body: { assignments: [{ supplierId: supplier.id, supplierProjectId: "ROUTING-SUP", supplierCpi: 4.25, targetQuota: 10, status: "ACTIVE" }] },
   }), 200);
   expectStatus(await call(`/api/projects/${project.id}/transitions`, {
-    token, method: "POST", body: { status: "LIVE" },
+    token, method: "POST", body: { status: "LIVE", launchConfirmed: true },
   }), 200);
 
   const testRef = `ROP-TEST-${run}`;

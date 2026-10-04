@@ -33,6 +33,7 @@ type DatabaseProject = {
   test_survey_url: string | null;
   survey_parameters: unknown;
   security_terminate_url: string | null;
+  geo_security_enabled?: boolean;
   created_at: string;
   updated_at?: string;
   clients: { name: string; code?: string | null } | { name: string; code?: string | null }[] | null;
@@ -176,6 +177,7 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     testSurveyUrl: row.test_survey_url ?? undefined,
     surveyParameters: Array.isArray(row.survey_parameters) ? row.survey_parameters as Array<{ name: string; value: string }> : [],
     securityTerminateUrl: row.security_terminate_url ?? undefined,
+    geoSecurityEnabled: row.geo_security_enabled === true,
     averageDurationSeconds: metrics?.average_duration_seconds ?? 0,
     lastComplete: metrics?.last_complete_at ? new Date(metrics.last_complete_at).toISOString() : "Not started",
     lastEventAt: metrics?.last_event_at ? new Date(metrics.last_event_at).toISOString() : undefined,
@@ -276,6 +278,7 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     p_expected_ir: incidence,
     p_supplier_assignments: supplierAssignments,
     p_survey_url: urls[0] || null, p_test_survey_url: urls[1] || null, p_survey_parameters: surveyParameters,
+    geoSecurityEnabled: payload.geoSecurityEnabled === true,
   };
 }
 
@@ -348,7 +351,7 @@ function ownershipSchemaUnavailable(error: unknown) {
 }
 
 function projectSelect(clientRelation: string, ownership: boolean) {
-  const base = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,created_at,updated_at,${clientRelation},project_managers:user_profiles!projects_manager_profile_fkey(display_name),project_markets(country_code)`;
+  const base = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,geo_security_enabled,created_at,updated_at,${clientRelation},project_managers:user_profiles!projects_manager_profile_fkey(display_name),project_markets(country_code)`;
   return ownership ? `${base},secondary_project_manager_id,sales_person_id,secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name)` : base;
 }
 
@@ -453,7 +456,9 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
     if (mockTransition && request.method === "POST") {
       const project = mockProjects.find((item) => item.id.toLowerCase() === mockTransition[1].toLowerCase());
       if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
-      const status = requestedTransition(await request.json().catch(() => null) as Record<string, unknown> | null);
+      const transitionPayload = await request.json().catch(() => null) as Record<string, unknown> | null;
+      const status = requestedTransition(transitionPayload);
+      if (status === "LIVE" && transitionPayload?.launchConfirmed !== true) return Response.json({ error: "Confirm the launch readiness check before moving the project live" }, { status: 400 });
       if (!status || !canTransition(project.status, status)) return Response.json({ error: `Cannot move a ${project.status} project to ${status ?? "that status"}` }, { status: 409 });
       return Response.json({ data: { id: project.id, previousStatus: project.status, status }, meta: { source: "mock" } });
     }
@@ -496,9 +501,11 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
-      const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(payload) });
+      const { geoSecurityEnabled, ...createPayload } = payload;
+      const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
       const created = rows[0];
       if (!created) throw new Error("Supabase did not return the created project");
+      if (geoSecurityEnabled) await supabaseJson(env, "/rest/v1/rpc/configure_project_geo_security", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_enabled: true }) });
       return Response.json({ data: { id: created.project_code, databaseId: created.project_id, status: created.status }, meta: { source: "supabase" } }, { status: 201 });
     }
     const detailMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)$/i);
@@ -585,7 +592,9 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const capability = await getProjectCapabilities(env, access.authorization, transitionMatch[1]);
       if (!capability?.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
-      const status = requestedTransition(await request.json().catch(() => null) as Record<string, unknown> | null);
+      const transitionPayload = await request.json().catch(() => null) as Record<string, unknown> | null;
+      const status = requestedTransition(transitionPayload);
+      if (status === "LIVE" && transitionPayload?.launchConfirmed !== true) return Response.json({ error: "Confirm the launch readiness check before moving the project live" }, { status: 400 });
       if (!status) return Response.json({ error: "A valid target status is required" }, { status: 400 });
       const rows = await supabaseJson<Array<{ project_code: string; previous_status: ProjectStatus; status: ProjectStatus }>>(env, "/rest/v1/rpc/transition_project_state", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: transitionMatch[1].toUpperCase(), p_next_status: status }) });
       const changed = rows[0];

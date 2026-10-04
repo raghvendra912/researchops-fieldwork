@@ -154,7 +154,9 @@ test("serves Worker health and project APIs", async () => {
   assert.equal(updated.status, 200);
   assert.equal((await updated.json()).data.name, "Updated Wallet Study");
 
-  const transitioned = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "LIVE" }) });
+  const unconfirmedLaunch = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "LIVE" }) });
+  assert.equal(unconfirmedLaunch.status, 400);
+  const transitioned = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "LIVE", launchConfirmed: true }) });
   assert.equal(transitioned.status, 200);
   assert.equal((await transitioned.json()).data.status, "LIVE");
   const rejectedTransition = await request("/api/projects/PRJ-1046/transitions", { method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ status: "PENDING" }) });

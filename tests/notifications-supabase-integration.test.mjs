@@ -35,7 +35,7 @@ test("Supabase persists operational notifications and administrator rules", { sk
   assert.ok(client.id);
   const project = (await call("/api/projects", { token, method: "POST", body: { projectName: `Notice Project ${run}`, client: `Notice Client ${run}`, quota: 10, clientCpi: 5 } })).data;
   await call(`/api/projects/${project.id}/transitions`, { token, method: "POST", body: { status: "PENDING" } });
-  await call(`/api/projects/${project.id}/transitions`, { token, method: "POST", body: { status: "LIVE" } });
+  await call(`/api/projects/${project.id}/transitions`, { token, method: "POST", body: { status: "LIVE", launchConfirmed: true } });
 
   const rules = await call("/api/notification-rules", { token });
   assert.equal(rules.data.length, 7);
