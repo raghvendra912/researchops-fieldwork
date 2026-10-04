@@ -49,7 +49,16 @@ export async function handleAssistantApi(request: Request, pathname: string, env
     }),
   });
   const payload = await upstream.json().catch(() => null);
-  if (!upstream.ok) return Response.json({ error: upstream.status === 401 ? "OpenAI API key was rejected" : "OpenAI response could not be generated" }, { status: 502 });
+  if (!upstream.ok) {
+    const upstreamError = (payload as { error?: { type?: unknown; code?: unknown } } | null)?.error;
+    console.error(JSON.stringify({
+      event: "openai_assistant_error",
+      status: upstream.status,
+      type: typeof upstreamError?.type === "string" ? upstreamError.type : undefined,
+      code: typeof upstreamError?.code === "string" ? upstreamError.code : undefined,
+    }));
+    return Response.json({ error: upstream.status === 401 ? "OpenAI API key was rejected" : "OpenAI response could not be generated" }, { status: 502 });
+  }
   const answer = outputText(payload);
   return answer ? Response.json({ data: { answer, model: "gpt-6-astra" } }) : Response.json({ error: "OpenAI returned an empty response" }, { status: 502 });
 }
