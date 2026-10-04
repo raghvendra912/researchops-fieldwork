@@ -326,7 +326,10 @@ test("latest routing migrations isolate UAT, enforce eligibility, and reserve qu
   const setup = expectStatus(await call(`/api/projects/${project.id}/survey-setup`, { token }), 200);
   assert.equal(setup.data.liveUrl, "https://survey.example.test/live");
   assert.equal(setup.data.testUrl, "https://survey.example.test/test");
-  assert.deepEqual(setup.data.parameters, parameters);
+  assert.deepEqual(setup.data.parameters, [
+    { name: "pid", value: "{{transaction_id}}" },
+    { name: "uid", value: "{{respondent_id}}" },
+  ]);
 
   const savedEligibility = expectStatus(await call(`/api/projects/${project.id}/eligibility`, {
     token,
@@ -360,11 +363,12 @@ test("latest routing migrations isolate UAT, enforce eligibility, and reserve qu
     redirect: "manual", headers: { "cf-connecting-ip": "203.0.113.21" },
   });
   const testSurvey = expectRedirect(testLaunch, "/test");
-  assert.equal(testSurvey.searchParams.get("PID"), project.id);
-  assert.equal(testSurvey.searchParams.get("RID"), testRef);
-  assert.equal(testSurvey.searchParams.get("COUNTRY"), "US");
-  assert.ok(testSurvey.searchParams.get("SID"));
-  const testComplete = new URL(testSurvey.searchParams.get("COMPLETE"));
+  assert.ok(testSurvey.searchParams.get("pid"));
+  assert.equal(testSurvey.searchParams.get("uid"), testRef);
+  assert.ok(testSurvey.searchParams.get("rid"));
+  assert.equal(testSurvey.searchParams.get("respondent_id"), testRef);
+  assert.equal(testSurvey.searchParams.get("project_id"), project.id);
+  const testComplete = new URL(testSurvey.searchParams.get("complete_url"));
   expectRedirect(await call(`${testComplete.pathname}${testComplete.search}`, {
     redirect: "manual", headers: { "cf-connecting-ip": "203.0.113.21" },
   }), "/complete");
@@ -398,11 +402,10 @@ test("latest routing migrations isolate UAT, enforce eligibility, and reserve qu
   const rejected = routed.filter(({ location }) => location.pathname === "/quota");
   assert.equal(admitted.length, 1, "Exactly one concurrent respondent must reserve the one-slot cell");
   assert.equal(rejected.length, 1, "The other concurrent respondent must be quota-full");
-  assert.match(admitted[0].location.searchParams.get("RID"), /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-  assert.notEqual(admitted[0].location.searchParams.get("RID"), admitted[0].contender.respondentRef);
-  assert.equal(admitted[0].location.searchParams.get("COUNTRY"), "US");
+  assert.match(admitted[0].location.searchParams.get("pid"), /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  assert.equal(admitted[0].location.searchParams.get("uid"), admitted[0].contender.respondentRef);
 
-  const liveComplete = new URL(admitted[0].location.searchParams.get("COMPLETE"));
+  const liveComplete = new URL(admitted[0].location.searchParams.get("complete_url"));
   const supplierReturn = expectRedirect(await call(`${liveComplete.pathname}${liveComplete.search}`, {
     redirect: "manual", headers: { "cf-connecting-ip": admitted[0].contender.ip },
   }), "/complete");
@@ -430,7 +433,10 @@ test("latest routing migrations isolate UAT, enforce eligibility, and reserve qu
   const specification = expectStatus(await call(`/api/projects/specifications?codes=${project.id}`, { token }), 200).data[0];
   assert.equal(specification.projectCode, project.id);
   assert.equal(specification.testSurveyUrl, "https://survey.example.test/test");
-  assert.deepEqual(specification.surveyParameters, parameters);
+  assert.deepEqual(specification.surveyParameters, [
+    { name: "pid", value: "{{transaction_id}}" },
+    { name: "uid", value: "{{respondent_id}}" },
+  ]);
   assert.equal(specification.eligibilityRules.length, 1);
   assert.equal(specification.quotaCells.length, 1);
 

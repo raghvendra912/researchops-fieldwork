@@ -1,6 +1,8 @@
 const ORIGIN = "https://www.asrv.co.in";
 const SURVEY_URL = process.env.QA_SURVEY_URL || "https://survey.example.test/live";
 const USE_RESEARCHOPS_OUTCOME_PAGE = process.env.QA_RESEARCHOPS_OUTCOME_PAGE === "1";
+const GEO_SECURITY = process.env.QA_GEO_SECURITY === "1";
+const COUNTRY_CODE = (process.env.QA_COUNTRY_CODE || "IN").toUpperCase();
 // Anon key is public by design (auto-discovered from the deployed app's client bundle).
 async function discoverAnonKey() {
   if (process.env.QA_ANON_KEY) return process.env.QA_ANON_KEY;
@@ -52,19 +54,19 @@ const supplierRedirects = USE_RESEARCHOPS_OUTCOME_PAGE
   : { completeUrl: "https://supplier.example.test/complete?rid={{respondent_id}}", terminateUrl: "https://supplier.example.test/terminate", quotaFullUrl: "https://supplier.example.test/quota", securityTerminateUrl: "https://supplier.example.test/security" };
 const supplierR = await api("/api/suppliers", { method: "POST", auth: access, body: { name: `QA Supplier ${run}`, code: `QS${run}`, redirectMode: "DYNAMIC", contactName: "QA", redirects: supplierRedirects } }); log("supplier", supplierR);
 const supplier = supplierR.json?.data || supplierR.json;
-const projectR = await api("/api/projects", { method: "POST", auth: access, body: { projectName: `QA Routing ${run}`, client: `QA Client ${run}`, clientCpi: 10, quota: 50, countryCode: "IN", languageCode: "en", loi: 10, incidence: 50, surveyUrl: SURVEY_URL, testSurveyUrl: SURVEY_URL, supplierAssignments: [], surveyParameters: [{ name: "vid", value: "{{transaction_id}}" }] } }); log("project", projectR);
+const projectR = await api("/api/projects", { method: "POST", auth: access, body: { projectName: `QA Routing ${run}`, client: `QA Client ${run}`, clientCpi: 10, quota: 50, countryCode: COUNTRY_CODE, languageCode: "en", loi: 10, incidence: 50, surveyUrl: SURVEY_URL, testSurveyUrl: SURVEY_URL, supplierAssignments: [], surveyParameters: [{ name: "vid", value: "{{transaction_id}}" }], geoSecurityEnabled: GEO_SECURITY } }); log("project", projectR);
 const project = projectR.json?.data || projectR.json;
 if (!project?.id || !supplier?.id) { console.log("MISSING ids — stop", !!project?.id, !!supplier?.id); process.exit(1); }
 const assignR = await api(`/api/projects/${encodeURIComponent(project.id)}/suppliers`, { method: "PUT", auth: access, body: { assignments: [{ supplierId: supplier.id, supplierCpi: 5, targetQuota: 50, status: "ACTIVE" }] } }); log("assign", assignR);
 const linksR = await api(`/api/projects/${encodeURIComponent(project.id)}/suppliers`, { auth: access }); log("assign-links", linksR);
 const links = linksR.json?.data?.[0] || {};
 console.log("testLink:", links.testLink, "\nliveLink:", links.liveLink);
-for (const t of ["LIVE"]) { const tr = await api(`/api/projects/${encodeURIComponent(project.id)}/transitions`, { method: "POST", auth: access, body: { status: t } }); log(`transition-${t}`, tr); }
+for (const t of ["LIVE"]) { const tr = await api(`/api/projects/${encodeURIComponent(project.id)}/transitions`, { method: "POST", auth: access, body: { status: t, launchConfirmed: true } }); log(`transition-${t}`, tr); }
 // Routing end-to-end
 const supTok = (links.liveLink || "").match(/\/r\/supplier\/([^/]+)\//)?.[1];
 const supUrl = `${ORIGIN}/r/supplier/${supTok}/live?project=${project.id}&respondent=QA-SUP-REF-1`;
 console.log("token:", supTok, "| hit:", supUrl);
-const live = await fetch(supUrl, { redirect: "manual" });
+const live = await fetch(supUrl, { redirect: "manual", headers: GEO_SECURITY ? { "x-vercel-ip-country": COUNTRY_CODE, "x-vercel-ip-country-region": "QA", "x-vercel-ip-city": "GeoMatch" } : undefined });
 console.log("SUPPLIER LIVE:", live.status, live.headers.get("location"));
 const loc = live.headers.get("location") || "https://x/?rid=norid";
 const rid = new URL(loc).searchParams.get("rid") || new URL(loc).searchParams.get("RID");
@@ -88,6 +90,14 @@ if (rid) {
     const replay = await fetch(outcomeUrl, { redirect: "manual" });
     console.log("OUTCOME complete (replay):", replay.status, replay.headers.get("location"));
   }
+}
+if (GEO_SECURITY) {
+  const mismatchRef = `QA-GEO-MISMATCH-${run}`;
+  const mismatchUrl = `${ORIGIN}/r/supplier/${supTok}/live?project=${project.id}&respondent=${mismatchRef}`;
+  const mismatch = await fetch(mismatchUrl, { redirect: "manual", headers: { "x-vercel-ip-country": COUNTRY_CODE === "US" ? "IN" : "US", "x-vercel-ip-country-region": "QA", "x-vercel-ip-city": "GeoMismatch" } });
+  console.log("GEO MISMATCH:", mismatch.status, mismatch.headers.get("location"));
+  const geoRows = await api(`/api/respondents?project=${encodeURIComponent(project.id)}&export=1`, { auth: access });
+  console.log("GEO ROWS:", JSON.stringify((geoRows.json?.data || []).filter((row) => row.respondentRef === "QA-SUP-REF-1" || row.respondentRef === mismatchRef).map((row) => ({ ref: row.respondentRef, status: row.status, country: row.geoCountryCode, region: row.geoRegionCode, city: row.geoCity, geo: row.geoCheckStatus }))));
 }
 // 039 live equal-ref test: two suppliers, same external ref -> two distinct sessions
 const sup2 = await api("/api/suppliers", { method: "POST", auth: access, body: { name: `QA Supplier B ${run}`, code: `QB${run}`, redirectMode: "DYNAMIC", contactName: "QA", redirects: { completeUrl: "https://supplier-b.example.test/complete", terminateUrl: "https://supplier-b.example.test/terminate", quotaFullUrl: "https://supplier-b.example.test/quota", securityTerminateUrl: "https://supplier-b.example.test/security" } } });

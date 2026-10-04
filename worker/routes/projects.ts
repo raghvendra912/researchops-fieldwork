@@ -7,6 +7,7 @@ import { supplierShortTemplate } from "../domain/routing-links";
 import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
 import { reconcileAbandoned } from "./analytics";
 import { getProjectCapabilities } from "../lib/project-authorization";
+import { AUTOMATIC_SURVEY_PARAMETERS } from "../domain/survey-url";
 
 export type ProjectApiEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
 
@@ -261,7 +262,7 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     || !validCountryCodes.has(countryCode) || !validLanguageCodes.has(languageCode)) return null;
   const urls = [payload.surveyUrl, payload.testSurveyUrl].map((value) => String(value ?? "").trim());
   if (urls.some((value) => value && (!/^https?:\/\//i.test(value) || value.length > 2048))) return null;
-  const surveyParameters = parseSurveyParameters(payload.surveyParameters); if (!surveyParameters) return null;
+  const surveyParameters = AUTOMATIC_SURVEY_PARAMETERS;
   const supplierAssignments = Array.isArray(payload.supplierAssignments) ? payload.supplierAssignments.map((value) => { const item = value as Record<string, unknown>; return { name: String(item.name ?? "").trim(), supplier_cpi: Number(item.supplierCpi ?? 0) }; }) : [];
   if (supplierAssignments.length > 100 || supplierAssignments.some((item) => !item.name || !Number.isFinite(item.supplier_cpi) || item.supplier_cpi < 0) || new Set(supplierAssignments.map((item) => item.name.toLowerCase())).size !== supplierAssignments.length) return null;
   return {
@@ -280,14 +281,6 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     p_survey_url: urls[0] || null, p_test_survey_url: urls[1] || null, p_survey_parameters: surveyParameters,
     geoSecurityEnabled: payload.geoSecurityEnabled === true,
   };
-}
-
-function parseSurveyParameters(value: unknown) {
-  if (value === undefined) return [{ name: "PID", value: "{{project_id}}" }, { name: "RID", value: "{{respondent_id}}" }];
-  if (!Array.isArray(value) || value.length > 30) return null;
-  const parameters = value.map((entry) => { const item = entry as Record<string, unknown>; return { name: String(item.name ?? "").trim(), value: String(item.value ?? "").trim() }; });
-  const valid = parameters.every((item) => /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(item.name) && item.value.length > 0 && item.value.length <= 500);
-  return valid && new Set(parameters.map((item) => item.name.toLowerCase())).size === parameters.length ? parameters : null;
 }
 
 function parseUpdatePayload(payload: Record<string, unknown> | null) {

@@ -11,6 +11,10 @@ export const TRANSACTION_PLACEHOLDER = "{{transaction_id}}";
 export const RESPONDENT_PLACEHOLDER = "{{respondent_id}}";
 export const SESSION_PLACEHOLDER = "{{session_id}}";
 export const PROJECT_PLACEHOLDER = "{{project_id}}";
+export const AUTOMATIC_SURVEY_PARAMETERS: SurveyParameter[] = [
+  { name: "pid", value: TRANSACTION_PLACEHOLDER },
+  { name: "uid", value: RESPONDENT_PLACEHOLDER },
+];
 
 const ALIAS_CONTEXT: Record<string, string[]> = {
   project_id: ["project_id", "project_code", "project", "pid", "sur", "svid", "sid", "tid", "survey_id"],

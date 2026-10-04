@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -80,6 +80,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Automatic survey implementation URLs checkpoint — 2026-10-04
+
+- Status: DONE locally. New project and project routing screens now place the generated Live/Test implementation URL beside its matching client URL input. The separate parameter-name/value-template editor and Add/Remove controls are removed.
+- Backend ownership: project creation and routing updates ignore client-supplied template mappings and persist the automatic lowercase `pid={{transaction_id}}` and `uid={{respondent_id}}` contract. Runtime routing continues to append project ID and signed Complete, Terminate, Quota Full, and Security Terminate callbacks for each session.
+- Verification: TypeScript, changed-file ESLint, and the standard suite pass; standard results are 49 passed, 0 failed, and 6 environment-gated skips. The focused compiled-browser new-project test passes. The full Chromium run reached 12/14 before two failures: one pre-existing intermittent hydration timeout and one stale label assertion introduced by this UI copy change; after correcting the assertion, focused reruns passed both the hydration case and the new-project case.
+- Current task: commit, push, deploy, and verify production health/readiness plus deployed UI markers. Next task: run the isolated hosted geo match/mismatch proof and verify its privacy-limited respondent evidence; authenticated XLSX download remains the final manual behavioral proof.
+- Decision: outcome callback URLs remain runtime-generated because their signatures and session IDs do not exist until a respondent starts. The UI therefore previews stable client parameters and explicitly states which additional values the backend appends.
+- Session log (2026-10-04): removed manual survey value-template configuration, added adjacent Live/Test implementation previews, centralized the automatic parameter contract, updated API/browser/integration expectations, and completed compile, lint, standard-suite, and focused browser verification.
 
 ## Actionable live activity checkpoint — 2026-10-04
 

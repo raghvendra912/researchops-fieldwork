@@ -139,13 +139,18 @@ test("serves Worker health and project APIs", async () => {
     { projectName: "Invalid incidence", client: "Northstar Bank", quota: 100, clientCpi: 8.5, incidence: 101 },
     { projectName: "Invalid survey", client: "Northstar Bank", quota: 100, clientCpi: 8.5, surveyUrl: "javascript:alert(1)" },
     { projectName: "Invalid test survey", client: "Northstar Bank", quota: 100, clientCpi: 8.5, testSurveyUrl: "ftp://unsafe.example" },
-    { projectName: "Invalid survey parameters", client: "Northstar Bank", quota: 100, clientCpi: 8.5, surveyParameters: [{ name: "bad name", value: "x" }] },
   ]) {
     const rejectedProject = await request("/api/projects", {
       method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify(invalidProject),
     });
     assert.equal(rejectedProject.status, 400);
   }
+
+  const automaticParameters = await request("/api/projects", {
+    method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+    body: JSON.stringify({ projectName: "Automatic survey parameters", client: "Northstar Bank", quota: 100, clientCpi: 8.5, surveyParameters: [{ name: "bad name", value: "x" }] }),
+  });
+  assert.equal(automaticParameters.status, 201, "Client-supplied value templates must be ignored in favor of backend defaults");
 
   const updated = await request("/api/projects/PRJ-1048", {
     method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },

@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
 import { countryOptions, languageOptions, languageOptionsForCountry } from "../../src/lib/market-options";
+import { AUTOMATIC_SURVEY_PARAMETERS, previewSurveyUrl } from "../../worker/domain/survey-url";
 
 const projectTypes = ["B2C", "B2B", "Healthcare", "Recontact", "Tracker", "Qualitative", "Quantitative", "Mixed method", "IHUT", "CLT"];
 const categories = ["None", "Business & Professionals", "General Household", "Financial Technology", "Consumer Goods", "Healthcare", "Automotive", "Other"];
@@ -24,7 +25,8 @@ export function CreateProjectForm() {
   const [clients, setClients] = useState(["Northstar Bank", "Arc Technologies", "Halo Consumer", "Aperture Auto"]);
   const [suppliers, setSuppliers] = useState(["CPX Research", "BitLabs", "PureSpectrum"]);
   const [supplierCpis, setSupplierCpis] = useState<Record<string, string>>({});
-  const [surveyParameters, setSurveyParameters] = useState([{ name: "pid", value: "{{transaction_id}}" }, { name: "uid", value: "{{respondent_id}}" }]);
+  const [liveSurveyUrl, setLiveSurveyUrl] = useState("");
+  const [testSurveyUrl, setTestSurveyUrl] = useState("");
   const [country, setCountry] = useState("IN");
   const [language, setLanguage] = useState("hi");
   const preferredLanguages = languageOptionsForCountry(country);
@@ -49,7 +51,7 @@ export function CreateProjectForm() {
     const payload = {
       projectName: form.get("projectName"), client: form.get("client"), clientPo: form.get("clientPo"), type: form.get("type"), category: form.get("category"),
       clientCpi: form.get("clientCpi"), countryCode: form.get("country"), languageCode: form.get("language"), quota: form.get("quota"), loi: form.get("loi"), incidence: form.get("incidence"),
-      supplierAssignments: Object.entries(supplierCpis).map(([name, supplierCpi]) => ({ name, supplierCpi })), surveyUrl: form.get("surveyUrl"), testSurveyUrl: form.get("testSurveyUrl"), surveyParameters,
+      supplierAssignments: Object.entries(supplierCpis).map(([name, supplierCpi]) => ({ name, supplierCpi })), surveyUrl: form.get("surveyUrl"), testSurveyUrl: form.get("testSurveyUrl"),
       geoSecurityEnabled: form.get("geoSecurityEnabled") === "on",
     };
     setSubmitting(true); setError("");
@@ -90,9 +92,11 @@ export function CreateProjectForm() {
           <label className="choice-card"><input aria-label="Duplicate prevention is mandatory" type="checkbox" checked disabled readOnly /><span><strong>Duplicate prevention</strong><span>IP and device signals are checked before client routing.</span></span></label>
           <label className="choice-card"><input aria-label="Controlled routing is mandatory" type="checkbox" checked disabled readOnly /><span><strong>Controlled routing</strong><span>Only active project-supplier links can send live traffic.</span></span></label>
           <label className="choice-card"><input aria-label="Enable geo-location security" name="geoSecurityEnabled" type="checkbox" /><span><strong>Geo-location security</strong><span>Compare the hosting-edge location with the project market and include the result in Excel. No GPS or raw IP is stored.</span></span></label>
-          <div className="field full"><label htmlFor="survey-url">Live survey URL (clientlink)</label><input className="control" id="survey-url" name="surveyUrl" type="url" placeholder="https://survey.example.com/start" /></div>
-          <div className="field full"><label htmlFor="test-survey-url">Test survey URL (test client link, optional)</label><input className="control" id="test-survey-url" name="testSurveyUrl" type="url" placeholder="https://survey.example.com/test" /><span className="panel-note">When blank, test traffic safely falls back to the live survey URL.</span></div>
-        </div><div className="section-head parameter-head"><div><h3>Survey URL parameters (replace key → value)</h3><p>pid = [TOID] per-entry session UUID · uid = [unique_id] supplier panelist ID. Incoming eligibility keys like {"{{country}}"} work as values too.</p></div><button className="button small ghost" type="button" onClick={() => setSurveyParameters((current) => [...current, { name: "", value: "" }])}>Add parameter</button></div><div className="parameter-list">{surveyParameters.map((parameter, index) => <div className="parameter-row" key={index}><div className="field"><label htmlFor={`parameter-name-${index}`}>Parameter name</label><input className="control" id={`parameter-name-${index}`} aria-label={`Survey parameter name ${index + 1}`} placeholder="PID" value={parameter.name} onChange={(event) => setSurveyParameters((current) => current.map((item, position) => position === index ? { ...item, name: event.target.value } : item))} /></div><div className="field"><label htmlFor={`parameter-value-${index}`}>Value template</label><input className="control" id={`parameter-value-${index}`} aria-label={`Survey parameter value ${index + 1}`} placeholder="{{project_id}}" value={parameter.value} onChange={(event) => setSurveyParameters((current) => current.map((item, position) => position === index ? { ...item, value: event.target.value } : item))} /></div><button className="button small ghost parameter-remove" type="button" disabled={surveyParameters.length === 1} onClick={() => setSurveyParameters((current) => current.filter((_, position) => position !== index))}>Remove</button></div>)}</div><p className="panel-note">Available system values: {"{{transaction_id}}"} [TOID], {"{{respondent_id}}"} [unique_id], {"{{project_id}}"}, {"{{session_id}}"}, {"{{complete_url}}"}, {"{{terminate_url}}"}, {"{{quota_full_url}}"}, {"{{security_terminate_url}}"}.</p></section>
+          <div className="field"><label htmlFor="survey-url">Live survey URL (client link)</label><input className="control" id="survey-url" name="surveyUrl" type="url" placeholder="https://survey.example.com/start" value={liveSurveyUrl} onChange={(event) => setLiveSurveyUrl(event.target.value)} /></div>
+          <div className="field"><span className="field-label">Live implementation URL</span><code className="control static-control implementation-url">{previewSurveyUrl(liveSurveyUrl, AUTOMATIC_SURVEY_PARAMETERS) || "Enter the Live survey URL"}</code></div>
+          <div className="field"><label htmlFor="test-survey-url">Test survey URL (optional)</label><input className="control" id="test-survey-url" name="testSurveyUrl" type="url" placeholder="https://survey.example.com/test" value={testSurveyUrl} onChange={(event) => setTestSurveyUrl(event.target.value)} /><span className="panel-note">When blank, test traffic safely falls back to the live survey URL.</span></div>
+          <div className="field"><span className="field-label">Test implementation URL</span><code className="control static-control implementation-url">{previewSurveyUrl(testSurveyUrl || liveSurveyUrl, AUTOMATIC_SURVEY_PARAMETERS, true) || "Enter the Test or Live survey URL"}</code></div>
+        </div><p className="panel-note">ResearchOps automatically adds pid (session/TOID), uid (supplier respondent ID), project ID, and signed outcome callback URLs in the backend. No value-template setup is required.</p></section>
         <div className="table-footer"><span>A dated pending project is created when you submit</span><div className="row-actions"><Link className="button small ghost" href="/projects">Cancel</Link><button className="button small" type="submit" disabled={submitting || !canOperate}>{submitting ? "Creating…" : "Create project →"}</button></div></div>
       </div>
       </div>

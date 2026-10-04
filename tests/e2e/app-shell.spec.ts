@@ -182,9 +182,11 @@ test("new project market selection covers all countries and preferred languages"
   await expect(page.getByLabel("Language")).toHaveValue("en");
   await expect(page.getByLabel("Language").locator('optgroup[label^="Common in Canada"] option')).toHaveCount(2);
   await expect(page.getByLabel("Live survey URL")).toBeVisible();
-  await expect(page.getByLabel("Test survey URL (test client link, optional)")).toBeVisible();
-  await expect(page.getByLabel("Survey parameter name 1")).toHaveValue("pid");
-  await expect(page.getByLabel("Survey parameter value 2")).toHaveValue("{{respondent_id}}");
+  await expect(page.getByLabel("Test survey URL (optional)")).toBeVisible();
+  await expect(page.getByText("Live implementation URL", { exact: true })).toBeVisible();
+  await expect(page.getByText("Test implementation URL", { exact: true })).toBeVisible();
+  await expect(page.getByText(/automatically adds pid \(session\/TOID\), uid/)).toBeVisible();
+  await expect(page.getByText("Add parameter", { exact: true })).toHaveCount(0);
   await page.getByText("Select suppliers", { exact: true }).click();
   await page.getByLabel("Assign CPX Research").check();
   await expect(page.getByLabel("CPX Research supplier CPI")).toBeEnabled();
