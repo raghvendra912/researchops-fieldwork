@@ -1475,3 +1475,10 @@ Do not record secret values here. Mark only whether they are available.
 - The assistant readiness endpoint returned HTTP 200 with `configured: false`; `vercel env ls production` shows no environment variables for `raghvendra912s-projects/researchops-fieldwork`. The current process and repository-local environment files also contain no `OPENAI_API_KEY` entry. No secret value was read, logged, or committed.
 - Verification: deployment discovery succeeded and the QA stopped at its explicit readiness assertion before attempting a paid model request. The application integration remains implemented and its prior local suite remains green; production free-form answers are blocked only by the missing Production environment variable.
 - Current task: add `OPENAI_API_KEY` to the linked Vercel project's Production environment and redeploy. Next task: rerun `node scripts/qa-assistant.mjs` and record a successful real model response; deterministic admin tools remain available independently.
+
+### 2026-10-04 - Admin copilot key installed; API credits blocked
+
+- Added `OPENAI_API_KEY` as a Vercel Production Secret for the linked project without writing its value to the repository or tracker, then redeployed and aliased production to `www.asrv.co.in`.
+- Production readiness now returns HTTP 200 with `configured: true`. A real disposable-owner request reached OpenAI, which returned HTTP 429 with safe diagnostic code `credit_balance_exhausted` / type `insufficient_quota`; this confirms wiring and authentication while blocking generated answers until the OpenAI account has API credit.
+- Added sanitized upstream diagnostics containing only status/type/code and an actionable admin-facing exhausted-credit error. Focused assistant tests and deployment build pass; commit/deployment verification does not expose the credential.
+- Current task: add API billing credit and rotate the key because it was pasted into chat, then update the Vercel secret. Next task: redeploy and rerun `node scripts/qa-assistant.mjs` until a real answer passes. Deterministic copilot analysis and CSV actions remain available.
