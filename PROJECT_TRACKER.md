@@ -89,6 +89,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Verification: targeted TypeScript and changed-file ESLint pass; activity-target unit coverage passes; final `npm test` passes with 49 passed, 0 failed, and 6 environment-gated skips; `git diff --check` passes.
 - Current/next task: deploy the accumulated verified UI/API changes after migration `040` is applied, then browser-check a real ROP-1178 quality alert and its filtered Fraud review destination.
 - Session log (2026-10-04): converted the screenshot-reported Live activity panel into actionable routing, connected quality events to project-filtered review, added deterministic routing tests, and completed the full standard regression suite.
+- Production result: commit `d9b140c` was pushed to `origin/main`. Remote inspection confirmed the existing `037` performance indexes, `038` ownership indexes, and `039` assignment-scoped constraints; their manually applied migration history was reconciled before applying only `040_geo_security.sql`. Vercel production deployment `HS2HUrJna9PThf5GFx5riXEm3m4r` completed and was aliased to `www.asrv.co.in`. Production health is `healthy`, readiness is `ready` with `supabase-ready`, the remote migration dry-run is up to date, and exact deployed assets contain the actionable alert, geo checkbox, project-filter, and activity-hover markers. Authenticated matching/mismatching geo launches and XLSX download remain the next behavioral proof.
 
 ## Geo-location security and launch confirmation checkpoint — 2026-10-04
 
