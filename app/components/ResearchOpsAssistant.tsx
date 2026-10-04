@@ -100,8 +100,7 @@ export function ResearchOpsAssistant({ token }: { token?: string }) {
     try {
       const { projects, specifications, specs } = await portfolio();
       const normalized = question.toLowerCase();
-      let text =
-        "I can currently analyse conversions, link/setup gaps, and project CSV exports. Full free-form AI answers will activate after the server AI key is configured.";
+      let text = "";
       if (/csv|download|export/.test(normalized)) {
         downloadCsv(projects, specifications);
         text = `Downloaded a CSV audit for ${projects.length} projects.`;
@@ -142,6 +141,23 @@ export function ResearchOpsAssistant({ token }: { token?: string }) {
         text = ranked.length
           ? `Highest conversion: ${ranked.map((item) => `${item.id} ${item.conversionRate ?? 0}%`).join(", ")}.`
           : "No projects have enough live starts to rank.";
+      } else {
+        const response = await apiRequest<{ data: { answer: string } }>(
+          "/api/assistant",
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              question,
+              projects: projects.slice(0, 500).map((project) => ({
+                ...project,
+                liveSurveyUrl: specs.get(project.id)?.liveSurveyUrl ?? "",
+                testSurveyUrl: specs.get(project.id)?.testSurveyUrl ?? "",
+              })),
+            }),
+          },
+        );
+        text = response.data.answer;
       }
       setMessages((current) => [...current, { from: "assistant", text }]);
     } catch {

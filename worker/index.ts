@@ -19,6 +19,7 @@ import { handleProjectAccessApi } from "./routes/project-access";
 import { handleProjectOwnershipApi } from "./routes/project-ownership";
 import { handleSurveySetupApi } from "./routes/survey-setup";
 import { handleResponseVariablesApi } from "./routes/response-variables";
+import { handleAssistantApi } from "./routes/assistant";
 import { securityHeaders, validateCSRF, csrfError } from "./lib/security.ts";
 
 interface Env {
@@ -34,6 +35,7 @@ interface Env {
   FRAUD_HASH_SECRET?: string;
   DEV_AUTO_LOGIN?: string;
   DEV_AUTO_LOGIN_TOKEN?: string;
+  OPENAI_API_KEY?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -61,6 +63,7 @@ function projectEnvironment(env: Env | undefined) {
     FRAUD_HASH_SECRET: env?.FRAUD_HASH_SECRET ?? nodeEnvironment?.FRAUD_HASH_SECRET,
     DEV_AUTO_LOGIN: env?.DEV_AUTO_LOGIN ?? nodeEnvironment?.DEV_AUTO_LOGIN,
     DEV_AUTO_LOGIN_TOKEN: env?.DEV_AUTO_LOGIN_TOKEN ?? nodeEnvironment?.DEV_AUTO_LOGIN_TOKEN,
+    OPENAI_API_KEY: env?.OPENAI_API_KEY ?? nodeEnvironment?.OPENAI_API_KEY,
   };
 }
 
@@ -137,6 +140,11 @@ const worker = {
       const eligibilityResponse = await handleEligibilityApi(request, url.pathname, projectEnv);
       if (eligibilityResponse) return observed(eligibilityResponse);
       const apiResponse = await handleProjectsApi(request, url.pathname, projectEnv);
+      if (apiResponse) return observed(apiResponse);
+    }
+
+    if (url.pathname === "/api/assistant") {
+      const apiResponse = await handleAssistantApi(request, url.pathname, projectEnv);
       if (apiResponse) return observed(apiResponse);
     }
 
