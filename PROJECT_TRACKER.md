@@ -89,6 +89,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: commit, push, deploy, and verify production health/readiness plus deployed UI markers. Next task: run the isolated hosted geo match/mismatch proof and verify its privacy-limited respondent evidence; authenticated XLSX download remains the final manual behavioral proof.
 - Decision: outcome callback URLs remain runtime-generated because their signatures and session IDs do not exist until a respondent starts. The UI therefore previews stable client parameters and explicitly states which additional values the backend appends.
 - Session log (2026-10-04): removed manual survey value-template configuration, added adjacent Live/Test implementation previews, centralized the automatic parameter contract, updated API/browser/integration expectations, and completed compile, lint, standard-suite, and focused browser verification.
+- UI correction (2026-10-04): the production screenshot exposed CSS-grid auto-placement around the third security card, which separated each implementation preview from its source input. Live and Test pairs are now each wrapped in a full-width two-column row so responsive layout cannot interleave them.
 
 ## Actionable live activity checkpoint — 2026-10-04
 
