@@ -250,19 +250,21 @@ function mockList(query: ProjectListQuery) {
 
 function parseCreatePayload(payload: Record<string, unknown> | null) {
   if (!payload || typeof payload.projectName !== "string" || !payload.projectName.trim()) return null;
-  const quota = Number(payload.quota);
+  const suppliedMarkets = Array.isArray(payload.markets) ? parseMarkets({ markets: payload.markets }) : null;
+  if (Array.isArray(payload.markets) && !suppliedMarkets) return null;
+  const legacyQuota = Number(payload.quota);
   const clientCpi = Number(payload.clientCpi);
-  const loi = payload.loi === null || payload.loi === undefined || payload.loi === "" ? null : Number(payload.loi);
-  const incidence = payload.incidence === null || payload.incidence === undefined || payload.incidence === "" ? null : Number(payload.incidence);
-  const countryCode = String(payload.countryCode ?? "IN").trim().toUpperCase();
-  const languageCode = String(payload.languageCode ?? "en").trim().toLowerCase();
+  const legacyLoi = payload.loi === null || payload.loi === undefined || payload.loi === "" ? null : Number(payload.loi);
+  const legacyIncidence = payload.incidence === null || payload.incidence === undefined || payload.incidence === "" ? null : Number(payload.incidence);
+  const markets = suppliedMarkets ?? [{ countryCode: String(payload.countryCode ?? "IN").trim().toUpperCase(), languageCode: String(payload.languageCode ?? "en").trim().toLowerCase(), targetQuota: legacyQuota, expectedLoiMinutes: legacyLoi, expectedIr: legacyIncidence }];
+  const firstMarket = markets[0];
+  const quota = markets.reduce((total, market) => total + Number(market.targetQuota), 0);
   if (!Number.isInteger(quota) || quota < 1 || !Number.isFinite(clientCpi) || clientCpi < 0
-    || (loi !== null && (!Number.isInteger(loi) || loi < 1))
-    || (incidence !== null && (!Number.isFinite(incidence) || incidence < 0 || incidence > 100))
-    || !validCountryCodes.has(countryCode) || !validLanguageCodes.has(languageCode)) return null;
+    || !firstMarket || !validCountryCodes.has(firstMarket.countryCode) || !validLanguageCodes.has(firstMarket.languageCode)
+    || (!suppliedMarkets && ((legacyLoi !== null && (!Number.isInteger(legacyLoi) || legacyLoi < 1)) || (legacyIncidence !== null && (!Number.isFinite(legacyIncidence) || legacyIncidence < 0 || legacyIncidence > 100))))) return null;
   const urls = [payload.surveyUrl, payload.testSurveyUrl].map((value) => String(value ?? "").trim());
   if (urls.some((value) => value && (!/^https?:\/\//i.test(value) || value.length > 2048))) return null;
-  const surveyParameters = AUTOMATIC_SURVEY_PARAMETERS;
+  const surveyParameters = payload.addAutomaticParameters === false ? [] : AUTOMATIC_SURVEY_PARAMETERS;
   const supplierAssignments = Array.isArray(payload.supplierAssignments) ? payload.supplierAssignments.map((value) => { const item = value as Record<string, unknown>; return { name: String(item.name ?? "").trim(), supplier_cpi: Number(item.supplierCpi ?? 0) }; }) : [];
   if (supplierAssignments.length > 100 || supplierAssignments.some((item) => !item.name || !Number.isFinite(item.supplier_cpi) || item.supplier_cpi < 0) || new Set(supplierAssignments.map((item) => item.name.toLowerCase())).size !== supplierAssignments.length) return null;
   return {
@@ -273,13 +275,14 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     p_category: String(payload.category ?? "").trim() || null,
     p_client_cpi: clientCpi,
     p_quota: quota,
-    p_country_code: countryCode,
-    p_language_code: languageCode,
-    p_expected_loi_minutes: loi,
-    p_expected_ir: incidence,
+    p_country_code: firstMarket.countryCode,
+    p_language_code: firstMarket.languageCode,
+    p_expected_loi_minutes: firstMarket.expectedLoiMinutes,
+    p_expected_ir: firstMarket.expectedIr,
     p_supplier_assignments: supplierAssignments,
     p_survey_url: urls[0] || null, p_test_survey_url: urls[1] || null, p_survey_parameters: surveyParameters,
     geoSecurityEnabled: payload.geoSecurityEnabled === true,
+    markets,
   };
 }
 
@@ -494,10 +497,11 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
-      const { geoSecurityEnabled, ...createPayload } = payload;
+      const { geoSecurityEnabled, markets, ...createPayload } = payload;
       const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
       const created = rows[0];
       if (!created) throw new Error("Supabase did not return the created project");
+      if (markets.length > 1) await supabaseJson(env, "/rest/v1/rpc/replace_project_markets", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_markets: markets.map((market) => ({ country_code: market.countryCode, language_code: market.languageCode, target_quota: market.targetQuota, expected_loi_minutes: market.expectedLoiMinutes, expected_ir: market.expectedIr })) }) });
       if (geoSecurityEnabled) await supabaseJson(env, "/rest/v1/rpc/configure_project_geo_security", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_enabled: true }) });
       return Response.json({ data: { id: created.project_code, databaseId: created.project_id, status: created.status }, meta: { source: "supabase" } }, { status: 201 });
     }

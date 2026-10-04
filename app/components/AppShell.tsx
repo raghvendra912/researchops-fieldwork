@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { useState } from "react";
 import { apiRequest } from "../../src/lib/api";
+import { ResearchOpsAssistant } from "./ResearchOpsAssistant";
 
 const primaryNavigation = [
   { href: "/dashboard", label: "Overview", glyph: "OV" },
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { configured, loading, user, session, signOut } = useAuth();
   const [organizationStatus, setOrganizationStatus] = useState<"checking" | "ready" | "missing" | "error">(configured ? "checking" : "ready");
+  const [workspaceRole, setWorkspaceRole] = useState(configured ? "" : "OWNER");
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
@@ -103,8 +105,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const accessToken = session?.access_token;
     if (!configured || !user || !accessToken) return;
     let active = true;
-    void apiRequest<{ data: { id: string } | null }>("/api/organizations/current", { headers: { authorization: `Bearer ${accessToken}` } }).then((response) => {
-      if (active) setOrganizationStatus(response.data ? "ready" : "missing");
+    void apiRequest<{ data: { id: string; role: string } | null }>("/api/organizations/current", { headers: { authorization: `Bearer ${accessToken}` } }).then((response) => {
+      if (active) { setOrganizationStatus(response.data ? "ready" : "missing"); setWorkspaceRole(response.data?.role ?? ""); }
     }).catch(() => {
       if (active) setOrganizationStatus("error");
     });
@@ -194,6 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <div className="content">{children}</div>
       </main>
+      {["OWNER", "ADMIN"].includes(workspaceRole) ? <ResearchOpsAssistant token={session?.access_token} /> : null}
     </div>
   );
 }

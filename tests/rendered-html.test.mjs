@@ -152,6 +152,12 @@ test("serves Worker health and project APIs", async () => {
   });
   assert.equal(automaticParameters.status, 201, "Client-supplied value templates must be ignored in favor of backend defaults");
 
+  const multiMarketProject = await request("/api/projects", {
+    method: "POST", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+    body: JSON.stringify({ projectName: "Multi-market project", client: "Northstar Bank", clientCpi: 8.5, markets: [{ countryCode: "IN", languageCode: "hi", targetQuota: 60, expectedLoiMinutes: 10, expectedIr: 40 }, { countryCode: "US", languageCode: "en", targetQuota: 40, expectedLoiMinutes: 12, expectedIr: 35 }] }),
+  });
+  assert.equal(multiMarketProject.status, 201);
+
   const updated = await request("/api/projects/PRJ-1048", {
     method: "PATCH", headers: { "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
     body: JSON.stringify({ projectName: "Updated Wallet Study", clientPo: "PO-2", type: "B2C", category: "Financial Technology", quota: 600, clientCpi: 9.25, endDate: "2026-09-20", surveyUrl: "https://survey.example/start" }),

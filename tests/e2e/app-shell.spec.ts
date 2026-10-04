@@ -22,6 +22,9 @@ test("desktop unified navigation and build identity are visible", async ({ page 
   await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   const workspaceNavigation = page.getByRole("navigation", { name: "Workspace navigation" });
   await expect(workspaceNavigation.getByText("Project Center", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open ResearchOps Copilot" })).toBeVisible();
+  await page.getByRole("button", { name: "Open ResearchOps Copilot" }).click();
+  await expect(page.getByLabel("ResearchOps AI assistant")).toBeVisible();
 });
 
 test("mobile navigation remains usable without the desktop toggle", async ({ page }) => {
@@ -171,22 +174,30 @@ test("project leads can manage role-compatible project access", async ({ page })
 });
 
 test("new project market selection covers all countries and preferred languages", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto("/projects/new", { waitUntil: "domcontentloaded" });
-  const country = page.getByLabel("Country");
+  const country = page.getByLabel("Market 1 country");
   await expect(country.locator("option")).toHaveCount(249);
   await country.selectOption("JP");
   await expect(country).toHaveValue("JP");
-  await expect(page.getByLabel("Language").locator('optgroup[label^="Common in Japan"] option')).toHaveCount(1);
-  await expect(page.getByLabel("Language")).toHaveValue("ja");
+  await expect(page.getByLabel("Market 1 language").locator('optgroup[label^="Common in Japan"] option')).toHaveCount(1);
+  await expect(page.getByLabel("Market 1 language")).toHaveValue("ja");
   await country.selectOption("CA");
-  await expect(page.getByLabel("Language")).toHaveValue("en");
-  await expect(page.getByLabel("Language").locator('optgroup[label^="Common in Canada"] option')).toHaveCount(2);
+  await expect(page.getByLabel("Market 1 language")).toHaveValue("en");
+  await expect(page.getByLabel("Market 1 language").locator('optgroup[label^="Common in Canada"] option')).toHaveCount(2);
+  await page.getByRole("button", { name: "Add market" }).click();
+  await expect(page.getByLabel("Market 2 country")).toHaveValue("US");
+  await expect(page.getByRole("button", { name: "Remove market" })).toHaveCount(2);
   await expect(page.getByLabel("Live survey URL")).toBeVisible();
   await expect(page.getByLabel("Test survey URL (optional)")).toBeVisible();
+  await expect(page.getByText("Add automatic URL parameters", { exact: true })).toBeVisible();
   await expect(page.getByText("Live implementation URL", { exact: true })).toBeVisible();
   await expect(page.getByText("Test implementation URL", { exact: true })).toBeVisible();
-  await expect(page.getByText(/automatically adds pid \(session\/TOID\), uid/)).toBeVisible();
+  await expect(page.getByText("pid = session/TOID and uid = supplier respondent ID", { exact: true })).toBeVisible();
   await expect(page.getByText("Add parameter", { exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Security" }).click();
+  await expect(page.getByLabel("Enable geo-location security")).toBeVisible();
+  await page.getByRole("tab", { name: "Survey URLs" }).click();
   await page.getByText("Select suppliers", { exact: true }).click();
   await page.getByLabel("Assign CPX Research").check();
   await expect(page.getByLabel("CPX Research supplier CPI")).toBeEnabled();

@@ -274,6 +274,25 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .activity-time { color: var(--muted); font-size: 9px; }
 .implementation-url { display: block; min-height: 42px; overflow-wrap: anywhere; white-space: normal; }
 .implementation-url-pair { align-items: start; }
+.market-create-list { display: grid; gap: 14px; }
+.market-create-row { border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.market-remove { justify-content: end; }
+.setup-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.setup-tab { border: 0; border-bottom: 3px solid transparent; background: transparent; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+.setup-tab.active { border-bottom-color: var(--accent); color: var(--ink); }
+.setup-tab-panel { min-height: 190px; }
+.compact-check { display: inline-flex; align-items: flex-start; gap: 10px; margin: 16px 0; cursor: pointer; }
+.compact-check span { display: grid; gap: 2px; }
+.compact-check small { color: var(--muted); }
+.ai-assistant { position: fixed; z-index: 80; }
+.ai-fab { width: 68px; height: 68px; padding: 0; overflow: hidden; border: 2px solid white; border-radius: 50%; background: #fff7cc; box-shadow: 0 10px 30px #10203340; cursor: pointer; }
+.ai-fab img { width: 100%; height: 100%; object-fit: cover; }
+.ai-chat { width: min(380px, calc(100vw - 24px)); height: min(560px, calc(100vh - 32px)); display: grid; grid-template-rows: auto 1fr auto auto; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 18px 60px #10203340; }
+.ai-chat-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #102c46; color: white; cursor: move; touch-action: none; }
+.ai-chat-head span { display: flex; align-items: center; gap: 8px; font-weight: 800; }.ai-chat-head img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }.ai-chat-head button { border: 0; background: transparent; color: white; font-size: 24px; cursor: pointer; }
+.ai-messages { display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: auto; }.ai-message { max-width: 88%; padding: 10px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; }.ai-message.assistant { align-self: flex-start; background: #eef4f2; }.ai-message.user { align-self: flex-end; background: #102c46; color: white; }
+.ai-quick { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; }.ai-quick button { white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; background: white; padding: 6px 9px; cursor: pointer; }
+.ai-chat form { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }.ai-chat form input { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }.ai-chat form button { border: 0; border-radius: 10px; padding: 0 14px; background: #102c46; color: white; font-weight: 700; }
 
 /* Project form uses the shared Project Center grid: progress panel + detail panel. */
 .form-panel { overflow: hidden; }

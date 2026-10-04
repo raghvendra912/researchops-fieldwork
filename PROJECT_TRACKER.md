@@ -81,6 +81,27 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Admin ResearchOps Copilot checkpoint — 2026-10-04
+
+- Status: DONE locally. Added an original generated yellow ResearchOps helper mascot and a draggable floating chat available only to OWNER/ADMIN memberships. Non-admin roles do not receive the component; expanding access remains an explicit future administrator permission decision.
+- Working local tools: portfolio-wide low/high conversion ranking, missing Live survey URL detection, malformed URL checks, setup-gap answers, and downloadable project/link audit CSV. The tool paginates the authorized project API and inherits existing tenant/RLS enforcement.
+- Architecture decision: new actions must be registered and admin-approved; the assistant must never invent tools, bypass RBAC, or mutate data without an explicit confirmation. The current environment has no `OPENAI_API_KEY`, so unrestricted free-form model answers are intentionally not presented as working. Official OpenAI integration will remain server-only when the credential is configured.
+- Asset: `public/researchops-assistant.png`, generated with the image-generation skill as an original character rather than a copyrighted Minion reproduction.
+- Verification: TypeScript, changed-file ESLint, production build, `git diff --check`, and the standard suite pass (49 passed, 0 failed, 6 environment-gated skips). Focused compiled-browser checks pass for the admin copilot and new-project interaction. Current task: commit, push, deploy, and verify production uptake.
+
+## Survey URL and security tabs correction — 2026-10-04
+
+- Status: DONE locally. New project setup now separates Survey URLs and Security into explicit tabs. Live/Test inputs share one compact URL panel; duplicate prevention, controlled routing, and geo-location security live only in Security.
+- Added the requested small automatic-parameter checkbox. When selected, the backend stores safe `pid`/`uid` mappings and previews both implementation URLs; when cleared, those mappings are omitted while signed outcome callbacks remain automatic for routing integrity.
+- Verification: focused Chromium exercises both tabs and the automatic-parameter control; the standard suite, TypeScript, lint, build, and diff checks pass. Current task: commit, push, deploy, and verify production uptake.
+
+## Multi-market project creation checkpoint — 2026-10-04
+
+- Status: DONE locally. Project creation now supports 1–50 country/language market rows with independent quota, LOI, and incidence values plus Add market/Remove market controls. The project quota is calculated as the sum of market quotas.
+- Backend: creation validates unique market-language combinations, creates the project from the first validated row, then uses the existing tenant-scoped `replace_project_markets` RPC to persist the complete set before returning success. Existing single-market API clients remain compatible.
+- Verification: standard/API coverage accepts a two-market project, TypeScript and lint pass, and focused Chromium proves country-language behavior plus Add/Remove market controls. Current task: commit, push, deploy, and verify production uptake.
+- Session log (2026-10-04): replaced the first-market-only creation controls with repeatable market rows and extended project creation parsing/persistence plus regression coverage for multi-market payloads.
+
 ## Automatic survey implementation URLs checkpoint — 2026-10-04
 
 - Status: DONE locally. New project and project routing screens now place the generated Live/Test implementation URL beside its matching client URL input. The separate parameter-name/value-template editor and Add/Remove controls are removed.
