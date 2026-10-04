@@ -1468,3 +1468,10 @@ Do not record secret values here. Mark only whether they are available.
 - Changed Project Center from the signed-in manager's assigned-only scope to the complete workspace portfolio, including filtering, pagination, displayed totals, Live/Test metrics, and CSV export.
 - Updated the page copy and product documentation to state that the view contains all workspace studies; role-aware project controls remain unchanged.
 - Verification: production build passes and the rendered HTML suite passes 9/9. The existing local Playwright server on port 3001 served a stale build; a clean-port retry reached the interaction test but exceeded the command window in the slow local environment. Commit `aa561fe` was pushed to `origin/main` and directly deployed through the linked Vercel project. Production health returns HTTP 200; the exact hosted Project Center asset returns HTTP 200, contains the workspace-wide copy and `scope=all`, and excludes the removed summary-card copy. Current task returns to reliability monitoring and external provider certification.
+
+### 2026-10-04 - Admin copilot production-key recheck
+
+- Confirmed the latest production deployment is Ready and reran the disposable-owner assistant QA against production.
+- The assistant readiness endpoint returned HTTP 200 with `configured: false`; `vercel env ls production` shows no environment variables for `raghvendra912s-projects/researchops-fieldwork`. The current process and repository-local environment files also contain no `OPENAI_API_KEY` entry. No secret value was read, logged, or committed.
+- Verification: deployment discovery succeeded and the QA stopped at its explicit readiness assertion before attempting a paid model request. The application integration remains implemented and its prior local suite remains green; production free-form answers are blocked only by the missing Production environment variable.
+- Current task: add `OPENAI_API_KEY` to the linked Vercel project's Production environment and redeploy. Next task: rerun `node scripts/qa-assistant.mjs` and record a successful real model response; deterministic admin tools remain available independently.
