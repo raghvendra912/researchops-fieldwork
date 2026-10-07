@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-10-04
+Last updated: 2026-10-07
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -1482,3 +1482,13 @@ Do not record secret values here. Mark only whether they are available.
 - Production readiness now returns HTTP 200 with `configured: true`. A real disposable-owner request reached OpenAI, which returned HTTP 429 with safe diagnostic code `credit_balance_exhausted` / type `insufficient_quota`; this confirms wiring and authentication while blocking generated answers until the OpenAI account has API credit.
 - Added sanitized upstream diagnostics containing only status/type/code and an actionable admin-facing exhausted-credit error. Focused assistant tests and deployment build pass; commit/deployment verification does not expose the credential.
 - Current task: add API billing credit and rotate the key because it was pasted into chat, then update the Vercel secret. Next task: redeploy and rerun `node scripts/qa-assistant.mjs` until a real answer passes. Deterministic copilot analysis and CSV actions remain available.
+
+### 2026-10-07 - Reference workflow UI alignment
+
+- Aligned the Clients and Suppliers directories with the supplied operational references: expanded table columns, compact bordered filters, country and sales-user client fields, supplier variable and Flamingo setup fields, created-date display, and balanced three-column create/edit forms. Existing routing links, permissions, activation controls, and redirect destinations remain intact.
+- Expanded New Project with Survey Multi Link, Segment, five Q.1-Q.5 pre-screening prompts and answer types, Research Defender controls, named digital-fingerprinting controls, campaign-banner state, and the existing routing/security invariants. Added migration `041_reference_workflow_fields.sql` so all new values persist instead of being presentation-only.
+- Project Center retains the already completed screenshot-aligned portfolio table, compact filters, live/test metrics, action controls, exports, and project workspace behavior; it was visually rechecked rather than rebuilt.
+- Production database: migration `041` applied successfully through the linked Supabase project on 2026-10-07.
+- Verification: `npx tsc --noEmit` passed; `npm run build` passed; standard suite passed 51 tests with 6 environment-gated skips and zero failures; `git diff --check` passed before the final tracker update. Fresh 1440px Chromium screenshots were inspected for Clients, Suppliers, both directory forms, New Project, its Security tab, and Project Center. Controls, borders, grids, table overflow, and Q.1-Q.5 rows were aligned with no overlaps.
+- Decision: reference-only third-party switches are stored as controlled project security metadata; they do not claim provider enforcement until a certified adapter exists. Existing duplicate prevention, controlled routing, geo security, callback signing, and eligibility enforcement remain the authoritative runtime controls.
+- Current task: commit, push, deploy, and verify the hosted revision. Next task: authenticated production smoke-test of persisted client/supplier reference fields and a project created with pre-screening/security metadata.

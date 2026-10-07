@@ -48,6 +48,11 @@ export interface Project {
   quotaCells?: Array<{ name: string; targetQuota: number; priority: number; active: boolean; conditions: unknown }>;
   securityTerminateUrl?: string;
   geoSecurityEnabled?: boolean;
+  segment?: string;
+  surveyMultiLink?: boolean;
+  campaignBanner?: "HIDE" | "SHOW";
+  securityControls?: Record<string, boolean>;
+  prescreeningQuestions?: Array<{ question: string; answerType: string }>;
   averageDurationSeconds?: number;
   lastComplete: string;
   lastEventAt?: string;

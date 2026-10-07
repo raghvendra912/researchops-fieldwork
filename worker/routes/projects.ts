@@ -35,6 +35,11 @@ type DatabaseProject = {
   survey_parameters: unknown;
   security_terminate_url: string | null;
   geo_security_enabled?: boolean;
+  segment?: string | null;
+  survey_multi_link?: boolean;
+  campaign_banner?: "HIDE" | "SHOW";
+  security_controls?: unknown;
+  prescreening_questions?: unknown;
   created_at: string;
   updated_at?: string;
   clients: { name: string; code?: string | null } | { name: string; code?: string | null }[] | null;
@@ -179,6 +184,11 @@ function toProject(row: DatabaseProject, metrics?: ProjectMetrics): Project {
     surveyParameters: Array.isArray(row.survey_parameters) ? row.survey_parameters as Array<{ name: string; value: string }> : [],
     securityTerminateUrl: row.security_terminate_url ?? undefined,
     geoSecurityEnabled: row.geo_security_enabled === true,
+    segment: row.segment ?? "",
+    surveyMultiLink: row.survey_multi_link === true,
+    campaignBanner: row.campaign_banner ?? "HIDE",
+    securityControls: row.security_controls && typeof row.security_controls === "object" ? row.security_controls as Record<string, boolean> : {},
+    prescreeningQuestions: Array.isArray(row.prescreening_questions) ? row.prescreening_questions as Array<{ question: string; answerType: string }> : [],
     averageDurationSeconds: metrics?.average_duration_seconds ?? 0,
     lastComplete: metrics?.last_complete_at ? new Date(metrics.last_complete_at).toISOString() : "Not started",
     lastEventAt: metrics?.last_event_at ? new Date(metrics.last_event_at).toISOString() : undefined,
@@ -267,6 +277,8 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
   const surveyParameters = payload.addAutomaticParameters === false ? [] : AUTOMATIC_SURVEY_PARAMETERS;
   const supplierAssignments = Array.isArray(payload.supplierAssignments) ? payload.supplierAssignments.map((value) => { const item = value as Record<string, unknown>; return { name: String(item.name ?? "").trim(), supplier_cpi: Number(item.supplierCpi ?? 0) }; }) : [];
   if (supplierAssignments.length > 100 || supplierAssignments.some((item) => !item.name || !Number.isFinite(item.supplier_cpi) || item.supplier_cpi < 0) || new Set(supplierAssignments.map((item) => item.name.toLowerCase())).size !== supplierAssignments.length) return null;
+  const questions = Array.isArray(payload.prescreeningQuestions) ? payload.prescreeningQuestions.slice(0, 5).map((value) => { const item = value as Record<string, unknown>; return { question: String(item.question ?? "").trim().slice(0, 500), answerType: String(item.answerType ?? "SINGLE_SELECT").trim().slice(0, 40) }; }).filter((item) => item.question) : [];
+  const securityControls = payload.securityControls && typeof payload.securityControls === "object" ? payload.securityControls as Record<string, boolean> : {};
   return {
     p_project_name: payload.projectName.trim(),
     p_client_name: String(payload.client ?? "").trim(),
@@ -282,6 +294,7 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     p_supplier_assignments: supplierAssignments,
     p_survey_url: urls[0] || null, p_test_survey_url: urls[1] || null, p_survey_parameters: surveyParameters,
     geoSecurityEnabled: payload.geoSecurityEnabled === true,
+    referenceSetup: { segment: String(payload.segment ?? "").trim().slice(0, 120) || null, survey_multi_link: payload.surveyMultiLink === true, campaign_banner: payload.campaignBanner === "SHOW" ? "SHOW" : "HIDE", security_controls: securityControls, prescreening_questions: questions },
     markets,
   };
 }
@@ -347,7 +360,7 @@ function ownershipSchemaUnavailable(error: unknown) {
 }
 
 function projectSelect(clientRelation: string, ownership: boolean) {
-  const base = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,geo_security_enabled,created_at,updated_at,${clientRelation},project_managers:user_profiles!projects_manager_profile_fkey(display_name),project_markets(country_code)`;
+  const base = `id,project_code,project_name,client_po,project_type,category,project_manager_id,project_manager_name,status,client_cpi,quota,start_date,end_date,survey_url,test_survey_url,survey_parameters,security_terminate_url,geo_security_enabled,segment,survey_multi_link,campaign_banner,security_controls,prescreening_questions,created_at,updated_at,${clientRelation},project_managers:user_profiles!projects_manager_profile_fkey(display_name),project_markets(country_code)`;
   return ownership ? `${base},secondary_project_manager_id,sales_person_id,secondary_manager:user_profiles!projects_secondary_project_manager_id_fkey(display_name),sales_owner:user_profiles!projects_sales_person_id_fkey(display_name)` : base;
 }
 
@@ -497,12 +510,13 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
-      const { geoSecurityEnabled, markets, ...createPayload } = payload;
+      const { geoSecurityEnabled, referenceSetup, markets, ...createPayload } = payload;
       const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
       const created = rows[0];
       if (!created) throw new Error("Supabase did not return the created project");
       if (markets.length > 1) await supabaseJson(env, "/rest/v1/rpc/replace_project_markets", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_markets: markets.map((market) => ({ country_code: market.countryCode, language_code: market.languageCode, target_quota: market.targetQuota, expected_loi_minutes: market.expectedLoiMinutes, expected_ir: market.expectedIr })) }) });
       if (geoSecurityEnabled) await supabaseJson(env, "/rest/v1/rpc/configure_project_geo_security", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_enabled: true }) });
+      await supabaseJson(env, `/rest/v1/projects?id=eq.${created.project_id}`, access.authorization, { method: "PATCH", body: JSON.stringify(referenceSetup) });
       return Response.json({ data: { id: created.project_code, databaseId: created.project_id, status: created.status }, meta: { source: "supabase" } }, { status: 201 });
     }
     const detailMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)$/i);

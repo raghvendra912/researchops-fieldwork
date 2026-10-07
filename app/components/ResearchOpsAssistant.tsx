@@ -216,9 +216,12 @@ export function ResearchOpsAssistant({ token }: { token?: string }) {
               ResearchOps Copilot
             </span>
             <button
+              className="ai-chat-minimize"
               type="button"
+              onPointerDown={(event) => event.stopPropagation()}
               onClick={() => setOpen(false)}
-              aria-label="Close assistant"
+              aria-label="Minimize ResearchOps Copilot"
+              title="Minimize"
             >
               ×
             </button>

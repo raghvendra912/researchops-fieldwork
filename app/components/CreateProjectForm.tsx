@@ -55,6 +55,7 @@ type CreationMarket = {
   expectedLoiMinutes: string;
   expectedIr: string;
 };
+type PrescreeningQuestion = { question: string; answerType: string };
 const newMarket = (countryCode = "IN"): CreationMarket => ({
   countryCode,
   languageCode: languageOptionsForCountry(countryCode)[0]?.code ?? "en",
@@ -91,6 +92,10 @@ export function CreateProjectForm() {
   const [launchTab, setLaunchTab] = useState<"urls" | "security">("urls");
   const [addAutomaticParameters, setAddAutomaticParameters] = useState(true);
   const [geoSecurityEnabled, setGeoSecurityEnabled] = useState(false);
+  const [surveyMultiLink, setSurveyMultiLink] = useState(false);
+  const [campaignBanner, setCampaignBanner] = useState<"HIDE" | "SHOW">("HIDE");
+  const [prescreeningQuestions, setPrescreeningQuestions] = useState<PrescreeningQuestion[]>(Array.from({ length: 5 }, () => ({ question: "", answerType: "SINGLE_SELECT" })));
+  const [securityControls, setSecurityControls] = useState({ search: false, review: false, predupe: true, activity: false, emailVerify: false, fraudGuard: false, dfioPortal: false, survalidate: false, prescreeningCaptcha: false, speederTerminate: false, duplicateIp: true });
   const [markets, setMarkets] = useState<CreationMarket[]>([newMarket()]);
 
   useEffect(() => {
@@ -137,6 +142,11 @@ export function CreateProjectForm() {
       clientPo: form.get("clientPo"),
       type: form.get("type"),
       category: form.get("category"),
+      segment: form.get("segment"),
+      surveyMultiLink,
+      campaignBanner,
+      prescreeningQuestions,
+      securityControls,
       clientCpi: form.get("clientCpi"),
       markets: markets.map((market) => ({
         countryCode: market.countryCode,
@@ -262,6 +272,14 @@ export function CreateProjectForm() {
                   </select>
                 </div>
                 <div className="field">
+                  <label htmlFor="survey-multi-link">Survey multi link</label>
+                  <select className="control" id="survey-multi-link" value={surveyMultiLink ? "ON" : "OFF"} onChange={(event) => setSurveyMultiLink(event.target.value === "ON")}><option value="OFF">Off</option><option value="ON">On</option></select>
+                </div>
+                <div className="field">
+                  <label htmlFor="segment">Segment</label>
+                  <input className="control" id="segment" name="segment" placeholder="Audience segment" />
+                </div>
+                <div className="field">
                   <label htmlFor="po">Client PO</label>
                   <input className="control" id="po" name="clientPo" />
                 </div>
@@ -315,6 +333,12 @@ export function CreateProjectForm() {
                     required
                   />
                 </div>
+              </div>
+            </section>
+            <section className="form-section">
+              <div className="section-head"><div><h2>Pre-screening questions</h2><p>Configure up to five respondent-facing questions, matching the reference Q.1–Q.5 workflow.</p></div><span className="status-pill status-PENDING">5 MAX</span></div>
+              <div className="prescreen-builder">
+                {prescreeningQuestions.map((item, index) => <div className="prescreen-row" key={index}><span className="question-badge">Q.{index + 1}</span><div className="field"><label htmlFor={`prescreen-question-${index}`}>Question</label><input className="control" id={`prescreen-question-${index}`} value={item.question} onChange={(event) => setPrescreeningQuestions((current) => current.map((question, position) => position === index ? { ...question, question: event.target.value } : question))} /></div><div className="field"><label htmlFor={`prescreen-answer-${index}`}>Answer type</label><select className="control" id={`prescreen-answer-${index}`} value={item.answerType} onChange={(event) => setPrescreeningQuestions((current) => current.map((question, position) => position === index ? { ...question, answerType: event.target.value } : question))}><option value="SINGLE_SELECT">Single select</option><option value="MULTI_SELECT">Multi select</option><option value="TEXT">Text</option><option value="NUMBER">Number</option><option value="BOOLEAN">Yes / No</option></select></div></div>)}
               </div>
             </section>
             <section className="form-section">
@@ -678,7 +702,10 @@ export function CreateProjectForm() {
                   )}
                 </div>
               ) : (
-                <div className="setup-tab-panel form-grid" role="tabpanel">
+                <div className="setup-tab-panel" role="tabpanel">
+                  <h3>Research Defender</h3><div className="security-check-grid">{([['search','Search'],['review','Review'],['predupe','Predupe'],['activity','Activity'],['emailVerify','Email verify']] as const).map(([key,label]) => <label className="compact-check" key={key}><input type="checkbox" checked={securityControls[key]} onChange={(event) => setSecurityControls((current) => ({ ...current, [key]: event.target.checked }))} /><span><strong>{label}</strong></span></label>)}</div>
+                  <h3>Digital fingerprinting</h3><div className="form-grid three">{([['fraudGuard','FraudGuard'],['dfioPortal','DFIO Portal'],['survalidate','Survalidate'],['prescreeningCaptcha','Pre-screening Captcha'],['speederTerminate','Speeder Term'],['duplicateIp','Duplicate IP']] as const).map(([key,label]) => <div className="field" key={key}><label htmlFor={`security-${key}`}>{label}</label><select className="control" id={`security-${key}`} value={securityControls[key] ? "ON" : "OFF"} onChange={(event) => setSecurityControls((current) => ({ ...current, [key]: event.target.value === "ON" }))}><option value="OFF">Off</option><option value="ON">On</option></select></div>)}</div>
+                  <div className="form-grid">
                   <label className="choice-card">
                     <input
                       aria-label="Duplicate prevention is mandatory"
@@ -728,6 +755,8 @@ export function CreateProjectForm() {
                       </span>
                     </span>
                   </label>
+                  <div className="field"><label htmlFor="campaign-banner">Campaign banner</label><select className="control" id="campaign-banner" value={campaignBanner} onChange={(event) => setCampaignBanner(event.target.value as "HIDE" | "SHOW")}><option value="HIDE">Hide</option><option value="SHOW">Show</option></select></div>
+                  </div>
                 </div>
               )}
             </section>

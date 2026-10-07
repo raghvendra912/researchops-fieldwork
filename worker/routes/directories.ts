@@ -13,13 +13,13 @@ const defaultRedirectVariables: RedirectVariable[] = [
   { name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true },
 ];
 const demoClients = [
-  { id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE" as const, projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", redirectVariables: defaultRedirectVariables },
+  { id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE" as const, projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", countryCode: "IN", salesUser: "Workspace sales", redirectVariables: defaultRedirectVariables },
   { id: "client-arc", name: "Arc Technologies", code: "ARC", status: "ACTIVE" as const, projectCount: 1, contactName: "", address: "", contactEmail: "", phone: "", redirectVariables: defaultRedirectVariables },
   { id: "client-halo", name: "Halo Consumer", code: "HALO", status: "ACTIVE" as const, projectCount: 1, contactName: "", address: "", contactEmail: "", phone: "", redirectVariables: defaultRedirectVariables },
   { id: "client-aperture", name: "Aperture Auto", code: "APERTURE", status: "ACTIVE" as const, projectCount: 1, contactName: "", address: "", contactEmail: "", phone: "", redirectVariables: defaultRedirectVariables },
 ];
 const demoSuppliers = [
-  { id: "supplier-cpx", name: "CPX Research", code: "CPX", status: "ACTIVE" as const, projectCount: 3, contactName: "Supply team", address: "Remote", contactEmail: "supply@cpx.example", phone: "+1 000 000 0000", redirectMode: "STATIC" as const, redirects: emptyRedirects },
+  { id: "supplier-cpx", name: "CPX Research", code: "CPX", status: "ACTIVE" as const, projectCount: 3, contactName: "Supply team", address: "Remote", contactEmail: "supply@cpx.example", phone: "+1 000 000 0000", supplierVariable: "uid", flamingoEnabled: false, redirectMode: "STATIC" as const, redirects: emptyRedirects },
   { id: "supplier-bitlabs", name: "BitLabs", code: "BITLABS", status: "ACTIVE" as const, projectCount: 2, contactName: "", address: "", contactEmail: "", phone: "", redirectMode: "DYNAMIC" as const, redirects: emptyRedirects },
   { id: "supplier-purespectrum", name: "PureSpectrum", code: "PURE", status: "ACTIVE" as const, projectCount: 2, contactName: "", address: "", contactEmail: "", phone: "", redirectMode: "STATIC" as const, redirects: emptyRedirects },
 ];
@@ -50,11 +50,11 @@ function generatedLinks(kind: DirectoryKind, token: unknown, request: Request, a
 function mapRecord(kind: DirectoryKind, row: Record<string, unknown>, request: Request, access: DirectoryAccess) {
   const linksAllowed = kind === "clients" ? access.canAdminister : access.canOperate;
   return {
-    id: String(row.id), name: String(row.name), code: String(row.code ?? ""), status: String(row.status) as Status,
+    id: String(row.id), name: String(row.name), code: String(row.code ?? ""), status: String(row.status) as Status, createdAt: String(row.created_at ?? ""),
     projectCount: relationCount(kind === "clients" ? row.projects : row.project_suppliers),
     contactName: String(row.contact_name ?? ""), address: String(row.address ?? ""), contactEmail: String(row.contact_email ?? ""), phone: String(row.phone ?? ""),
-    ...(kind === "suppliers" ? { redirectMode: String(row.redirect_mode ?? "STATIC") as RedirectMode, redirects: { completeUrl: String(row.complete_url ?? ""), terminateUrl: String(row.terminate_url ?? ""), quotaFullUrl: String(row.quota_full_url ?? ""), securityTerminateUrl: String(row.security_terminate_url ?? "") } } : {}),
-    ...(kind === "clients" ? { redirectVariables: Array.isArray(row.redirect_variables) ? row.redirect_variables : defaultRedirectVariables } : {}),
+    ...(kind === "suppliers" ? { supplierVariable: String(row.supplier_variable ?? ""), flamingoEnabled: row.flamingo_enabled === true, redirectMode: String(row.redirect_mode ?? "STATIC") as RedirectMode, redirects: { completeUrl: String(row.complete_url ?? ""), terminateUrl: String(row.terminate_url ?? ""), quotaFullUrl: String(row.quota_full_url ?? ""), securityTerminateUrl: String(row.security_terminate_url ?? "") } } : {}),
+    ...(kind === "clients" ? { countryCode: String(row.country_code ?? ""), salesUser: String(row.sales_user ?? ""), redirectVariables: Array.isArray(row.redirect_variables) ? row.redirect_variables : defaultRedirectVariables } : {}),
     links: generatedLinks(kind, row.redirect_token, request, linksAllowed),
   };
 }
@@ -69,9 +69,15 @@ function parsePayload(kind: DirectoryKind, body: Record<string, unknown> | null,
   if (body?.status !== undefined) { const status = safeStatus(body.status); if (!status) return null; result.status = status; }
   const simpleFields = [["contactName", "contact_name", 100], ["address", "address", 500], ["phone", "phone", 40]] as const;
   for (const [input, output, maximum] of simpleFields) if (!partial || body?.[input] !== undefined) result[output] = safeOptional(body?.[input], maximum);
+  if (kind === "clients") {
+    if (!partial || body?.countryCode !== undefined) { const country = safeOptional(body?.countryCode, 2).toUpperCase(); if (country && !/^[A-Z]{2}$/.test(country)) return null; result.country_code = country || null; }
+    if (!partial || body?.salesUser !== undefined) result.sales_user = safeOptional(body?.salesUser, 100) || null;
+  }
   if (!partial || body?.contactEmail !== undefined) { const email = safeEmail(body?.contactEmail); if (email === undefined) return null; result.contact_email = email; }
   if (kind === "suppliers" && (!partial || body?.redirectMode !== undefined)) { const mode = safeMode(body?.redirectMode ?? "STATIC"); if (!mode) return null; result.redirect_mode = mode; }
   if (kind === "suppliers") {
+    if (!partial || body?.supplierVariable !== undefined) result.supplier_variable = safeOptional(body?.supplierVariable, 80) || null;
+    if (!partial || body?.flamingoEnabled !== undefined) result.flamingo_enabled = body?.flamingoEnabled === true;
     const redirects = (body?.redirects ?? {}) as Record<string, unknown>;
     for (const [input, output] of [["completeUrl", "complete_url"], ["terminateUrl", "terminate_url"], ["quotaFullUrl", "quota_full_url"], ["securityTerminateUrl", "security_terminate_url"]] as const) {
       if (!partial || redirects[input] !== undefined) { const url = safeUrl(redirects[input]); if (url === undefined) return null; result[output] = url; }
@@ -114,8 +120,8 @@ export async function handleDirectoriesApi(request: Request, pathname: string, e
   try {
     if (request.method === "GET" && !route.id) {
       const relation = route.kind === "clients" ? "projects(count)" : "project_suppliers(count)";
-      const kindFields = route.kind === "suppliers" ? ",redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url" : ",redirect_variables";
-      const rows = await supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/${route.kind}?select=id,name,code,status,contact_name,address,contact_email,phone${kindFields},redirect_token,${relation}&order=name`, authorized.authorization);
+      const kindFields = route.kind === "suppliers" ? ",supplier_variable,flamingo_enabled,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url" : ",country_code,sales_user,redirect_variables";
+      const rows = await supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/${route.kind}?select=id,name,code,status,created_at,contact_name,address,contact_email,phone${kindFields},redirect_token,${relation}&order=name`, authorized.authorization);
       return Response.json({ data: rows.map((row) => mapRecord(route.kind, row, request, access)), meta: { total: rows.length, source: "supabase", ...access } }, { headers: { "cache-control": "private, no-store" } });
     }
     if (request.method === "POST" && !route.id) {
