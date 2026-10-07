@@ -337,6 +337,23 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .detail-hero { padding: 22px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 24px; align-items: center; background: #1d2a26; color: white; }
 .detail-hero h1 { margin: 4px 0 8px; font: 500 34px/1 Georgia, serif; }
 .detail-hero p { margin: 0; color: #b6c5bf; font-size: 11px; }
+.project-detail-page { min-width: 0; max-width: 100%; overflow-x: hidden; scroll-behavior: smooth; }
+.project-detail-page .panel, .project-detail-page .dashboard-grid > *, .project-detail-anchor { min-width: 0; max-width: 100%; }
+.project-detail-summary { margin-bottom: 10px; overflow: hidden; }
+.project-detail-summary .panel-head { min-height: 62px !important; padding: 10px 16px !important; background: #f6f8f7 !important; }
+.project-detail-summary-grid { display: grid; grid-template-columns: 1.05fr 1.45fr repeat(3, 1fr); border-top: 1px solid var(--line); }
+.project-detail-cell { min-width: 0; min-height: 74px; padding: 13px 15px; display: flex; flex-direction: column; gap: 7px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
+.project-detail-cell:nth-child(5n) { border-right: 0; }
+.project-detail-cell.wide { grid-column: span 2; }
+.project-detail-cell span { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.project-detail-cell strong { min-width: 0; overflow-wrap: anywhere; color: #172d28; font-size: 12px; line-height: 1.35; }
+.project-option-bar { margin-bottom: 10px; padding: 10px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+.project-option-link { min-height: 66px; padding: 9px 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px solid #c4d0d2; border-radius: 7px; background: #f7f9f8; color: #263b36; text-align: center; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.project-option-link:hover { border-color: #173c57; background: #edf3f3; transform: translateY(-1px); }
+.project-option-link > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: #173c57; color: white; font-size: 9px; font-weight: 850; letter-spacing: .04em; }
+.project-option-link strong { font-size: 10px; line-height: 1.15; }
+.project-detail-anchor { scroll-margin-top: 78px; }
+.project-detail-anchor > .panel { margin-top: 10px; }
 .hero-metrics { display: grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); gap: 28px; }
 .hero-metric span { color: #98aaa3; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .hero-metric strong { display: block; margin-top: 6px; font: 500 24px/1 Georgia, serif; }
@@ -446,6 +463,9 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
   .filter-grid { grid-template-columns: repeat(4, 1fr); }
   .search-wrap { grid-column: span 2; }
   .dashboard-grid, .split-grid, .tracking-layout { grid-template-columns: 1fr; }
+  .project-detail-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .project-detail-cell:nth-child(5n) { border-right: 1px solid var(--line); }
+  .project-option-bar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -465,6 +485,9 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
   /* Retired form-shell/steps selectors are intentionally unstyled; the form uses dashboard-grid + panels. */
   .form-grid, .form-grid.three, .supplier-grid, .supplier-select-row, .parameter-row { grid-template-columns: 1fr; }
   .detail-hero { align-items: start; flex-direction: column; }
+  .project-detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .project-detail-cell.wide { grid-column: span 1; }
+  .project-option-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .login-page { grid-template-columns: 1fr; }
   .login-art { min-height: 400px; padding: 36px 28px; }
   .login-side { padding: 38px 24px; }
