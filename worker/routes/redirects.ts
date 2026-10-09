@@ -2,7 +2,7 @@ import { ingestNormalizedEvent, type EventEnv } from "./events";
 import { riskMetadata } from "../lib/fraud";
 import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
-import { outcomeRouteFromSession, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
+import { outcomeRouteFromSession, parseAssignmentRoute, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
 import { requestId, safeLog } from "../lib/observability";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
@@ -13,7 +13,7 @@ type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
 type LiveProject = { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; geo_security_enabled?: boolean; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
-type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: LiveProject | LiveProject[] };
+type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: LiveProject | LiveProject[]; suppliers?: SupplierRow | SupplierRow[] };
 type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
 type QuotaCellRow = { id: string; name: string; target_quota: number; priority: number; active: boolean; conditions: unknown };
 type QuotaReservationRow = { reservation_id: string | null; quota_cell_id: string | null; allowed: boolean; reason: string; reserved_until: string | null };
@@ -91,9 +91,10 @@ async function supplierByToken(env: RedirectEnv, token: string) {
 
 export async function handleRedirectApi(request: Request, pathname: string, env: RedirectEnv): Promise<Response | null> {
   const supplierRoute = parseSupplierRoute(pathname) ?? parseSupplierShortRoute(pathname);
+  const assignmentRoute = parseAssignmentRoute(pathname);
   const clientRoute = parseClientRoute(pathname);
   const outcomeRoute = parseOutcomeRoute(pathname);
-  if (!supplierRoute && !clientRoute && !outcomeRoute) return null;
+  if (!supplierRoute && !assignmentRoute && !clientRoute && !outcomeRoute) return null;
   if (request.method !== "GET") return unavailable("Method not allowed", 405);
   const url = new URL(request.url);
   const diagnose = url.searchParams.get("diagnose") === "1" || url.searchParams.get("format") === "json";
@@ -105,11 +106,22 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
 
   let routingStage = "route initialization";
   try {
-    if (supplierRoute) {
-      routingStage = "supplier lookup";
-      const supplier = await supplierByToken(env, supplierRoute.token);
+    if (supplierRoute || assignmentRoute) {
+      let assignment: LiveAssignment | undefined;
+      let project: LiveProject | undefined;
+      let supplier: SupplierRow | undefined;
+      if (assignmentRoute) {
+        routingStage = "masked assignment lookup";
+        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,suppliers(${SUPPLIER_COLUMNS}),projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&id=eq.${encodeURIComponent(assignmentRoute.token)}&limit=1`);
+        assignment = rows[0];
+        project = assignment ? first(assignment.projects) ?? undefined : undefined;
+        supplier = assignment ? first(assignment.suppliers) ?? undefined : undefined;
+      } else {
+        routingStage = "supplier lookup";
+        supplier = await supplierByToken(env, supplierRoute!.token);
+      }
       if (!supplier || supplier.status !== "ACTIVE") return help("Supplier link is inactive", 404, { fix: "Set the supplier status to ACTIVE in the Supplier directory." });
-      if (supplierRoute.mode === "test") {
+      if (supplierRoute?.mode === "test") {
         const outcome = (url.searchParams.get("outcome") ?? "complete").toLowerCase() as Outcome;
         const configuration = outcomes[outcome];
         if (!configuration) return help("Choose complete, terminate, quota-full, or security-terminate", 400, { fix: ROUTING_HELP.supplierTestExample });
@@ -118,14 +130,17 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       }
 
       const isTest = url.searchParams.get("mode") === "test";
-      const limited = checkRateLimit(`supplier-live:${supplierRoute.token}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 120, 60);
+      const routeToken = assignmentRoute?.token ?? supplierRoute!.token;
+      const limited = checkRateLimit(`supplier-live:${routeToken}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 120, 60);
       if (!limited.allowed) return rateLimitResponse(limited);
-      const projectCode = readProjectCode(url.searchParams);
+      const projectCode = project?.project_code ?? readProjectCode(url.searchParams);
       const respondentRef = readRespondentRef(url.searchParams);
-      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help("Project and respondent are required", 400, { fix: ROUTING_HELP.supplierLiveExample });
-      routingStage = "project assignment lookup";
-      const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
-      const assignment = rows[0]; const project = assignment ? first(assignment.projects) : undefined;
+      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help(assignmentRoute ? "Respondent is required" : "Project and respondent are required", 400, { fix: assignmentRoute ? `/l/${assignmentRoute.token}?respondent=UNIQUE-ID` : ROUTING_HELP.supplierLiveExample });
+      if (!assignment) {
+        routingStage = "project assignment lookup";
+        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+        assignment = rows[0]; project = assignment ? first(assignment.projects) ?? undefined : undefined;
+      }
       if (!assignment || !project) return help("The supplier is not assigned to this project.", 404, { fix: "Assign this supplier to the project in Project details → Supplier delivery." });
       if (!await supplierScopedRefReady(env)) {
         const priorSessions = await serviceRows<{ project_supplier_id: string | null }>(env, `/rest/v1/survey_sessions?select=project_supplier_id&project_id=eq.${encodeURIComponent(project.id)}&respondent_ref=eq.${encodeURIComponent(respondentRef)}&limit=1`);

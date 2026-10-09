@@ -75,6 +75,31 @@ test("supplier launch sends our attempt ID to the client and returns the supplie
   }
 });
 
+test("masked assignment launch resolves project and supplier without exposing either", async () => {
+  const originalFetch = globalThis.fetch;
+  const assignmentToken = "00000000-0000-4000-8000-000000000009";
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input);
+    if (url.pathname.endsWith("/rpc/supplier_scoped_ref_ready")) return Response.json(true);
+    if (url.pathname.endsWith("/project_suppliers")) return Response.json([{ id: assignmentToken, supplier_id: supplier.id, status: "ACTIVE", suppliers: supplier, projects: { id: "project-1", project_code: "ROP-42", status: "LIVE", survey_url: "https://survey.example/start", test_survey_url: null, survey_parameters: [], clients: { redirect_token: clientToken }, project_markets: [] } }]);
+    if (url.pathname.endsWith("/project_eligibility_rules") || url.pathname.endsWith("/project_quota_cells") || url.pathname.endsWith("/fraud_flags")) return Response.json([]);
+    if (url.pathname.endsWith("/rpc/reserve_project_quota")) return Response.json([{ allowed: true, reservation_id: "reservation-opaque" }]);
+    if (url.pathname.endsWith("/rpc/ingest_survey_event")) return Response.json([{ session_id: attemptId, event_id: crypto.randomUUID(), created: true }]);
+    if (url.pathname.endsWith("/survey_sessions")) return Response.json([{ outcome_token: outcomeToken }]);
+    throw new Error(`Unexpected mocked route: ${url.pathname} ${String(init.method ?? "GET")}`);
+  };
+  try {
+    const path = `/l/${assignmentToken}`;
+    const requestUrl = `https://router.example${path}?respondent=${supplierRef}`;
+    assert.equal(requestUrl.includes("ROP-42"), false);
+    const response = await handleRedirectApi(new Request(requestUrl), path, env);
+    assert.equal(response?.status, 302, await response?.text());
+    assert.equal(new URL(response.headers.get("location")).searchParams.get("rid"), attemptId);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("a duplicate supplier reference from another assignment cannot hijack an existing attempt", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {

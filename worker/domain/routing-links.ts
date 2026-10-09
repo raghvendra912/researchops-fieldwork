@@ -34,6 +34,7 @@ export function outcomeRouteFromSession(origin: string, outcomeToken: string, ou
 }
 
 export type ParsedSupplierRoute = { token: string; mode: "test" | "live" };
+export type ParsedAssignmentRoute = { token: string };
 export type ParsedClientRoute = { token: string; outcome: RoutingOutcome };
 export type ParsedOutcomeRoute = { token: string; outcome: RoutingOutcome };
 
@@ -41,6 +42,18 @@ export function parseSupplierRoute(pathname: string): ParsedSupplierRoute | null
   const match = pathname.match(/^\/r\/supplier\/([0-9a-f-]{36})\/(test|live)$/i);
   if (!match || !isRoutingToken(match[1])) return null;
   return { token: match[1], mode: match[2].toLowerCase() as "test" | "live" };
+}
+
+// Project-specific supplier launches use the opaque assignment UUID. The
+// project and supplier are resolved server-side, so neither appears in the URL.
+export function assignmentLaunchTemplate(origin: string, token: string) {
+  return `${origin.replace(/\/$/, "")}/l/${token}?respondent={{respondent_id}}`;
+}
+
+export function parseAssignmentRoute(pathname: string): ParsedAssignmentRoute | null {
+  const match = pathname.match(/^\/l\/([0-9a-f-]{36})$/i);
+  if (!match || !isRoutingToken(match[1])) return null;
+  return { token: match[1] };
 }
 
 // Industry-style clean short link: /s/<8-hex>/<test> — the readable face for

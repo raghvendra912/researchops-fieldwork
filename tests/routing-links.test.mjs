@@ -3,9 +3,11 @@ import test from "node:test";
 import { projectsToCsv, projectRoutingColumns } from "../src/features/projects/project-export.ts";
 import { buildSurveyUrl, previewSurveyUrl } from "../worker/domain/survey-url.ts";
 import {
+  assignmentLaunchTemplate,
   clientOutcomeTemplates,
   fillLiveTemplate,
   parseClientRoute,
+  parseAssignmentRoute,
   parseOutcomeRoute,
   parseSupplierRoute,
   readProjectCode,
@@ -16,6 +18,9 @@ import {
 } from "../worker/domain/routing-links.ts";
 
 test("routing link helpers build install-ready templates", () => {
+  const masked = assignmentLaunchTemplate("https://router.example", "00000000-0000-4000-8000-000000000009");
+  assert.equal(masked, "https://router.example/l/00000000-0000-4000-8000-000000000009?respondent={{respondent_id}}");
+  assert.equal(masked.includes("project="), false);
   const live = supplierLiveTemplate("https://router.example", "00000000-0000-4000-8000-000000000001");
   assert.equal(live, "https://router.example/r/supplier/00000000-0000-4000-8000-000000000001/live?project={{project_code}}&respondent={{respondent_id}}");
   assert.equal(supplierRoute("https://router.example/", "00000000-0000-4000-8000-000000000001", "test"), "https://router.example/r/supplier/00000000-0000-4000-8000-000000000001/test");
@@ -28,6 +33,7 @@ test("routing link helpers build install-ready templates", () => {
 });
 
 test("routing parser accepts flexible vendor parameter names", () => {
+  assert.deepEqual(parseAssignmentRoute("/l/00000000-0000-4000-8000-000000000009"), { token: "00000000-0000-4000-8000-000000000009" });
   assert.deepEqual(parseSupplierRoute("/r/supplier/00000000-0000-4000-8000-000000000001/live"), { token: "00000000-0000-4000-8000-000000000001", mode: "live" });
   assert.deepEqual(parseClientRoute("/r/client/00000000-0000-4000-8000-000000000002/quota-full"), { token: "00000000-0000-4000-8000-000000000002", outcome: "quota-full" });
   assert.deepEqual(parseOutcomeRoute("/r/outcome/00000000-0000-4000-8000-000000000003/complete"), { token: "00000000-0000-4000-8000-000000000003", outcome: "complete" });
