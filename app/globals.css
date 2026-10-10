@@ -420,6 +420,21 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .survey-reference-form small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
 .reference-add { margin: 0 0 4px; background: #183147; color: white; }
 .survey-reference-actions { display: flex; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--line); }
+.project-name-link { appearance: none; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+.project-name-link:hover, .project-name-link:focus-visible { color: var(--navy); text-decoration-color: currentColor; }
+.project-detail-reference { margin-bottom: 10px; }
+.project-detail-reference-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 0 12px; }
+.project-detail-reference-head h1 { margin: 0; font-size: 16px; }
+.project-detail-reference .static-control { min-height: 38px; display: flex; align-items: center; overflow-wrap: anywhere; }
+.project-supplier-links-modal { width: min(1040px, calc(100vw - 32px)); max-height: min(82vh, 760px); overflow: auto; }
+.project-supplier-link-list { display: grid; gap: 12px; margin-top: 16px; }
+.project-supplier-link-row { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+.project-supplier-link-name { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #f4f7f7; border-bottom: 1px solid var(--line); }
+.project-supplier-link-value { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.project-supplier-link-value:last-child { border-bottom: 0; }
+.project-supplier-link-value > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.project-supplier-link-value code { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+@media (max-width: 720px) { .project-supplier-link-value { grid-template-columns: 1fr auto; } .project-supplier-link-value code { grid-column: 1 / -1; grid-row: 2; } }
 @media (max-width: 900px) { .survey-reference-grid.top-row, .survey-reference-grid.manager-row, .survey-reference-grid.three-row, .survey-reference-grid.client-row, .survey-reference-grid.market-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .survey-reference-grid.top-row, .survey-reference-grid.manager-row, .survey-reference-grid.three-row, .survey-reference-grid.client-row, .survey-reference-grid.market-row, .survey-reference-grid.supplier-row { grid-template-columns: 1fr; } }
 .directory-submit { align-self: end; }

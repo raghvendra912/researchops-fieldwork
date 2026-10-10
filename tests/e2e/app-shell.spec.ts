@@ -192,3 +192,18 @@ test("new project matches the compact survey-creation reference", async ({ page 
   await expect(page.getByLabel("Test survey URL (optional)")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Security" })).toHaveCount(0);
 });
+
+test("project name opens line-wise supplier test and live links", async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/projects", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.locator(".project-name-link").first().click();
+  const dialog = page.getByRole("dialog", { name: /.+/ });
+  await expect(dialog.getByText("CPX Research", { exact: false })).toBeVisible();
+  await expect(dialog.getByText("Test link", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Live link", { exact: true })).toBeVisible();
+  await expect(dialog.locator("code").first()).toContainText("/l/");
+  await dialog.getByRole("button", { name: "Copy test" }).click();
+  await expect(dialog.getByRole("button", { name: "Copied" })).toBeVisible();
+});

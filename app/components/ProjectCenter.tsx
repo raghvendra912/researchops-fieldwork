@@ -25,6 +25,7 @@ type ProjectMeta = {
   summary: ProjectSummary;
 };
 type ProjectsResponse = { data: Project[]; meta: ProjectMeta };
+type SupplierLink = NonNullable<Project["supplierAssignments"]>[number];
 
 const initialStatuses: ProjectStatus[] = ["PENDING", "LIVE", "PAUSED", "ID_SUBMITTED", "INVOICED", "CLOSED"];
 const initialSummary = demoProjects.reduce<ProjectSummary>((summary, project) => {
@@ -81,6 +82,11 @@ export function ProjectCenter() {
   const [trafficView, setTrafficView] = useState<"live" | "test">("live");
   const [hydrated, setHydrated] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [linkProject, setLinkProject] = useState<Project | null>(null);
+  const [supplierLinks, setSupplierLinks] = useState<SupplierLink[]>([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linksError, setLinksError] = useState("");
+  const [copiedLink, setCopiedLink] = useState("");
 
   useEffect(() => {
     const timer = setTimeout(() => setHydrated(true), 0);
@@ -147,6 +153,31 @@ export function ProjectCenter() {
     setPage(1);
     setAppliedQuery(query.trim());
     setAppliedProjectId(projectIdQuery.trim());
+  }
+
+  async function openSupplierLinks(project: Project) {
+    setLinkProject(project);
+    setSupplierLinks([]);
+    setLinksError("");
+    setCopiedLink("");
+    setLinksLoading(true);
+    try {
+      const response = await apiRequest<{ data: SupplierLink[] }>(`/api/projects/${encodeURIComponent(project.id)}/suppliers`, {
+        headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      setSupplierLinks(response.data);
+    } catch (error) {
+      setLinksError(error instanceof Error ? error.message : "Supplier links could not be loaded.");
+    } finally {
+      setLinksLoading(false);
+    }
+  }
+
+  async function copySupplierLink(key: string, link?: string) {
+    if (!link) return;
+    await navigator.clipboard.writeText(link);
+    setCopiedLink(key);
+    window.setTimeout(() => setCopiedLink((current) => current === key ? "" : current), 1800);
   }
 
   async function exportView() {
@@ -236,7 +267,7 @@ export function ProjectCenter() {
               {projects.map((project) => (
                 <tr key={project.id}>
                   <td><Link className="project-code" href={`/projects/${project.id}`}>{displayProjectId(project)}</Link></td>
-                  <td className="project-name-cell"><strong>{project.name}</strong><span>{project.client} · {project.market} · {project.type}</span></td>
+                  <td className="project-name-cell"><button className="project-name-link" type="button" onClick={() => void openSupplierLinks(project)}>{project.name}</button><span>{project.client} · {project.market} · {project.type}</span></td>
                   {trafficView === "live" ? <>{meta.fullPortfolio ? <><td>{project.clientCode || "—"}</td><td>{project.clientPo || "—"}</td></> : null}<td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td><strong>{project.completes.toLocaleString()}</strong>/{project.quota?.toLocaleString() ?? "—"}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td><td>{Math.round(project.abandonRate)}%</td><td className="rate">{Math.round(project.incidenceRate)}%</td><td>{project.starts ? Math.round(100 * project.completes / project.starts) : 0}%</td>{meta.fullPortfolio ? <td>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(project.cpi)}</td> : null}</> : <><td>{project.testStarts ?? 0}</td><td>{project.testCompletes ?? 0}</td><td>{project.testTerminates ?? 0}</td><td>{project.testOverQuota ?? 0}</td><td>{project.testQualityTerm ?? 0}</td><td className="rate">{Math.round(testIncidence(project))}%</td></>}
                   <td><span className={`status-pill status-${project.status}`}>{statusLabel(project.status)}</span></td>
                   {trafficView === "live" && meta.fullPortfolio ? <><td>{project.secondaryManager ? `${project.manager} / ${project.secondaryManager}` : project.manager}</td><td>{shortDate(project.updatedAt ?? project.createdAt)}</td><td>{relativeTime(project.lastComplete)}</td></> : null}
@@ -260,6 +291,8 @@ export function ProjectCenter() {
           </div>
         </div>
       </section>
+
+      {linkProject ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLinkProject(null); }}><section aria-modal="true" className="panel links-modal project-supplier-links-modal" role="dialog" aria-labelledby="project-supplier-links-title"><div className="section-head"><div><div className="eyebrow">Project suppliers</div><h2 id="project-supplier-links-title">{linkProject.name}</h2><p>{displayProjectId(linkProject)} · assigned suppliers and their masked routing links</p></div><button className="button small ghost" type="button" onClick={() => setLinkProject(null)}>Close</button></div>{linksLoading ? <div className="auth-loading">Loading supplier links…</div> : null}{linksError ? <div className="form-error data-error" role="alert">{linksError}</div> : null}{!linksLoading && !linksError ? <div className="project-supplier-link-list">{supplierLinks.map((assignment, index) => <article className="project-supplier-link-row" key={`${assignment.supplierName}-${index}`}><div className="project-supplier-link-name"><strong>{index + 1}. {assignment.supplierName}</strong><span className={`status-pill status-${assignment.status}`}>{assignment.status}</span></div><div className="project-supplier-link-value"><span>Test link</span><code>{assignment.testLink ?? "Unavailable"}</code><button className="button small ghost" disabled={!assignment.testLink} type="button" onClick={() => void copySupplierLink(`${index}-test`, assignment.testLink)}>{copiedLink === `${index}-test` ? "Copied" : "Copy test"}</button></div><div className="project-supplier-link-value"><span>Live link</span><code>{assignment.liveLink ?? "Unavailable"}</code><button className="button small ghost" disabled={!assignment.liveLink} type="button" onClick={() => void copySupplierLink(`${index}-live`, assignment.liveLink)}>{copiedLink === `${index}-live` ? "Copied" : "Copy live"}</button></div></article>)}{supplierLinks.length === 0 ? <div className="empty-state">No suppliers are assigned to this project.</div> : null}</div> : null}</section></div> : null}
     </div>
   );
 }
