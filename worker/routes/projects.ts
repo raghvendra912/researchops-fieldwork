@@ -7,7 +7,7 @@ import { assignmentLaunchTemplate } from "../domain/routing-links";
 import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
 import { reconcileAbandoned } from "./analytics";
 import { getProjectCapabilities } from "../lib/project-authorization";
-import { AUTOMATIC_SURVEY_PARAMETERS } from "../domain/survey-url";
+import { AUTOMATIC_SURVEY_PARAMETERS, automaticSurveyParameters } from "../domain/survey-url";
 
 export type ProjectApiEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
 
@@ -509,6 +509,10 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
+      if (payload.p_survey_parameters.length) {
+        const clients = await supabaseJson<Array<{ respondent_parameter: string | null }>>(env, `/rest/v1/clients?select=respondent_parameter&organization_id=eq.${encodeURIComponent(access.membership.organization_id)}&name=eq.${encodeURIComponent(payload.p_client_name)}&limit=1`, access.authorization);
+        payload.p_survey_parameters = automaticSurveyParameters(String(payload.p_survey_url ?? ""), clients[0]?.respondent_parameter ?? "");
+      }
       const { geoSecurityEnabled, referenceSetup, markets, ...createPayload } = payload;
       const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
       const created = rows[0];

@@ -13,7 +13,7 @@ const defaultRedirectVariables: RedirectVariable[] = [
   { name: "respondent_id", source: "URL_PARAM", defaultValue: "", required: true },
 ];
 const demoClients = [
-  { id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE" as const, projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", countryCode: "IN", salesUser: "Workspace sales", redirectVariables: defaultRedirectVariables },
+  { id: "client-northstar", name: "Northstar Bank", code: "NORTHSTAR", status: "ACTIVE" as const, projectCount: 2, contactName: "Research team", address: "Mumbai", contactEmail: "research@northstar.example", phone: "+91 00000 00000", countryCode: "IN", salesUser: "Workspace sales", respondentParameter: "rid", redirectVariables: defaultRedirectVariables },
   { id: "client-arc", name: "Arc Technologies", code: "ARC", status: "ACTIVE" as const, projectCount: 1, contactName: "", address: "", contactEmail: "", phone: "", redirectVariables: defaultRedirectVariables },
   { id: "client-halo", name: "Halo Consumer", code: "HALO", status: "ACTIVE" as const, projectCount: 1, contactName: "", address: "", contactEmail: "", phone: "", redirectVariables: defaultRedirectVariables },
   { id: "client-aperture", name: "Aperture Auto", code: "APERTURE", status: "ACTIVE" as const, projectCount: 1, contactName: "", address: "", contactEmail: "", phone: "", redirectVariables: defaultRedirectVariables },
@@ -54,7 +54,7 @@ function mapRecord(kind: DirectoryKind, row: Record<string, unknown>, request: R
     projectCount: relationCount(kind === "clients" ? row.projects : row.project_suppliers),
     contactName: String(row.contact_name ?? ""), address: String(row.address ?? ""), contactEmail: String(row.contact_email ?? ""), phone: String(row.phone ?? ""),
     ...(kind === "suppliers" ? { supplierVariable: String(row.supplier_variable ?? ""), flamingoEnabled: row.flamingo_enabled === true, redirectMode: String(row.redirect_mode ?? "STATIC") as RedirectMode, redirects: { completeUrl: String(row.complete_url ?? ""), terminateUrl: String(row.terminate_url ?? ""), quotaFullUrl: String(row.quota_full_url ?? ""), securityTerminateUrl: String(row.security_terminate_url ?? "") } } : {}),
-    ...(kind === "clients" ? { countryCode: String(row.country_code ?? ""), salesUser: String(row.sales_user ?? ""), redirectVariables: Array.isArray(row.redirect_variables) ? row.redirect_variables : defaultRedirectVariables } : {}),
+    ...(kind === "clients" ? { countryCode: String(row.country_code ?? ""), salesUser: String(row.sales_user ?? ""), respondentParameter: String(row.respondent_parameter ?? ""), redirectVariables: Array.isArray(row.redirect_variables) ? row.redirect_variables : defaultRedirectVariables } : {}),
     links: generatedLinks(kind, row.redirect_token, request, linksAllowed),
   };
 }
@@ -72,6 +72,7 @@ function parsePayload(kind: DirectoryKind, body: Record<string, unknown> | null,
   if (kind === "clients") {
     if (!partial || body?.countryCode !== undefined) { const country = safeOptional(body?.countryCode, 2).toUpperCase(); if (country && !/^[A-Z]{2}$/.test(country)) return null; result.country_code = country || null; }
     if (!partial || body?.salesUser !== undefined) result.sales_user = safeOptional(body?.salesUser, 100) || null;
+    if (!partial || body?.respondentParameter !== undefined) { const parameter = safeOptional(body?.respondentParameter, 40); if (parameter && !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(parameter)) return null; result.respondent_parameter = parameter || null; }
   }
   if (!partial || body?.contactEmail !== undefined) { const email = safeEmail(body?.contactEmail); if (email === undefined) return null; result.contact_email = email; }
   if (kind === "suppliers" && (!partial || body?.redirectMode !== undefined)) { const mode = safeMode(body?.redirectMode ?? "STATIC"); if (!mode) return null; result.redirect_mode = mode; }
@@ -120,7 +121,7 @@ export async function handleDirectoriesApi(request: Request, pathname: string, e
   try {
     if (request.method === "GET" && !route.id) {
       const relation = route.kind === "clients" ? "projects(count)" : "project_suppliers(count)";
-      const kindFields = route.kind === "suppliers" ? ",supplier_variable,flamingo_enabled,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url" : ",country_code,sales_user,redirect_variables";
+      const kindFields = route.kind === "suppliers" ? ",supplier_variable,flamingo_enabled,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url" : ",country_code,sales_user,respondent_parameter,redirect_variables";
       const rows = await supabaseJson<Record<string, unknown>[]>(env, `/rest/v1/${route.kind}?select=id,name,code,status,created_at,contact_name,address,contact_email,phone${kindFields},redirect_token,${relation}&order=name`, authorized.authorization);
       return Response.json({ data: rows.map((row) => mapRecord(route.kind, row, request, access)), meta: { total: rows.length, source: "supabase", ...access } }, { headers: { "cache-control": "private, no-store" } });
     }

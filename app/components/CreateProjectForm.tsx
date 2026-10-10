@@ -10,7 +10,7 @@ import {
   languageOptionsForCountry,
 } from "../../src/lib/market-options";
 import {
-  AUTOMATIC_SURVEY_PARAMETERS,
+  automaticSurveyParameters,
   previewSurveyUrl,
 } from "../../worker/domain/survey-url";
 
@@ -76,11 +76,12 @@ export function CreateProjectForm() {
   );
   const [canOperate, setCanOperate] = useState(!configured);
   const [clients, setClients] = useState([
-    "Northstar Bank",
-    "Arc Technologies",
-    "Halo Consumer",
-    "Aperture Auto",
+    { name: "Northstar Bank", respondentParameter: "rid" },
+    { name: "Arc Technologies", respondentParameter: "" },
+    { name: "Halo Consumer", respondentParameter: "" },
+    { name: "Aperture Auto", respondentParameter: "" },
   ]);
+  const [selectedClient, setSelectedClient] = useState("");
   const [suppliers, setSuppliers] = useState([
     "CPX Research",
     "BitLabs",
@@ -104,7 +105,7 @@ export function CreateProjectForm() {
       ? { authorization: `Bearer ${session.access_token}` }
       : undefined;
     void Promise.all([
-      apiRequest<{ data: Array<{ name: string; status: string }> }>(
+      apiRequest<{ data: Array<{ name: string; status: string; respondentParameter?: string }> }>(
         "/api/clients",
         { headers },
       ),
@@ -117,7 +118,7 @@ export function CreateProjectForm() {
         setClients(
           clientResponse.data
             .filter((item) => item.status === "ACTIVE")
-            .map((item) => item.name),
+            .map((item) => ({ name: item.name, respondentParameter: item.respondentParameter ?? "" })),
         );
         setSuppliers(
           supplierResponse.data
@@ -132,6 +133,9 @@ export function CreateProjectForm() {
           setError("Client and supplier options could not be loaded."),
       );
   }, [configured, session?.access_token]);
+
+  const clientRespondentParameter = clients.find((client) => client.name === selectedClient)?.respondentParameter ?? "";
+  const detectedSurveyParameters = automaticSurveyParameters(liveSurveyUrl || testSurveyUrl, clientRespondentParameter);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -261,13 +265,14 @@ export function CreateProjectForm() {
                     id="client"
                     name="client"
                     required
-                    defaultValue=""
+                    value={selectedClient}
+                    onChange={(event) => setSelectedClient(event.target.value)}
                   >
                     <option value="" disabled>
                       Select client
                     </option>
                     {clients.map((client) => (
-                      <option key={client}>{client}</option>
+                      <option key={client.name} value={client.name}>{client.name}</option>
                     ))}
                   </select>
                 </div>
@@ -664,7 +669,7 @@ export function CreateProjectForm() {
                     <span>
                       <strong>Add automatic URL parameters</strong>
                       <small>
-                        pid = session/TOID and uid = supplier respondent ID
+                        {detectedSurveyParameters[0]?.name || "pid"} = session/TOID; URL parameter is detected automatically
                       </small>
                     </span>
                   </label>
@@ -677,7 +682,7 @@ export function CreateProjectForm() {
                         <code className="control static-control implementation-url">
                           {previewSurveyUrl(
                             liveSurveyUrl,
-                            AUTOMATIC_SURVEY_PARAMETERS,
+                            detectedSurveyParameters,
                           ) || "Enter the Live survey URL"}
                         </code>
                       </div>
@@ -688,7 +693,7 @@ export function CreateProjectForm() {
                         <code className="control static-control implementation-url">
                           {previewSurveyUrl(
                             testSurveyUrl || liveSurveyUrl,
-                            AUTOMATIC_SURVEY_PARAMETERS,
+                            detectedSurveyParameters,
                             true,
                           ) || "Enter the Test or Live survey URL"}
                         </code>
@@ -696,7 +701,7 @@ export function CreateProjectForm() {
                     </div>
                   ) : (
                     <p className="panel-note">
-                      pid and uid will not be appended. Signed outcome callbacks
+                      Client respondent parameters will not be appended. Signed outcome callbacks
                       remain protected and automatic.
                     </p>
                   )}

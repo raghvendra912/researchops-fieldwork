@@ -9,7 +9,7 @@ type Redirects = { completeUrl: string; terminateUrl: string; quotaFullUrl: stri
 type DirectoryRecord = {
   id: string; name: string; code: string; status: "ACTIVE" | "INACTIVE"; projectCount: number;
   contactName: string; address: string; contactEmail: string; phone: string; redirectMode?: "STATIC" | "DYNAMIC";
-  createdAt?: string; countryCode?: string; salesUser?: string; supplierVariable?: string; flamingoEnabled?: boolean;
+  createdAt?: string; countryCode?: string; salesUser?: string; respondentParameter?: string; supplierVariable?: string; flamingoEnabled?: boolean;
   redirects: Redirects;
   links?: { complete?: string; terminate?: string; quotaFull?: string; securityTerminate?: string; test?: string; live?: string };
 };
@@ -42,7 +42,7 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
     const payload = {
       name: form.get("name"), code: form.get("code"), contactName: form.get("contactName"), address: form.get("address"), contactEmail: form.get("contactEmail"), phone: form.get("phone"),
       ...(kind === "suppliers" ? { redirectMode: form.get("redirectMode"), redirects: { completeUrl: form.get("completeUrl"), terminateUrl: form.get("terminateUrl"), quotaFullUrl: form.get("quotaFullUrl"), securityTerminateUrl: form.get("securityTerminateUrl") } } : {}),
-      ...(kind === "clients" ? { countryCode: form.get("countryCode"), salesUser: form.get("salesUser") } : {}),
+      ...(kind === "clients" ? { countryCode: form.get("countryCode"), salesUser: form.get("salesUser"), respondentParameter: form.get("respondentParameter") } : {}),
       ...(kind === "suppliers" ? { supplierVariable: form.get("supplierVariable"), flamingoEnabled: form.get("flamingoEnabled") === "on" } : {}),
     };
     try {
@@ -88,7 +88,7 @@ export function DirectoryPage({ kind, eyebrow, title, subtitle, action }: { kind
       <form className="form-grid three" onSubmit={save}>
         <Field label="Name" name="name" value={editing?.name} required /><Field label="Code" name="code" value={editing?.code} required pattern="[A-Za-z0-9][A-Za-z0-9_-]+" /><Field label="Contact name" name="contactName" value={editing?.contactName} />
         <Field label="Contact email" name="contactEmail" value={editing?.contactEmail} type="email" /><Field label="Phone number" name="phone" value={editing?.phone} /><div className="field"><label htmlFor="directory-address">Address</label><textarea className="control" id="directory-address" name="address" defaultValue={editing?.address} maxLength={500} /></div>
-        {kind === "clients" ? <><Field label="Country code" name="countryCode" value={editing?.countryCode} pattern="[A-Za-z]{2}" /><Field label="Sales user" name="salesUser" value={editing?.salesUser} /></> : null}
+        {kind === "clients" ? <><Field label="Country code" name="countryCode" value={editing?.countryCode} pattern="[A-Za-z]{2}" /><Field label="Sales user" name="salesUser" value={editing?.salesUser} /><Field label="Respondent parameter" name="respondentParameter" value={editing?.respondentParameter} pattern="[A-Za-z][A-Za-z0-9_]*" /></> : null}
         {kind === "suppliers" ? <><Field label="Supplier variable" name="supplierVariable" value={editing?.supplierVariable} /><label className="choice-card"><input name="flamingoEnabled" type="checkbox" defaultChecked={editing?.flamingoEnabled} /><span><strong>Flamingo setup</strong><span>Enable the supplier for Flamingo workflow integration.</span></span></label></> : null}
         {kind === "suppliers" ? <><div className="field"><label htmlFor="redirect-mode">Redirect mode</label><select className="control" id="redirect-mode" name="redirectMode" defaultValue={editing?.redirectMode ?? "STATIC"}><option value="STATIC">Static — reused for every project</option><option value="DYNAMIC">Dynamic — supports project/respondent placeholders</option></select></div><div className="field full"><h3>Redirect destinations</h3><p className="panel-note">Dynamic URLs may use {"{{respondent_id}}"} and {"{{project_id}}"}.</p></div><Field label="Complete URL" name="completeUrl" value={editRedirects.completeUrl} type="url" /><Field label="Terminate URL" name="terminateUrl" value={editRedirects.terminateUrl} type="url" /><Field label="Quota-full URL" name="quotaFullUrl" value={editRedirects.quotaFullUrl} type="url" /><Field label="Security-terminate URL" name="securityTerminateUrl" value={editRedirects.securityTerminateUrl} type="url" /></> : null}
         <div className="field full directory-submit"><button className="button primary" type="submit">{editing ? "Save changes" : action}</button></div>

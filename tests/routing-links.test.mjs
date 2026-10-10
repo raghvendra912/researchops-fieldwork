@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { projectsToCsv, projectRoutingColumns } from "../src/features/projects/project-export.ts";
-import { buildSurveyUrl, previewSurveyUrl } from "../worker/domain/survey-url.ts";
+import { automaticSurveyParameters, buildSurveyUrl, detectSurveyRespondentParameter, previewSurveyUrl } from "../worker/domain/survey-url.ts";
 import {
   assignmentLaunchTemplate,
   clientOutcomeTemplates,
@@ -86,4 +86,15 @@ test("survey URL values split the TOID attempt id from the supplier panelist id"
   assert.match(preview, /rid=TOID-SAMPLE-1/);
   assert.match(preview, /pid=TOID-SAMPLE-1/);
   assert.match(preview, /uid=USER-SAMPLE-1/);
+});
+
+test("client respondent parameter is detected from pasted survey URLs", () => {
+  assert.equal(detectSurveyRespondentParameter("https://survey.example/start?vid=XXXX"), "vid");
+  assert.equal(detectSurveyRespondentParameter("https://survey.example/start?custom=1", "arid"), "arid");
+  assert.deepEqual(automaticSurveyParameters("https://survey.example/start?vid=XXXX", "arid"), [
+    { name: "vid", value: "{{transaction_id}}" },
+    { name: "uid", value: "{{respondent_id}}" },
+  ]);
+  const preview = previewSurveyUrl("https://survey.example/start?vid=XXXX", automaticSurveyParameters("https://survey.example/start?vid=XXXX"));
+  assert.equal(new URL(preview).searchParams.get("vid"), "TOID-SAMPLE-1");
 });

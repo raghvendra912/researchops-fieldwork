@@ -173,33 +173,22 @@ test("project leads can manage role-compatible project access", async ({ page })
   await expect(page.getByRole("button", { name: "Save access" })).toBeVisible();
 });
 
-test("new project market selection covers all countries and preferred languages", async ({ page }) => {
+test("new project matches the compact survey-creation reference", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/projects/new", { waitUntil: "domcontentloaded" });
-  const country = page.getByLabel("Market 1 country");
-  await expect(country.locator("option")).toHaveCount(249);
+  await waitForHydration(page);
+  const country = page.getByLabel("Country");
+  await expect(country.locator("option")).toHaveCount(250);
   await country.selectOption("JP");
   await expect(country).toHaveValue("JP");
-  await expect(page.getByLabel("Market 1 language").locator('optgroup[label^="Common in Japan"] option')).toHaveCount(1);
-  await expect(page.getByLabel("Market 1 language")).toHaveValue("ja");
-  await country.selectOption("CA");
-  await expect(page.getByLabel("Market 1 language")).toHaveValue("en");
-  await expect(page.getByLabel("Market 1 language").locator('optgroup[label^="Common in Canada"] option')).toHaveCount(2);
-  await page.getByRole("button", { name: "Add market" }).click();
-  await expect(page.getByLabel("Market 2 country")).toHaveValue("US");
-  await expect(page.getByRole("button", { name: "Remove market" })).toHaveCount(2);
-  await expect(page.getByLabel("Live survey URL")).toBeVisible();
-  await expect(page.getByLabel("Test survey URL (optional)")).toBeVisible();
-  await expect(page.getByText("Add automatic URL parameters", { exact: true })).toBeVisible();
-  await expect(page.getByText("Live implementation URL", { exact: true })).toBeVisible();
-  await expect(page.getByText("Test implementation URL", { exact: true })).toBeVisible();
-  await expect(page.getByText("pid = session/TOID and uid = supplier respondent ID", { exact: true })).toBeVisible();
-  await expect(page.getByText("Add parameter", { exact: true })).toHaveCount(0);
-  await page.getByRole("tab", { name: "Security" }).click();
-  await expect(page.getByLabel("Enable geo-location security")).toBeVisible();
-  await page.getByRole("tab", { name: "Survey URLs" }).click();
-  await page.getByText("Select suppliers", { exact: true }).click();
-  await page.getByLabel("Assign CPX Research").check();
-  await expect(page.getByLabel("CPX Research supplier CPI")).toBeEnabled();
-  await expect(page.getByLabel("Project security terminate URL (optional)")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add More Field" }).click();
+  await expect(page.getByLabel("Country")).toHaveCount(2);
+  await expect(page.getByLabel("Survey Name")).toBeVisible();
+  await expect(page.getByLabel("Survey Multi Link")).toBeVisible();
+  await expect(page.getByText("AI Pre-Screening Questions:", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Variable")).toBeVisible();
+  await expect(page.getByLabel("Survey Link").first()).toBeVisible();
+  await expect(page.getByText("ADD Supplier :", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Test survey URL (optional)")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Security" })).toHaveCount(0);
 });

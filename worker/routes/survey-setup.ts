@@ -1,19 +1,20 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { getProjectCapabilities } from "../lib/project-authorization";
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
-import { AUTOMATIC_SURVEY_PARAMETERS, previewSurveyUrl, type SurveyParameter } from "../domain/survey-url";
+import { AUTOMATIC_SURVEY_PARAMETERS, automaticSurveyParameters, previewSurveyUrl, type SurveyParameter } from "../domain/survey-url";
 
-type SetupRow = { survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown };
+type SetupRow = { survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients?: { respondent_parameter?: string | null } | Array<{ respondent_parameter?: string | null }> };
 const defaults = AUTOMATIC_SURVEY_PARAMETERS;
 
-function parse(body: Record<string, unknown> | null) {
+function parse(body: Record<string, unknown> | null, preferred = "") {
   if (!body) return null;
   const liveUrl = String(body.liveUrl ?? "").trim(); const testUrl = String(body.testUrl ?? "").trim();
   if ([liveUrl, testUrl].some((url) => url && (!/^https?:\/\//i.test(url) || url.length > 2048))) return null;
-  return { liveUrl, testUrl, parameters: defaults };
+  return { liveUrl, testUrl, parameters: automaticSurveyParameters(liveUrl || testUrl, preferred), respondentParameter: preferred };
 }
 
-function mapped(row: SetupRow) { return { liveUrl: row.survey_url ?? "", testUrl: row.test_survey_url ?? "", parameters: defaults }; }
+function preferredParameter(row: SetupRow) { const client = Array.isArray(row.clients) ? row.clients[0] : row.clients; return client?.respondent_parameter ?? ""; }
+function mapped(row: SetupRow) { const liveUrl = row.survey_url ?? ""; const testUrl = row.test_survey_url ?? ""; const respondentParameter = preferredParameter(row); return { liveUrl, testUrl, parameters: automaticSurveyParameters(liveUrl || testUrl, respondentParameter), respondentParameter }; }
 
 function previews(liveUrl: string, testUrl: string, parameters: SurveyParameter[]) {
   return {
@@ -33,9 +34,10 @@ export async function handleSurveySetupApi(request: Request, pathname: string, e
   if (request.method !== "GET" && request.method !== "PUT") return null;
   const access = await authorizeWorkspace(request, env, request.method === "PUT" ? workspacePermissions.operate : workspacePermissions.read); if (!access.ok) return authorizationError(access);
   const capability = await getProjectCapabilities(env, access.authorization, code); if (!capability) return Response.json({ error: "Project not found or unavailable" }, { status: 404 });
-  if (request.method === "GET") { const rows = await supabaseJson<SetupRow[]>(env, `/rest/v1/projects?select=survey_url,test_survey_url,survey_parameters&project_code=eq.${encodeURIComponent(code)}&limit=1`, access.authorization); const setup = mapped(rows[0] ?? { survey_url: null, test_survey_url: null, survey_parameters: defaults }); return Response.json({ data: { ...setup, ...previews(setup.liveUrl, setup.testUrl, setup.parameters) }, meta: { source: "supabase", canOperate: capability.can_operate } }); }
+  const rows = await supabaseJson<SetupRow[]>(env, `/rest/v1/projects?select=survey_url,test_survey_url,survey_parameters,clients(respondent_parameter)&project_code=eq.${encodeURIComponent(code)}&limit=1`, access.authorization);
+  if (request.method === "GET") { const setup = mapped(rows[0] ?? { survey_url: null, test_survey_url: null, survey_parameters: defaults }); return Response.json({ data: { ...setup, ...previews(setup.liveUrl, setup.testUrl, setup.parameters) }, meta: { source: "supabase", canOperate: capability.can_operate } }); }
   if (!capability.can_operate) return Response.json({ error: "Project editor access is required" }, { status: 403 });
-  const setup = parse(await request.json().catch(() => null) as Record<string, unknown> | null); if (!setup) return Response.json({ error: "Valid Live and Test survey URLs are required" }, { status: 400 });
+  const setup = parse(await request.json().catch(() => null) as Record<string, unknown> | null, preferredParameter(rows[0] ?? { survey_url: null, test_survey_url: null, survey_parameters: defaults })); if (!setup) return Response.json({ error: "Valid Live and Test survey URLs are required" }, { status: 400 });
   await supabaseJson(env, "/rest/v1/rpc/update_project_survey_setup", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: code, p_survey_url: setup.liveUrl || null, p_test_survey_url: setup.testUrl || null, p_survey_parameters: setup.parameters }) });
   return Response.json({ data: { ...setup, ...previews(setup.liveUrl, setup.testUrl, setup.parameters) }, meta: { source: "supabase", canOperate: true } });
 }

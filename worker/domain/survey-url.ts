@@ -16,6 +16,35 @@ export const AUTOMATIC_SURVEY_PARAMETERS: SurveyParameter[] = [
   { name: "uid", value: RESPONDENT_PLACEHOLDER },
 ];
 
+const RESPONDENT_PARAMETER_KEYS = /^(arid|vid|rid|uid|respondent(?:_id)?|responseid|sessionid|transactionid|toid)$/i;
+
+export function safeSurveyParameterName(value: unknown) {
+  const name = String(value ?? "").trim();
+  return /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(name) ? name : "";
+}
+
+export function detectSurveyRespondentParameter(template: string, preferred?: string) {
+  const configured = safeSurveyParameterName(preferred);
+  try {
+    const url = new URL(template);
+    if (configured && url.searchParams.has(configured)) return configured;
+    for (const [name, value] of url.searchParams) {
+      if (/xxxx|\{\{.*(?:respondent|transaction|session|rid|toid).*\}\}|\[.*(?:unique|respondent|rid|toid|scid).*\]/i.test(value)) return safeSurveyParameterName(name);
+    }
+    for (const name of url.searchParams.keys()) if (RESPONDENT_PARAMETER_KEYS.test(name)) return safeSurveyParameterName(name);
+  } catch { /* URL validation is handled by the caller. */ }
+  return configured;
+}
+
+export function automaticSurveyParameters(template: string, preferred?: string): SurveyParameter[] {
+  const detected = detectSurveyRespondentParameter(template, preferred);
+  if (!detected) return AUTOMATIC_SURVEY_PARAMETERS;
+  return [
+    { name: detected, value: TRANSACTION_PLACEHOLDER },
+    ...(detected.toLowerCase() === "uid" ? [] : [{ name: "uid", value: RESPONDENT_PLACEHOLDER }]),
+  ];
+}
+
 const ALIAS_CONTEXT: Record<string, string[]> = {
   project_id: ["project_id", "project_code", "project", "pid", "sur", "svid", "sid", "tid", "survey_id"],
   transaction_id: ["transaction_id", "toid", "session_id", "session_uuid", "attempt_id", "researchops_id", "rid"],

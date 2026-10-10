@@ -405,6 +405,23 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .data-error { margin-bottom: 16px; }
 .directory-form { padding: 20px; margin-bottom: 16px; }
 .directory-form .section-head { margin-bottom: 14px; }
+.survey-reference-form { padding: 18px; border-radius: 0; box-shadow: none; }
+.survey-reference-title { margin-bottom: 12px; font-size: 16px; font-weight: 800; color: #17221d; }
+.survey-reference-grid { display: grid; gap: 12px 22px; margin-bottom: 13px; align-items: end; }
+.survey-reference-grid.top-row { grid-template-columns: 2fr .9fr .9fr 1.8fr; }
+.survey-reference-grid.manager-row { grid-template-columns: 1.25fr 1.15fr 1fr 1fr; }
+.survey-reference-grid.three-row { grid-template-columns: 1.2fr 1.1fr 1fr; }
+.survey-reference-grid.client-row { grid-template-columns: 1.35fr .9fr .85fr .85fr 1.1fr; }
+.survey-reference-grid.market-row { grid-template-columns: 1.2fr .8fr .55fr .55fr 1fr 1.65fr; }
+.survey-reference-grid.supplier-row { grid-template-columns: 1.2fr 1fr; max-width: 850px; }
+.survey-reference-section { margin: 16px -18px 12px; padding: 8px 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+.survey-reference-form .field { gap: 5px; }
+.survey-reference-form .control { min-height: 36px; border-radius: 2px; }
+.survey-reference-form small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.reference-add { margin: 0 0 4px; background: #183147; color: white; }
+.survey-reference-actions { display: flex; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--line); }
+@media (max-width: 900px) { .survey-reference-grid.top-row, .survey-reference-grid.manager-row, .survey-reference-grid.three-row, .survey-reference-grid.client-row, .survey-reference-grid.market-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .survey-reference-grid.top-row, .survey-reference-grid.manager-row, .survey-reference-grid.three-row, .survey-reference-grid.client-row, .survey-reference-grid.market-row, .survey-reference-grid.supplier-row { grid-template-columns: 1fr; } }
 .directory-submit { align-self: end; }
 .prescreen-builder { display: grid; gap: 10px; }
 .prescreen-row { display: grid; grid-template-columns: 52px minmax(0, 2fr) minmax(180px, .8fr); gap: 12px; align-items: end; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #faf9f5; }
