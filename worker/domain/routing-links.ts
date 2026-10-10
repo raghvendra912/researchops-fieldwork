@@ -47,7 +47,7 @@ export function parseSupplierRoute(pathname: string): ParsedSupplierRoute | null
 // Project-specific supplier launches use the opaque assignment UUID. The
 // project and supplier are resolved server-side, so neither appears in the URL.
 export function assignmentLaunchTemplate(origin: string, token: string) {
-  return `${origin.replace(/\/$/, "")}/l/${token}?respondent={{respondent_id}}`;
+  return `${origin.replace(/\/$/, "")}/l/${token}?arid={{respondent_id}}`;
 }
 
 export function parseAssignmentRoute(pathname: string): ParsedAssignmentRoute | null {
@@ -92,7 +92,7 @@ export function parseOutcomeRoute(pathname: string): ParsedOutcomeRoute | null {
 // Supplier launches accept several common parameter names because vendors
 // rarely use one shared contract. Client returns accept the same aliases.
 const PROJECT_KEYS = ["project_code", "project_id", "project", "survey_id", "pid", "sur", "SVID", "tid"] as const;
-const RESPONDENT_KEYS = ["respondent", "respondent_ref", "respondent_id", "transaction_id", "rid", "uid", "r_id", "userId", "RID"] as const;
+const RESPONDENT_KEYS = ["arid", "ARID", "respondent", "respondent_ref", "respondent_id", "transaction_id", "rid", "uid", "r_id", "userId", "RID"] as const;
 
 // Standard single-letter outcome codes used by Cint, Toluna, CPX, BitLabs and
 // Qualtrics-style panels. Numeric codes 1/2/3/4 also appear in legacy feeds.

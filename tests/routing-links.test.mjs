@@ -19,7 +19,7 @@ import {
 
 test("routing link helpers build install-ready templates", () => {
   const masked = assignmentLaunchTemplate("https://router.example", "00000000-0000-4000-8000-000000000009");
-  assert.equal(masked, "https://router.example/l/00000000-0000-4000-8000-000000000009?respondent={{respondent_id}}");
+  assert.equal(masked, "https://router.example/l/00000000-0000-4000-8000-000000000009?arid={{respondent_id}}");
   assert.equal(masked.includes("project="), false);
   const live = supplierLiveTemplate("https://router.example", "00000000-0000-4000-8000-000000000001");
   assert.equal(live, "https://router.example/r/supplier/00000000-0000-4000-8000-000000000001/live?project={{project_code}}&respondent={{respondent_id}}");
@@ -42,6 +42,7 @@ test("routing parser accepts flexible vendor parameter names", () => {
   const launch = new URLSearchParams({ project_id: "rop-42", transaction_id: "SUP-7" });
   assert.equal(readProjectCode(launch), "ROP-42");
   assert.equal(readRespondentRef(launch), "SUP-7");
+  assert.equal(readRespondentRef(new URLSearchParams({ arid: "ARID-42" })), "ARID-42");
   const surveyReturn = new URLSearchParams({ respondent: "  SUP 7!! ", project: "ROP-42" });
   assert.equal(readRespondentRef(surveyReturn), "SUP7");
 });

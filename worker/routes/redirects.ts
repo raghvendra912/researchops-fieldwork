@@ -135,7 +135,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!limited.allowed) return rateLimitResponse(limited);
       const projectCode = project?.project_code ?? readProjectCode(url.searchParams);
       const respondentRef = readRespondentRef(url.searchParams);
-      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help(assignmentRoute ? "Respondent is required" : "Project and respondent are required", 400, { fix: assignmentRoute ? `/l/${assignmentRoute.token}?respondent=UNIQUE-ID` : ROUTING_HELP.supplierLiveExample });
+      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help(assignmentRoute ? "ARID is required" : "Project and respondent are required", 400, { fix: assignmentRoute ? `/l/${assignmentRoute.token}?arid=UNIQUE-ID` : ROUTING_HELP.supplierLiveExample });
       if (!assignment) {
         routingStage = "project assignment lookup";
         const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);

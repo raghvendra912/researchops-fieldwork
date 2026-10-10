@@ -90,7 +90,7 @@ test("masked assignment launch resolves project and supplier without exposing ei
   };
   try {
     const path = `/l/${assignmentToken}`;
-    const requestUrl = `https://router.example${path}?respondent=${supplierRef}`;
+    const requestUrl = `https://router.example${path}?arid=${supplierRef}`;
     assert.equal(requestUrl.includes("ROP-42"), false);
     const response = await handleRedirectApi(new Request(requestUrl), path, env);
     assert.equal(response?.status, 302, await response?.text());
