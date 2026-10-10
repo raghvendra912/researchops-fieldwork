@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { useState } from "react";
-import { apiRequest } from "../../src/lib/api";
+import { ApiRequestError, apiRequest } from "../../src/lib/api";
 import { ResearchOpsAssistant } from "./ResearchOpsAssistant";
 
 const primaryNavigation = [
@@ -105,13 +105,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const accessToken = session?.access_token;
     if (!configured || !user || !accessToken) return;
     let active = true;
-    void apiRequest<{ data: { id: string; role: string } | null }>("/api/organizations/current", { headers: { authorization: `Bearer ${accessToken}` } }).then((response) => {
-      if (active) { setOrganizationStatus(response.data ? "ready" : "missing"); setWorkspaceRole(response.data?.role ?? ""); }
-    }).catch(() => {
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    setOrganizationStatus("checking");
+    const verify = async () => {
+      for (let attempt = 0; attempt < 3 && active; attempt += 1) {
+        try {
+          const response = await apiRequest<{ data: { id: string; role: string } | null }>("/api/organizations/current", { headers: { authorization: `Bearer ${accessToken}` } });
+          if (active) { setOrganizationStatus(response.data ? "ready" : "missing"); setWorkspaceRole(response.data?.role ?? ""); }
+          return;
+        } catch (cause) {
+          if (cause instanceof ApiRequestError && cause.status === 401) {
+            if (active) { await signOut(); router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`); }
+            return;
+          }
+          if (attempt < 2) await new Promise<void>((resolve) => { const timer = setTimeout(() => { timers.delete(timer); resolve(); }, 400 * (attempt + 1)); timers.add(timer); });
+        }
+      }
       if (active) setOrganizationStatus("error");
-    });
-    return () => { active = false; };
-  }, [configured, session?.access_token, user]);
+    };
+    void verify();
+    return () => { active = false; timers.forEach(clearTimeout); };
+  }, [configured, pathname, router, session?.access_token, signOut, user]);
 
   useEffect(() => {
     if (organizationStatus === "missing" && pathname !== "/onboarding") router.replace("/onboarding");
@@ -137,7 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (configured && organizationStatus === "error") {
-    return <main className="auth-loading">Workspace membership could not be verified. Check the Supabase migrations and try again.</main>;
+    return <main className="auth-loading"><p>Workspace connection could not be verified.</p><button className="button primary" type="button" onClick={() => window.location.reload()}>Try again</button></main>;
   }
 
   if (configured && organizationStatus === "checking") {
