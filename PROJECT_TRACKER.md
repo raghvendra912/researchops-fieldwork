@@ -1563,3 +1563,11 @@ Do not record secret values here. Mark only whether they are available.
 - Deployment result: commit `1b61f27` was pushed to `origin/main`; Vercel production deployment `dpl_4ZCK49PagQtzZXwaJ7yix5QAgcVr` reached Ready and is aliased to `www.asrv.co.in`. Hosted health/readiness, `/projects/new`, and `/respondents` return HTTP 200.
 - Current task: authenticated production creation smoke-test covering multiple suppliers and an explicitly selected initial status, followed by one launch proving the normalized browser family persists and appears in the workbook. This remains credential/session-gated; public checks cannot create tenant traffic.
 - Session log (2026-10-11): resumed the existing uncommitted project-creation/browser-context work, completed the API and workbook browser-family path, added privacy regression coverage, repaired lint findings, updated browser expectations, completed compile/build/unit/browser verification, and applied migration `043` to production.
+
+### 2026-10-11 - Supplier multi-select correction
+
+- Status: DONE locally. Replaced the checkbox-card supplier picker on New Project with a proper native multi-select field while retaining line-wise selected-supplier CPI rows and individual removal controls.
+- Preserved the screenshot-aligned Security tab and its Initial Status, Campaign Banner, Geo Security, Research Defender, and Digital Fingerprinting controls.
+- Verification: `npx tsc --noEmit`, changed-file ESLint, and `git diff --check` passed; focused Chromium New Project coverage passed 1/1 and selects a supplier through the multi-select before verifying the Security tab; `npm test` completed its production build and passed 54 tests with 6 environment-gated skips and zero failures.
+- Current task: commit, push, deploy, and verify production uptake. Next task: authenticated production creation smoke-test selecting multiple real suppliers and confirming their separate CPI rows persist.
+- Session log (2026-10-11): matched the supplier control to the requested multi-select behavior, preserved the earlier Security layout, updated browser coverage, and completed compile/lint/build/test verification.

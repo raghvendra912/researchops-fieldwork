@@ -191,7 +191,11 @@ test("new project matches the compact survey-creation reference", async ({ page 
   await expect(page.getByLabel("Variable")).toBeVisible();
   await expect(page.getByLabel("Survey Link").first()).toBeVisible();
   await expect(page.getByText("ADD Supplier :", { exact: true })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Select multiple suppliers" })).toBeVisible();
+  const supplierSelect = page.getByLabel("Name (select multiple)");
+  await expect(supplierSelect).toBeVisible();
+  await expect(supplierSelect).toHaveAttribute("multiple", "");
+  await supplierSelect.selectOption(["CPX Research"]);
+  await expect(page.getByText("Selected Supplier", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Test survey URL (optional)")).toHaveCount(0);
   await page.getByRole("tab", { name: "Security" }).click();
   await expect(page.getByLabel("Initial Status")).toBeVisible();
