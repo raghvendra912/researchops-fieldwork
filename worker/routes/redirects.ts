@@ -69,6 +69,16 @@ function browserType(request: Request) {
   return agent ? "OTHER" : "UNKNOWN";
 }
 
+function operatingSystem(request: Request) {
+  const agent = request.headers.get("user-agent") ?? "";
+  if (/android/i.test(agent)) return "ANDROID";
+  if (/iphone|ipad|ipod/i.test(agent)) return "IOS";
+  if (/windows/i.test(agent)) return "WINDOWS";
+  if (/macintosh|mac os x/i.test(agent)) return "MAC";
+  if (/linux/i.test(agent)) return "LINUX";
+  return agent ? "OTHER" : "UNKNOWN";
+}
+
 function geoEvidence(request: Request, enabled: boolean, targetCountries: string[]) {
   const cf = (request as Request & { cf?: { country?: string; regionCode?: string; region?: string; city?: string } }).cf;
   const countryCode = clean(request.headers.get("x-vercel-ip-country") ?? request.headers.get("cf-ipcountry") ?? cf?.country ?? "", 2).toUpperCase();
@@ -81,7 +91,7 @@ function geoEvidence(request: Request, enabled: boolean, targetCountries: string
 
 async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false, context: Record<string, unknown> = {}) {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
-  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest, deviceType: deviceType(request), browserType: browserType(request), ...context } }, env);
+  return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest, deviceType: deviceType(request), browserType: browserType(request), osType: operatingSystem(request), ...context } }, env);
 }
 
 const SUPPLIER_COLUMNS = "id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url";

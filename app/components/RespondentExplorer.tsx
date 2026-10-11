@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
+import { buildRespondentReportCsv, respondentReportFilename } from "../../src/features/projects/respondent-report";
 
 type Session = {
   id: string; respondentRef: string; status: string; isTest?: boolean; startedAt: string; reachedClientAt?: string; completedAt?: string; durationSeconds?: number | null;
-  projectCode?: string; projectName?: string; clientName?: string; countryCode?: string; languageCode?: string; supplierName?: string; supplierProjectId?: string; supplierCpi?: number;
-  terminationReasonCode?: string; deviceType?: string; browserType?: string; riskStatus?: string; riskFlagCount?: number; internalApprovalStatus?: string; vendorApprovalStatus?: string;
+  projectCode?: string; projectName?: string; clientName?: string; clientCpi?: number; digitalFingerprinting?: boolean; countryCode?: string; languageCode?: string; supplierName?: string; supplierProjectId?: string; supplierCpi?: number;
+  providerTransactionId?: string; terminationReasonCode?: string; deviceType?: string; osType?: string; browserType?: string; geoCity?: string; riskStatus?: string; riskFlagCount?: number; internalApprovalStatus?: string; vendorApprovalStatus?: string;
   events: Array<{ id: string; eventType: string; occurredAt: string; providerTransactionId?: string }>;
 };
 type ProjectOption = { code: string; name: string };
-function csvCell(value: unknown) { let text = String(value ?? ""); if (/^[=+\-@]/.test(text)) text = `'${text}`; return `"${text.replaceAll('"', '""')}"`; }
 function duration(seconds?: number | null) { if (seconds === null || seconds === undefined) return "—"; return `${Math.floor(seconds / 60)}m ${seconds % 60}s`; }
 
 export function RespondentExplorer() {
@@ -26,7 +26,7 @@ export function RespondentExplorer() {
   }
 
   async function exportCsv() {
-    try { const params = new URLSearchParams({ q: query, export: "1" }); if (project) params.set("project", project); const response = await apiRequest<{ data: Session[] }>(`/api/respondents?${params}`, { headers: token ? { authorization: `Bearer ${token}` } : undefined }); const rows = [["ResearchOps attempt ID", "Supplier attempt ID", "Project", "Project name", "Client", "Country", "Language", "Supplier", "Supplier project ID", "Supplier CPI", "Traffic", "Started", "Reached client", "Completed", "Duration seconds", "Final status", "Termination reason", "Device type", "Risk", "Risk flag count", "Internal approval", "Vendor approval"], ...response.data.map((item) => [item.id, item.respondentRef, item.projectCode, item.projectName, item.clientName, item.countryCode, item.languageCode, item.supplierName, item.supplierProjectId, item.supplierCpi, item.isTest ? "TEST" : "LIVE", item.startedAt, item.reachedClientAt, item.completedAt, item.durationSeconds, item.status, item.terminationReasonCode, item.deviceType, item.riskStatus, item.riskFlagCount, item.internalApprovalStatus, item.vendorApprovalStatus])]; const blob = new Blob(["\uFEFF", rows.map((row) => row.map(csvCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `respondents-${project || "all-projects"}.csv`; anchor.click(); URL.revokeObjectURL(url); }
+    try { const params = new URLSearchParams({ q: query, export: "1" }); if (project) params.set("project", project); const response = await apiRequest<{ data: Session[] }>(`/api/respondents?${params}`, { headers: token ? { authorization: `Bearer ${token}` } : undefined }); const blob = new Blob([buildRespondentReportCsv(response.data)], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = respondentReportFilename(); anchor.click(); URL.revokeObjectURL(url); }
     catch { setError("Respondent export could not be generated."); }
   }
 

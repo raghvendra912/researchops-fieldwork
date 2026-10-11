@@ -1572,3 +1572,12 @@ Do not record secret values here. Mark only whether they are available.
 - Deployment result: commit `e420ff5` was pushed to `origin/main`; Vercel production deployment `dpl_85wnoq3pjzyC5ckXHj9Tb47mVzDY` reached Ready and is aliased to `www.asrv.co.in`. Hosted health/readiness and `/projects/new` return HTTP 200.
 - Current task: authenticated production creation smoke-test selecting multiple real suppliers and confirming their separate CPI rows persist.
 - Session log (2026-10-11): matched the supplier control to the requested multi-select behavior, preserved the earlier Security layout, updated browser coverage, and completed compile/lint/build/test verification.
+
+### 2026-10-11 - Reference respondent CSV report
+
+- Status: DONE locally. Respondents CSV download now follows the supplied operational report order: serial number, project/client/supplier, CPI and survey cost, digital-fingerprinting and quality result, internal/vendor IDs, survey status, protected IP evidence, OS/browser/city, separate UTC start/end dates and times, and `HH:MM:SS` LOI. The filename follows `Survey-Respondents-Report-<timestamp>.csv`.
+- Recording: launch events now normalize and persist coarse OS family (`WINDOWS`, `MAC`, `LINUX`, `ANDROID`, `IOS`, `OTHER`, or `UNKNOWN`) alongside the existing device and browser families. Migration `044_session_operating_system.sql` was applied successfully to the linked production Supabase project after its dry run showed it as the only pending migration.
+- Privacy decision: the reference's raw IP column is emitted as `Protected`. ResearchOps continues to store only server-side HMAC fingerprints for duplicate detection and never exports raw IP or raw user-agent values. City remains available only for projects with opt-in geo security.
+- Verification: `npx tsc --noEmit` and changed-file ESLint passed; focused report/context tests passed 7/7; `npm test` completed its production build and passed 56 tests with 6 environment-gated skips and zero failures.
+- Current task: commit, push, deploy, and verify hosted health/readiness plus the protected Respondents route. Next task: authenticated production launch and CSV download proof using a fresh respondent.
+- Session log (2026-10-11): mapped the supplied Excel reference into a deterministic privacy-safe CSV builder, expanded respondents API fields, added OS-family capture and migration, added exact header/value/filename regression coverage, applied migration `044`, and completed compile/lint/build/test verification.
