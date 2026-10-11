@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-10-07
+Last updated: 2026-10-11
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -1552,3 +1552,13 @@ Do not record secret values here. Mark only whether they are available.
 - Current task: commit, push, deploy, and verify hosted health/readiness and Project Center/Details routes. Next task: authenticated production click/copy smoke-test against a real multi-supplier project.
 - Session log (2026-10-10): added the Project Center supplier-link popup, aligned demo and production masked links, restyled Project Details to match Project Creation, and completed compile/build/standard/focused-browser verification.
 - Deployment result: commit `8c2a9c9` was pushed to `origin/main`; Vercel production deployment `CgyGXenNpj62qc38NJLWcqf21Dig` completed and is aliased to `www.asrv.co.in`. Hosted health, readiness, `/projects`, and `/projects/ROP-1182` return HTTP 200. Current task: authenticated production confirmation of the Project Name popup and compact Project Details header. Next task: exercise Copy test/Copy live on a real multi-supplier project and confirm each copied template retains its assignment-specific opaque token.
+
+### 2026-10-11 - Project creation controls and browser session context
+
+- Status: DONE locally. Restored the Project Setup/Security tabs in the compact creation form, added removable market rows, multi-supplier selection with independent CPI values, persisted the existing campaign/geo/security settings, and allowed an explicitly confirmed initial LIVE transition after creation.
+- Added privacy-safe browser-family detection to launch event metadata and migration `043_browser_session_context.sql`. The respondents API and fieldwork workbook expose only the normalized family (`CHROME`, `FIREFOX`, `SAFARI`, `EDGE`, `OPERA`, `BRAVE`, `OTHER`, or `UNKNOWN`); raw user-agent and IP values are not stored.
+- Verification: `npx tsc --noEmit` passed; changed-file ESLint passed; focused unit coverage passed 19/19; `npm test` completed its production build and passed 54 tests with 6 environment-gated skips and zero failures; focused Chromium New Project coverage passed 1/1; `git diff --check` passed before this tracker update.
+- Decision: browser information remains coarse operational context, not a fingerprint. Provider-named security switches remain stored configuration only until certified adapters enforce them.
+- Database: migration `043` was applied successfully to the linked production Supabase project after a dry run confirmed it was the only pending migration.
+- Current task: commit/push the verified change-set, deploy it, and verify hosted health/readiness plus one browser-family launch record. Next task: authenticated production creation smoke-test covering multiple suppliers and an explicitly selected initial status.
+- Session log (2026-10-11): resumed the existing uncommitted project-creation/browser-context work, completed the API and workbook browser-family path, added privacy regression coverage, repaired lint findings, updated browser expectations, completed compile/build/unit/browser verification, and applied migration `043` to production.

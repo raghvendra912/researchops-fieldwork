@@ -183,14 +183,20 @@ test("new project matches the compact survey-creation reference", async ({ page 
   await expect(country).toHaveValue("JP");
   await page.getByRole("button", { name: "Add More Field" }).click();
   await expect(page.getByLabel("Country")).toHaveCount(2);
+  await page.getByRole("button", { name: "Remove market 2" }).click();
+  await expect(page.getByLabel("Country")).toHaveCount(1);
   await expect(page.getByLabel("Survey Name")).toBeVisible();
   await expect(page.getByLabel("Survey Multi Link")).toBeVisible();
   await expect(page.getByText("AI Pre-Screening Questions:", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Variable")).toBeVisible();
   await expect(page.getByLabel("Survey Link").first()).toBeVisible();
   await expect(page.getByText("ADD Supplier :", { exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Select multiple suppliers" })).toBeVisible();
   await expect(page.getByLabel("Test survey URL (optional)")).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: "Security" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Security" }).click();
+  await expect(page.getByLabel("Initial Status")).toBeVisible();
+  await expect(page.getByLabel("Geo Security")).toBeVisible();
+  await expect(page.getByLabel("FraudGuard")).toBeVisible();
 });
 
 test("project name opens line-wise supplier test and live links", async ({ page, context }) => {

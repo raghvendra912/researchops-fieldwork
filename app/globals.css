@@ -420,12 +420,59 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .survey-reference-form small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
 .reference-add { margin: 0 0 4px; background: #183147; color: white; }
 .survey-reference-actions { display: flex; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--line); }
+.survey-reference-tabs { display: flex; gap: 0; margin: 0 -18px 16px; padding: 0 18px; border-bottom: 1px solid var(--line); }
+.survey-reference-tabs button { min-width: 130px; padding: 10px 14px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); font-weight: 800; cursor: pointer; }
+.survey-reference-tabs button.active { border-bottom-color: #173c57; color: #173c57; }
+.survey-reference-market-wrap { position: relative; padding-right: 0; }
+.market-remove { position: absolute; z-index: 2; top: -7px; right: -7px; width: 22px; height: 22px; padding: 0; border: 1px solid #d59c93; border-radius: 50%; background: #fff; color: #9a3025; font-size: 17px; line-height: 18px; cursor: pointer; }
+.market-remove:hover, .market-remove:focus-visible { background: #fff0ed; border-color: #9a3025; }
+.supplier-multi-field { max-width: 680px; margin-bottom: 13px; }
+.supplier-multi-select { min-height: 48px; padding: 6px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; border: 1px solid var(--line); background: #fff; }
+.supplier-multi-select label { min-height: 34px; padding: 6px 9px; display: flex; align-items: center; gap: 7px; border: 1px solid #e3e7e4; background: #fafbf9; cursor: pointer; }
+.supplier-multi-select input { accent-color: #173c57; }
+.selected-supplier-row { position: relative; padding: 10px 30px 10px 10px; border: 1px solid var(--line); background: #fafbf9; }
+.selected-supplier-row .supplier-remove { top: 5px; right: 5px; }
+.survey-security-tab { min-height: 360px; }
+.survey-security-tab .security-check-grid { padding: 0; }
 .project-name-link { appearance: none; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
 .project-name-link:hover, .project-name-link:focus-visible { color: var(--navy); text-decoration-color: currentColor; }
 .project-detail-reference { margin-bottom: 10px; }
 .project-detail-reference-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 0 12px; }
 .project-detail-reference-head h1 { margin: 0; font-size: 16px; }
 .project-detail-reference .static-control { min-height: 38px; display: flex; align-items: center; overflow-wrap: anywhere; }
+.project-detail-page { display: grid; gap: 10px; }
+.project-detail-page .survey-reference-form,
+.project-detail-page .panel:not(.links-modal) { margin: 0 !important; border: 1px solid var(--line); border-radius: 0; box-shadow: none; background: #fff; overflow: hidden; }
+.project-detail-page .dashboard-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 0 !important; }
+.project-detail-page .project-detail-anchor { margin: 0; }
+.project-detail-page .project-detail-anchor > .panel { margin-top: 0 !important; }
+.project-detail-page .panel:not(.links-modal) > .panel-head { min-height: 44px; padding: 6px 18px; background: #f6f8f7; border-bottom: 1px solid var(--line); }
+.project-detail-page .panel-title { font-size: 13px; }
+.project-detail-page .panel-note { font-size: 10px; }
+.project-detail-page .project-option-bar { padding: 0; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0; }
+.project-detail-page .project-option-link { min-height: 44px; padding: 7px; flex-direction: row; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: #fff; transform: none; }
+.project-detail-page .project-option-link:last-child { border-right: 0; }
+.project-detail-page .project-option-link:hover { background: #edf3f3; transform: none; }
+.project-detail-page .project-option-link > span { width: 24px; height: 24px; border-radius: 3px; }
+.project-detail-page .outcome-grid.project { grid-template-columns: repeat(6, minmax(100px, 1fr)); gap: 0; padding: 12px 18px; }
+.project-detail-page .outcome-card { min-height: 62px; border-radius: 0; border-right: 0; background: #fafbf9; }
+.project-detail-page .outcome-card:last-child { border-right: 1px solid var(--line); }
+.project-detail-page .outcome-card strong { font: 750 16px/1.1 inherit; }
+.project-detail-page .project-outcomes { margin-bottom: 0; }
+.project-detail-page .ownership-grid { padding: 13px 18px; gap: 12px 22px; }
+.project-detail-page .ownership-grid .field { padding: 9px 10px; border: 1px solid var(--line); background: #fafbf9; }
+.project-detail-page .info-list { padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.project-detail-page .info-row { min-width: 0; min-height: 62px; padding: 10px 12px; flex-direction: column; justify-content: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.project-detail-page .info-row strong { overflow-wrap: anywhere; }
+.project-detail-page .form-section { padding: 14px 18px; }
+.project-detail-page .form-grid { gap: 12px 22px; }
+.project-detail-page .table-footer { min-height: 44px; padding: 7px 18px; }
+.project-detail-page .data-table th { background: #eef4f5; }
+.project-detail-page .data-table th,
+.project-detail-page .data-table td { padding-block: 9px; }
+.project-detail-page .form-error { margin: 10px 18px; }
+@media (max-width: 1100px) { .project-detail-page .project-option-bar { grid-template-columns: repeat(4, minmax(0, 1fr)); } .project-detail-page .outcome-grid.project { grid-template-columns: repeat(3, minmax(100px, 1fr)); } .project-detail-page .info-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .project-detail-page .project-detail-reference-head { align-items: flex-start; flex-direction: column; } .project-detail-page .project-option-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .project-detail-page .outcome-grid.project { grid-template-columns: repeat(2, minmax(90px, 1fr)); padding: 10px; } .project-detail-page .info-list { grid-template-columns: 1fr; } }
 .project-supplier-links-modal { width: min(1040px, calc(100vw - 32px)); max-height: min(82vh, 760px); overflow: auto; }
 .project-supplier-link-list { display: grid; gap: 12px; margin-top: 16px; }
 .project-supplier-link-row { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }

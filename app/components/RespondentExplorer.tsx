@@ -7,7 +7,7 @@ import { apiRequest } from "../../src/lib/api";
 type Session = {
   id: string; respondentRef: string; status: string; isTest?: boolean; startedAt: string; reachedClientAt?: string; completedAt?: string; durationSeconds?: number | null;
   projectCode?: string; projectName?: string; clientName?: string; countryCode?: string; languageCode?: string; supplierName?: string; supplierProjectId?: string; supplierCpi?: number;
-  terminationReasonCode?: string; deviceType?: string; riskStatus?: string; riskFlagCount?: number; internalApprovalStatus?: string; vendorApprovalStatus?: string;
+  terminationReasonCode?: string; deviceType?: string; browserType?: string; riskStatus?: string; riskFlagCount?: number; internalApprovalStatus?: string; vendorApprovalStatus?: string;
   events: Array<{ id: string; eventType: string; occurredAt: string; providerTransactionId?: string }>;
 };
 type ProjectOption = { code: string; name: string };
