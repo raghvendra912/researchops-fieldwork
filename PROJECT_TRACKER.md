@@ -88,11 +88,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
-## Pending routing incident — callback session not found (2026-10-18)
+## Client callback placeholder correction — 2026-10-18
 
-- User reported the hosted terminal page: `Routing unavailable / Respondent routing session was not found` after the verified launch work.
-- Determine whether the failing address is an opaque `/r/outcome/<token>/<outcome>` callback or a legacy `/r/client/<token>/<outcome>?rid=...` callback before changing routing behavior. The former indicates an unknown/stale outcome token; the latter usually indicates that the survey returned the supplier ARID or a placeholder instead of the ResearchOps session UUID.
-- Obtain the complete failing address-bar URL (query included), reproduce safely without creating another live attempt, fix the exact contract, verify locally and in production, then remove this pending entry and record completion.
+- Status: DONE locally. The reported callback was `/r/client/.../terminate?rid=xxxx`; `xxxx` was a literal unresolved placeholder, not a ResearchOps session identifier. Replaying the same client route with the actual `test2` session UUID succeeded with HTTP 302, recorded `TERMINATE`, and returned the original supplier reference to the configured supplier destination.
+- Client outcome routes now detect common unresolved values (`xxxx`, `{{...}}`, and `[...]`) before database lookup and return an explicit configuration error instructing the client to return the session UUID received as `pid`/`rid` or use the signed per-session outcome URL.
+- Supplier outcome destinations now replace unresolved respondent placeholders on common respondent keys such as `uid`, `rid`, and `transaction_id` with the original supplier ARID. This repairs the observed `theignitte.com` handoff that otherwise retained `uid=xxxx`; standard respondent/project/status parameters remain attached.
+- Verification: focused routing/business coverage passes 20/20; `npx tsc --noEmit`, full `npm run lint`, production/test build, and `git diff --check` pass. The standard suite passes 63 tests with 6 environment-gated skips and zero failures.
+- Current task: commit, push, deploy, then verify the explicit unresolved-placeholder response and supplier handoff behavior in production.
+- Next task: update the Decipium survey configuration so terminal redirects use the signed `complete_url`/`terminate_url`/`quota_full_url`/`security_terminate_url` received on each launch, or substitute its incoming ResearchOps `pid`/`rid` UUID into the legacy client URL. A literal `xxxx` can never identify a respondent.
+- Session log (2026-10-18): traced the exact failing URL, proved the correct UUID callback on the existing `test2` session, identified a second unresolved supplier `uid` placeholder, implemented explicit client diagnostics and supplier placeholder replacement, and completed full verification.
 
 ## Respondent status refresh and clean verification baseline — 2026-10-18
 

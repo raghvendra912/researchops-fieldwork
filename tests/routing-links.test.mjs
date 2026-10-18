@@ -6,6 +6,7 @@ import {
   assignmentLaunchTemplate,
   clientOutcomeTemplates,
   fillLiveTemplate,
+  hasUnresolvedClientAttemptId,
   parseClientRoute,
   parseAssignmentRoute,
   parseOutcomeRoute,
@@ -45,6 +46,9 @@ test("routing parser accepts flexible vendor parameter names", () => {
   assert.equal(readRespondentRef(new URLSearchParams({ arid: "ARID-42" })), "ARID-42");
   const surveyReturn = new URLSearchParams({ respondent: "  SUP 7!! ", project: "ROP-42" });
   assert.equal(readRespondentRef(surveyReturn), "SUP7");
+  assert.equal(hasUnresolvedClientAttemptId(new URLSearchParams({ rid: "xxxx" })), true);
+  assert.equal(hasUnresolvedClientAttemptId(new URLSearchParams({ rid: "{{transaction_id}}" })), true);
+  assert.equal(hasUnresolvedClientAttemptId(new URLSearchParams({ rid: "434b105d-bea9-40ca-9487-cbaca16d95cc" })), false);
 });
 
 test("every new project carries tool routing info in CSV", () => {

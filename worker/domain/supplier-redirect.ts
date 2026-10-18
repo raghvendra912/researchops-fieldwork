@@ -6,6 +6,10 @@ function expand(template: string, project: string, respondent: string) {
 
 export function standardSupplierRedirect(template: string, project: string, respondent: string, eventType: string) {
   const target = new URL(expand(template, project, respondent));
+  const respondentKeys = new Set(["arid", "respondent", "respondent_ref", "respondent_id", "transaction_id", "rid", "uid", "r_id", "userid"]);
+  for (const [key, value] of target.searchParams) {
+    if (respondentKeys.has(key.toLowerCase()) && /^(?:x{2,}|\{\{[^}]+\}\}|\[[^\]]+\])$/i.test(value.trim())) target.searchParams.set(key, respondent);
+  }
   const status = eventType.toLowerCase().replaceAll("_", "-");
   if (!target.searchParams.has("respondent_id")) target.searchParams.set("respondent_id", respondent);
   if (!target.searchParams.has("project_id")) target.searchParams.set("project_id", project);

@@ -143,6 +143,11 @@ export function readClientAttemptId(params: URLSearchParams, maximum = 160) {
   return readRespondentRef(params, maximum);
 }
 
+export function hasUnresolvedClientAttemptId(params: URLSearchParams) {
+  const raw = firstQueryValue(params, RESPONDENT_KEYS)?.trim() ?? "";
+  return /^(?:x{2,}|\{\{[^}]+\}\}|\[[^\]]+\])$/i.test(raw);
+}
+
 function withTemplate(value: string) {
   return value.includes("{{respondent_id}}") ? value : `${value}${value.includes("?") ? "&" : "?"}respondent={{respondent_id}}`;
 }

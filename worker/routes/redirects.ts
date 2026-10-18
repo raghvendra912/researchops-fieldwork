@@ -2,7 +2,7 @@ import { ingestNormalizedEvent, type EventEnv } from "./events";
 import { riskMetadata } from "../lib/fraud";
 import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
-import { outcomeRouteFromSession, parseAssignmentRoute, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
+import { hasUnresolvedClientAttemptId, outcomeRouteFromSession, parseAssignmentRoute, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
 import { requestId, safeLog } from "../lib/observability";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
@@ -255,6 +255,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
 
     const outcome = clientRoute!.outcome;
     const requestedProjectCode = readProjectCode(url.searchParams); const clientAttemptId = readClientAttemptId(url.searchParams);
+    if (hasUnresolvedClientAttemptId(url.searchParams)) return help("The client returned an unresolved respondent placeholder", 400, { fix: "Replace xxxx with the ResearchOps session UUID received as pid/rid at survey entry, or use the signed per-session outcome URL supplied on launch." });
     if (!clientAttemptId) return help("Respondent ID is required", 400, { fix: ROUTING_HELP.clientExample });
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${encodeURIComponent(clientRoute!.token)}&limit=1`); if (!clients[0]) return help("Client link was not found", 404);
     const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
