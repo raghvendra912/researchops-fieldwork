@@ -26,7 +26,7 @@ export function RespondentExplorer() {
   }
 
   async function exportCsv() {
-    try { const params = new URLSearchParams({ q: query, export: "1" }); if (project) params.set("project", project); const response = await apiRequest<{ data: Session[] }>(`/api/respondents?${params}`, { headers: token ? { authorization: `Bearer ${token}` } : undefined }); const blob = new Blob([buildRespondentReportCsv(response.data)], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = respondentReportFilename(); anchor.click(); URL.revokeObjectURL(url); }
+    try { const exported: Session[] = []; let offset = 0; let more = true; while (more) { const params = new URLSearchParams({ q: query, export: "1", offset: String(offset) }); if (project) params.set("project", project); const response = await apiRequest<{ data: Session[]; meta?: { limit?: number; truncated?: boolean } }>(`/api/respondents?${params}`, { headers: token ? { authorization: `Bearer ${token}` } : undefined }); exported.push(...response.data); const limit = response.meta?.limit ?? response.data.length; more = response.meta?.truncated === true && response.data.length > 0; offset += limit; } const blob = new Blob([buildRespondentReportCsv(exported)], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = respondentReportFilename(); anchor.click(); URL.revokeObjectURL(url); }
     catch { setError("Respondent export could not be generated."); }
   }
 

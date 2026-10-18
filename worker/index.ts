@@ -20,6 +20,8 @@ import { handleProjectOwnershipApi } from "./routes/project-ownership";
 import { handleSurveySetupApi } from "./routes/survey-setup";
 import { handleResponseVariablesApi } from "./routes/response-variables";
 import { handleAssistantApi } from "./routes/assistant";
+import { handleMembersApi } from "./routes/members";
+import { handleScreeningQuestionsApi } from "./routes/screening-questions";
 import { securityHeaders, validateCSRF, csrfError } from "./lib/security.ts";
 
 interface Env {
@@ -127,6 +129,8 @@ const worker = {
     }
 
     if (url.pathname.startsWith("/api/projects")) {
+      const screeningQuestionsResponse = await handleScreeningQuestionsApi(request, url.pathname, projectEnv);
+      if (screeningQuestionsResponse) return observed(screeningQuestionsResponse);
       const responseVariablesResponse = await handleResponseVariablesApi(request, url.pathname, projectEnv);
       if (responseVariablesResponse) return observed(responseVariablesResponse);
       const surveySetupResponse = await handleSurveySetupApi(request, url.pathname, projectEnv);
@@ -145,6 +149,11 @@ const worker = {
 
     if (url.pathname === "/api/assistant") {
       const apiResponse = await handleAssistantApi(request, url.pathname, projectEnv);
+      if (apiResponse) return observed(apiResponse);
+    }
+
+    if (url.pathname.startsWith("/api/organization-members")) {
+      const apiResponse = await handleMembersApi(request, url.pathname, projectEnv);
       if (apiResponse) return observed(apiResponse);
     }
 

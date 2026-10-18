@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-10-11
+Last updated: 2026-10-18
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -80,6 +80,29 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Organization user administration checkpoint — 2026-10-18
+
+- Status: DONE locally. Added an OWNER/ADMIN-only `/admin` page for organization access management. Administrators can invite a new user by name and email, assign a permitted organization role, change roles, and revoke membership; the page is hidden from non-admin navigation.
+- Authorization: OWNER can assign `ADMIN`, `PM`, `ANALYST`, or `MEMBER`; ADMIN can assign `PM`, `ANALYST`, or `MEMBER`. OWNER memberships, self-access, and peer ADMIN memberships are protected from unsafe changes. Every invite, role update, and revocation writes an audit event.
+- Backend: added `GET/POST /api/organization-members` and `PATCH/DELETE /api/organization-members/:userId`. Invitations use the server-only Supabase service credential, while every request first proves the caller's organization membership and administrator role. Failed membership provisioning rolls back the newly invited Auth user.
+- Verification: `npx tsc --noEmit` passed. Focused member authorization tests passed 3/3. The combined changed-file ESLint command and full `npm test` both exceeded the local command window without diagnostics or completion, so lint/build/full-suite results are not claimed. `git diff --check` remains the final local handoff check.
+- Current task: review the `/admin` page in an authenticated OWNER session and complete lint/build/full-suite verification in an environment where the Vinext commands finish.
+- Next task: deploy and prove one invitation, role change, and access revocation against a disposable production user; do not use a real team account for destructive verification.
+- Decision: Project Details was deliberately not changed in this session because the requested scope was organization user administration and the existing detail feature is already marked complete.
+- Session log (2026-10-18): implemented the organization user-access page and navigation, added tenant-scoped administration APIs with protected role boundaries and audit events, documented the endpoints, added focused authorization coverage, and preserved unrelated in-progress respondent/analytics changes already present in the worktree.
+
+## Reference respondent export and Project Details screening checkpoint — 2026-10-18
+
+- Status: DONE locally. Respondent CSV matches the supplied operational reference with 22 ordered columns, reference outcome labels, separate UTC dates/times, `HH:MM:SS` LOI, spreadsheet-injection protection, and privacy-safe `Protected` IP output. Export now paginates until every matching routed session is included instead of stopping at 5,000 rows.
+- Project Details: retained the compact reference-style details header and action navigation, and added a real Screening Questions section. Operators can add, edit, type, remove, and persist up to five questions; supported answer types are single-select, multi-select, text, number, and yes/no. Executable eligibility rules remain separate directly beneath the authored questions.
+- Stability correction: removed the 30-second Project Details polling loop that made the page repeatedly enter refresh state. Data loads once on entry and updates only through the explicit Refresh action.
+- Backend: added tenant-authorized `GET/PUT /api/projects/:projectId/screening-questions`; writes rely on existing project RLS/editor access and the migration `041` five-question database constraint.
+- Verification: focused admin, respondent-report, and screening workflow tests pass 7/7; `npx tsc --noEmit`, changed-file ESLint, `npm run build`, and `git diff --check` pass.
+- Current task: commit and push the combined requested changes.
+- Next task: authenticated hosted proof of the Project Details screening editor, full respondent CSV pagination, and organization invitation/role/revocation workflow.
+- Decision: the screenshot titled Project Details is a list-oriented reference, while this product already has Project Center for the list and a separate per-project detail route. The implementation applies its dense header/table/action language to the detail route without duplicating the Project Center.
+- Session log (2026-10-18): completed admin user access, made respondent export exhaustive and reference-aligned, implemented persistent screening-question management on Project Details, and prepared the combined change for verification and release.
 
 ## Admin ResearchOps Copilot checkpoint — 2026-10-04
 

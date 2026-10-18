@@ -9,3 +9,9 @@ test("respondent CSV follows the reference operational report and protects raw I
   assert.doesNotMatch(csv, /ipHash|deviceHash|203\.0\.113/);
   assert.equal(respondentReportFilename(new Date("2026-10-07T13:53:37Z")), "Survey-Respondents-Report-20261007135337.csv");
 });
+
+test("respondent CSV maps every routing outcome to the reference labels", () => {
+  const rows = ["QUALITY_TERMINATE", "QUOTA_FULL", "TERMINATE", "ABANDON", "STARTED", "REACHED_CLIENT"].map((status, index) => ({ id: `session-${index}`, respondentRef: `vendor-${index}`, status, startedAt: "2026-10-07T12:50:01Z" }));
+  const csv = buildRespondentReportCsv(rows);
+  for (const label of ["Quality", "Quota Full", "Terminate", "Incomplete"]) assert.match(csv, new RegExp(`"${label}"`));
+});

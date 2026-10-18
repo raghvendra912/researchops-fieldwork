@@ -111,6 +111,8 @@ npx supabase start
 - `POST /api/projects`
 - `GET /api/organizations/current`
 - `POST /api/organizations`
+- `GET/POST /api/organization-members`
+- `PATCH/DELETE /api/organization-members/:userId`
 - `GET/POST /api/clients`
 - `PATCH /api/clients/:clientId`
 - `GET/POST /api/suppliers`
@@ -120,6 +122,7 @@ npx supabase start
 - `GET /api/respondents`
 - `PATCH /api/respondents/:sessionId/review`
 - `GET/PUT /api/projects/:projectId/response-variables`
+- `GET/PUT /api/projects/:projectId/screening-questions`
 - `GET/PATCH /api/fraud-flags/:flagId`
 - `GET /api/analytics`
 - `GET/PATCH /api/notifications/:notificationId`
