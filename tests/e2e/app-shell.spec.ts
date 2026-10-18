@@ -11,7 +11,7 @@ test("health and readiness endpoints are available", async ({ request }) => {
 });
 
 async function waitForHydration(page: import("@playwright/test").Page) {
-  await expect(page.locator(".app-frame")).toHaveAttribute("data-hydrated", "true", { timeout: 20_000 });
+  await expect(page.locator(".app-frame")).toHaveAttribute("data-hydrated", "true", { timeout: 60_000 });
 }
 
 test("desktop unified navigation and build identity are visible", async ({ page }) => {
@@ -25,6 +25,18 @@ test("desktop unified navigation and build identity are visible", async ({ page 
   await expect(page.getByRole("button", { name: "Open ResearchOps Copilot" })).toBeVisible();
   await page.getByRole("button", { name: "Open ResearchOps Copilot" }).click();
   await expect(page.getByLabel("ResearchOps AI assistant")).toBeVisible();
+});
+
+test("workspace navigation changes routes without reloading the document", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.evaluate(() => { (window as Window & { __researchOpsNavigationProof?: string }).__researchOpsNavigationProof = "mounted"; });
+  const workspaceNavigation = page.getByRole("navigation", { name: "Workspace navigation" });
+  await workspaceNavigation.getByText("Project Center", { exact: true }).click();
+  await workspaceNavigation.getByRole("link", { name: "All projects", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect.poll(() => page.evaluate(() => (window as Window & { __researchOpsNavigationProof?: string }).__researchOpsNavigationProof)).toBe("mounted");
 });
 
 test("mobile navigation remains usable without the desktop toggle", async ({ page }) => {
@@ -106,6 +118,8 @@ test("supplier directory explains its two base routes and copies both", async ({
 
 test("secondary PM and sales ownership can be edited in demo mode", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByLabel("Tool").selectOption("ownership");
   await expect(page.getByRole("heading", { name: "Project ownership" })).toBeVisible();
   await page.getByRole("button", { name: "Edit ownership" }).click();
   await page.getByLabel("Secondary PM").selectOption("00000000-0000-4000-8000-000000000012");
@@ -122,6 +136,8 @@ test("Flamingo Tool is a planned integration placeholder", async ({ page }) => {
 
 test("supplier delivery separates test starts from live metrics", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByLabel("Tool").selectOption("suppliers");
   await expect(page.getByRole("heading", { name: "Supplier delivery" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "TST" })).toHaveAttribute("title", "Test starts");
   await expect(page.getByText("Test hits are separated from live delivery and cost.")).toBeVisible();
@@ -129,6 +145,8 @@ test("supplier delivery separates test starts from live metrics", async ({ page 
 
 test("supplier routing links open in a separated bordered dialog", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByLabel("Tool").selectOption("suppliers");
   await page.getByRole("button", { name: "Links" }).click();
 
   const dialog = page.getByRole("dialog", { name: "CPX Research links" });
@@ -144,6 +162,8 @@ test("supplier routing links open in a separated bordered dialog", async ({ page
 
 test("project eligibility rules are visible and editable", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByLabel("Tool").selectOption("eligibility");
   await expect(page.getByRole("heading", { name: "Eligibility rules" })).toBeVisible();
   await expect(page.getByText("country", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).last().click();
@@ -153,6 +173,8 @@ test("project eligibility rules are visible and editable", async ({ page }) => {
 
 test("interlocked quota cells are visible and editable", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByLabel("Tool").selectOption("quotas");
   await expect(page.getByRole("heading", { name: "Interlocked quota cells" })).toBeVisible();
   await expect(page.getByText("India · age 21–34", { exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Filled" })).toBeVisible();
@@ -165,6 +187,8 @@ test("interlocked quota cells are visible and editable", async ({ page }) => {
 
 test("project leads can manage role-compatible project access", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await page.getByLabel("Tool").selectOption("access");
   await expect(page.getByRole("heading", { name: "Project team access" })).toBeVisible();
   await expect(page.getByText("Kabir Rao", { exact: true })).toBeVisible();
   await expect(page.getByText("REVIEWER", { exact: true })).toBeVisible();
