@@ -88,6 +88,12 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Pending routing incident — callback session not found (2026-10-18)
+
+- User reported the hosted terminal page: `Routing unavailable / Respondent routing session was not found` after the verified launch work.
+- Determine whether the failing address is an opaque `/r/outcome/<token>/<outcome>` callback or a legacy `/r/client/<token>/<outcome>?rid=...` callback before changing routing behavior. The former indicates an unknown/stale outcome token; the latter usually indicates that the survey returned the supplier ARID or a placeholder instead of the ResearchOps session UUID.
+- Obtain the complete failing address-bar URL (query included), reproduce safely without creating another live attempt, fix the exact contract, verify locally and in production, then remove this pending entry and record completion.
+
 ## Respondent status refresh and clean verification baseline — 2026-10-18
 
 - Status: DONE locally. The supplied masked assignment route for `arid=test2` returned HTTP 302 from production to the configured Decipium survey with a ResearchOps session UUID and all four signed outcome callbacks, proving route lookup and event ingestion reached the client handoff.
