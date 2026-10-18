@@ -1,9 +1,11 @@
-import NextLink from "next/link";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
-type NavigationLinkProps = ComponentProps<typeof NextLink>;
+type NavigationLinkProps = Omit<ComponentProps<"a">, "href" | "children"> & {
+  href: string;
+  children: ReactNode;
+};
 
-/** Shared client-side navigation keeps the application shell mounted between routes. */
-export default function NavigationLink(props: NavigationLinkProps) {
-  return <NextLink {...props} />;
+/** Vinext's production RSC prefetch currently fails; native navigation remains reliable. */
+export default function NavigationLink({ href, children, ...props }: NavigationLinkProps) {
+  return <a href={href} {...props}>{children}</a>;
 }

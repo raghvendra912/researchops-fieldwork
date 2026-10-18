@@ -114,6 +114,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: browser-check navigation between Dashboard, Project Center, Project Details, Respondents, Admin, and Settings in an authenticated hosted session and confirm the document is not reloaded.
 - Next task: monitor for any reverse-proxy-specific client navigation failure; retain framework routing unless a reproducible hosted defect requires a targeted fallback.
 - Session log (2026-10-18): removed forced document navigation and onboarding reloads, added an in-app authorization retry, verified compile/lint/build, and preserved unrelated analytics/redirect working-tree changes.
+- Hosted defect and correction (2026-10-18): production browser reproduction showed every framework link logging `[vinext] RSC prefetch setup error: TypeError: ee is not a function`; clicking Create account left the browser on `/login`. Restored native anchors and the reliable onboarding document redirect until Vinext's production RSC navigation is compatible. Production health/readiness and login remained HTTP 200 throughout, confirming a client-router defect rather than an API/database outage. TypeScript, changed-file ESLint, and production build pass after the correction. Current task: deploy and browser-prove cross-page navigation. Full-reload-free routing is blocked by the verified Vinext defect and must not be re-enabled without hosted proof.
 
 ## Admin ResearchOps Copilot checkpoint — 2026-10-04
 
