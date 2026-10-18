@@ -116,6 +116,17 @@ test("supplier directory explains its two base routes and copies both", async ({
   expect(copied).toContain("/live");
 });
 
+test("respondent operations can refresh newly routed statuses", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto("/respondents", { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await expect(page.getByText("Auto-refreshes every 30 seconds.")).toBeVisible();
+  const refreshed = page.waitForResponse((response) => response.url().includes("/api/respondents?") && response.status() === 200);
+  await page.getByRole("button", { name: "Refresh respondents" }).click();
+  await refreshed;
+  await expect(page.getByRole("heading", { name: "Session explorer" })).toBeVisible();
+});
+
 test("secondary PM and sales ownership can be edited in demo mode", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);

@@ -88,6 +88,16 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Respondent status refresh and clean verification baseline — 2026-10-18
+
+- Status: DONE locally. The supplied masked assignment route for `arid=test2` returned HTTP 302 from production to the configured Decipium survey with a ResearchOps session UUID and all four signed outcome callbacks, proving route lookup and event ingestion reached the client handoff.
+- Root cause: Respondents loaded only on initial entry or filter changes, so an already-open operations page remained stale after a new routing event. Respondents now auto-refreshes every 30 seconds and exposes an explicit Refresh respondents action; each refresh preserves the active project/search filters and selected session when it still exists.
+- Cleared the full-repository lint baseline by replacing two ambiguous nested label wrappers in New Project security controls and the Supplier directory Flamingo control with explicitly named checkbox controls.
+- Verification: `npx tsc --noEmit`, full `npm run lint`, `git diff --check`, and the production/test build pass. The standard suite passes 62 tests with 6 environment-gated skips and zero failures. Focused Chromium Respondents coverage passes 1/1 and proves the refresh action issues a successful status reload.
+- Current task: commit, push, and verify production deployment health/readiness and protected Respondents route uptake.
+- Next task: authenticated production confirmation that a fresh unique ARID appears automatically in Respondents and changes from `REACHED_CLIENT` to its returned terminal outcome. Do not reuse `test2` for that proof because supplier attempt IDs are idempotent.
+- Session log (2026-10-18): diagnosed the reported masked route without following its external redirect, confirmed the backend handoff was healthy, fixed stale operations-page status loading with manual and timed refresh, restored clean full lint, and completed compile/build/unit/browser verification.
+
 ## Refresh-free navigation and compact Project Details tools — 2026-10-18
 
 - Status: DONE locally. Shared workspace/account links now invoke Vinext's mounted App Router without importing the runtime's hydration-breaking `next/link` shim. Same-origin route changes preserve the current document and client state; modified clicks, external destinations, an unavailable router, or a rejected navigation retain native hard-navigation recovery.
