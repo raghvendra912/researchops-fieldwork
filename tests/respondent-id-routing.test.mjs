@@ -57,6 +57,8 @@ test("supplier launch sends our attempt ID to the client and returns the supplie
     assert.equal(survey.searchParams.get("UID"), supplierRef);
     assert.equal(survey.searchParams.has("uid"), false);
     assert.equal(events[0].p_respondent_ref, supplierRef);
+    const routingCookie = launch.headers.get("set-cookie");
+    assert.match(routingCookie, new RegExp(attemptId));
 
     const returnPath = `/r/client/${clientToken}/complete`;
     const outcome = await handleRedirectApi(new Request(`https://router.example${returnPath}?rid=${attemptId}&project=ROP-42`), returnPath, env);
@@ -66,6 +68,11 @@ test("supplier launch sends our attempt ID to the client and returns the supplie
     assert.equal(supplierReturn.searchParams.get("respondent_id"), supplierRef);
     assert.equal(events.at(-1).p_respondent_ref, supplierRef);
     assert.ok(lookups.some((query) => query.includes(`id=eq.${attemptId}`)));
+
+    const placeholderOutcome = await handleRedirectApi(new Request(`https://router.example${returnPath}?rid=xxxx`, { headers: { cookie: routingCookie.split(";", 1)[0] } }), returnPath, env);
+    assert.equal(placeholderOutcome?.status, 302);
+    assert.equal(new URL(placeholderOutcome.headers.get("location")).searchParams.get("uid"), supplierRef);
+    assert.match(placeholderOutcome.headers.get("set-cookie"), /Max-Age=0/);
 
     const legacy = await handleRedirectApi(new Request(`https://router.example${returnPath}?rid=${supplierRef}&project=ROP-42`), returnPath, env);
     assert.equal(legacy?.status, 302);

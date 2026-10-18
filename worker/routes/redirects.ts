@@ -36,10 +36,18 @@ async function supplierScopedRefReady(env: RedirectEnv) {
 }
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
-function redirect(url: string) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer" } }); }
+function redirect(url: string, headers: Record<string, string> = {}) { return new Response(null, { status: 302, headers: { location: url, "cache-control": "no-store", "referrer-policy": "no-referrer", ...headers } }); }
+function routingSessionCookieName(sessionId: string) { return `rops_route_${sessionId.replaceAll("-", "")}`; }
+function routingSessionCookie(sessionId: string, clientToken: string, clear = false) {
+  return `${routingSessionCookieName(sessionId)}=${clear ? "" : sessionId}; Path=/r/client/${clientToken}/; Max-Age=${clear ? 0 : 21600}; HttpOnly; Secure; SameSite=Lax`;
+}
+function routingSessionIds(request: Request) {
+  const ids = (request.headers.get("cookie") ?? "").split(";").map((part) => part.trim().split("=", 2)).filter(([name]) => name.startsWith("rops_route_")).map(([, value]) => value ?? "").filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value));
+  return [...new Set(ids)].slice(0, 2);
+}
 function routingPage(title: string, message: string, status = 400, tone: "success" | "error" = "error") { return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} | ResearchOps</title><style>body{margin:0;background:#f4f1eb;color:#17221d;font:16px/1.5 system-ui,-apple-system,sans-serif}.card{max-width:560px;margin:12vh auto;padding:42px;border:1px solid #d8d5cd;border-radius:22px;background:#fff;box-shadow:0 18px 60px #17221d12}.mark{display:inline-block;padding:6px 10px;border-radius:999px;background:${tone === "success" ? "#dff4ed;color:#087761" : "#fae7df;color:#a53f25"};font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1{margin:18px 0 8px;font-size:30px}p{margin:0;color:#59665f}.hint{margin-top:24px;padding-top:18px;border-top:1px solid #e5e2db;font-size:14px}</style></head><body><main class="card"><span class="mark">${tone === "success" ? "Test recorded" : "Routing unavailable"}</span><h1>${title}</h1><p>${message}</p><p class="hint">You can close this tab and return to the ResearchOps project workspace.</p></main></body></html>`, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } }); }
 function unavailable(message: string, status = 400) { return routingPage("We could not continue this respondent", message, status); }
-function outcomePage(eventType: string) {
+function outcomePage(eventType: string, headers: Record<string, string> = {}) {
   const pages: Record<string, { eyebrow: string; title: string; message: string; symbol: string; color: string; soft: string }> = {
     COMPLETE: { eyebrow: "Complete", title: "Survey completed", message: "Thank you. Your response has been successfully recorded.", symbol: "✓", color: "#087761", soft: "#dff4ed" },
     TERMINATE: { eyebrow: "Screened out", title: "Survey ended", message: "Thank you for your time. This survey has now ended.", symbol: "—", color: "#9a5b18", soft: "#fff0d5" },
@@ -47,7 +55,7 @@ function outcomePage(eventType: string) {
     QUALITY_TERMINATE: { eyebrow: "Quality check", title: "Survey ended", message: "Thank you for your time. This survey cannot be continued.", symbol: "×", color: "#a53f25", soft: "#fae7df" },
   };
   const page = pages[eventType] ?? { eyebrow: "Recorded", title: "Response recorded", message: "Thank you. Your response has been recorded.", symbol: "✓", color: "#087761", soft: "#dff4ed" };
-  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${page.title} | ResearchOps</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 0,${page.soft},transparent 42%),#f4f1eb;color:#17221d;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.card{width:min(620px,100%);padding:54px 50px;text-align:center;border:1px solid #d8d5cd;border-radius:28px;background:rgba(255,255,255,.94);box-shadow:0 24px 80px rgba(23,34,29,.1)}.brand{font:600 17px Georgia,serif;letter-spacing:.08em}.symbol{width:74px;height:74px;margin:34px auto 24px;display:grid;place-items:center;border-radius:50%;background:${page.soft};color:${page.color};font-size:38px;font-weight:700}.eyebrow{color:${page.color};font-size:12px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}h1{margin:12px 0 14px;font:500 clamp(34px,7vw,48px)/1.05 Georgia,serif;letter-spacing:-.03em}p{max-width:440px;margin:0 auto;color:#59665f;font-size:16px;line-height:1.65}@media(max-width:560px){.card{padding:40px 24px;border-radius:22px}.symbol{margin-top:28px}}</style></head><body><main class="card"><div class="brand">ResearchOps</div><div class="symbol" aria-hidden="true">${page.symbol}</div><div class="eyebrow">${page.eyebrow}</div><h1>${page.title}</h1><p>${page.message}</p></main></body></html>`, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } });
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${page.title} | ResearchOps</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 0,${page.soft},transparent 42%),#f4f1eb;color:#17221d;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.card{width:min(620px,100%);padding:54px 50px;text-align:center;border:1px solid #d8d5cd;border-radius:28px;background:rgba(255,255,255,.94);box-shadow:0 24px 80px rgba(23,34,29,.1)}.brand{font:600 17px Georgia,serif;letter-spacing:.08em}.symbol{width:74px;height:74px;margin:34px auto 24px;display:grid;place-items:center;border-radius:50%;background:${page.soft};color:${page.color};font-size:38px;font-weight:700}.eyebrow{color:${page.color};font-size:12px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}h1{margin:12px 0 14px;font:500 clamp(34px,7vw,48px)/1.05 Georgia,serif;letter-spacing:-.03em}p{max-width:440px;margin:0 auto;color:#59665f;font-size:16px;line-height:1.65}@media(max-width:560px){.card{padding:40px 24px;border-radius:22px}.symbol{margin-top:28px}}</style></head><body><main class="card"><div class="brand">ResearchOps</div><div class="symbol" aria-hidden="true">${page.symbol}</div><div class="eyebrow">${page.eyebrow}</div><h1>${page.title}</h1><p>${page.message}</p></main></body></html>`, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex", ...headers } });
 }
 
 function deviceType(request: Request) {
@@ -233,7 +241,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!surveyUrl.searchParams.has("security_terminate_url")) surveyUrl.searchParams.set("security_terminate_url", callback("security-terminate"));
       routingStage = "client reached event";
       await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT", isTest ? "test-redirect" : "redirect", isTest);
-      return redirect(surveyUrl.toString());
+      const clientToken = first(project.clients)?.redirect_token;
+      return redirect(surveyUrl.toString(), clientToken ? { "set-cookie": routingSessionCookie(sessionId, clientToken) } : {});
     }
 
     if (outcomeRoute) {
@@ -254,8 +263,12 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     }
 
     const outcome = clientRoute!.outcome;
-    const requestedProjectCode = readProjectCode(url.searchParams); const clientAttemptId = readClientAttemptId(url.searchParams);
-    if (hasUnresolvedClientAttemptId(url.searchParams)) return help("The client returned an unresolved respondent placeholder", 400, { fix: "Replace xxxx with the ResearchOps session UUID received as pid/rid at survey entry, or use the signed per-session outcome URL supplied on launch." });
+    const requestedProjectCode = readProjectCode(url.searchParams); let clientAttemptId = readClientAttemptId(url.searchParams);
+    if (hasUnresolvedClientAttemptId(url.searchParams)) {
+      const browserSessions = routingSessionIds(request);
+      if (browserSessions.length === 1) clientAttemptId = browserSessions[0];
+      else return help("The client returned an unresolved respondent placeholder", 400, { fix: browserSessions.length > 1 ? "More than one respondent session is open in this browser. Use the signed per-session outcome URL supplied on launch." : "Start from the ResearchOps supplier link in this browser, or replace xxxx with the ResearchOps session UUID received as pid/rid at survey entry." });
+    }
     if (!clientAttemptId) return help("Respondent ID is required", 400, { fix: ROUTING_HELP.clientExample });
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${encodeURIComponent(clientRoute!.token)}&limit=1`); if (!clients[0]) return help("Client link was not found", 404);
     const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
@@ -275,8 +288,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     const eventType = outcomes[outcome].eventType; const reasonCode = eventType === "TERMINATE" ? "CLIENT_TERMINATE" : eventType === "QUOTA_FULL" ? "QUOTA_FULL" : eventType === "QUALITY_TERMINATE" ? "QUALITY_REJECT" : undefined;
     const result = await recordEvent(request, env, supplier, projectCode, session.respondent_ref, eventType, "client-outcome", session.is_test, reasonCode ? { reasonCode } : {}); if (!result.ok) return help("The respondent outcome could not be recorded", 502, { stage: "respondent outcome" });
     const target = supplier[outcomes[outcome].field];
-    if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, session.respondent_ref, outcomes[outcome].eventType));
-    return outcomePage(outcomes[outcome].eventType);
+    if (typeof target === "string" && target) return redirect(standardSupplierRedirect(target, projectCode, session.respondent_ref, outcomes[outcome].eventType), { "set-cookie": routingSessionCookie(clientAttemptId, clientRoute!.token, true) });
+    return outcomePage(outcomes[outcome].eventType, { "set-cookie": routingSessionCookie(clientAttemptId, clientRoute!.token, true) });
   } catch (error) {
     const id = requestId(request);
     safeLog("error", "redirect_failed", { requestId: id, path: pathname, stage: routingStage, error: error instanceof Error ? error.message : "Unknown redirect failure" });

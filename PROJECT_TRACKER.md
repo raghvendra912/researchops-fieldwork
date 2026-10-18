@@ -88,6 +88,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Browser-bound client callback fallback — 2026-10-18
+
+- Status: DONE locally. Supplier launches now store the exact ResearchOps session UUID in a six-hour, secure, HttpOnly, SameSite=Lax cookie scoped to that client's callback path. If Decipium returns a literal placeholder such as `rid=xxxx` in the same browser, the client callback safely substitutes that one browser-bound session, validates it against the client in the existing database lookup, records the requested outcome, and clears the cookie.
+- Safety decision: a bare placeholder URL and a browser containing more than one routing-session cookie remain rejected. The router never guesses the latest respondent, so concurrent fieldwork cannot terminate or complete the wrong respondent. Signed per-session outcome URLs and correct UUID substitution remain the primary integration contract.
+- Verification: focused routing coverage passes 10/10, including launch-cookie issuance, `rid=xxxx` recovery, supplier return, and cookie clearing. `npx tsc --noEmit`, full `npm run lint`, the production/test build, `npm test` (63 passed, 6 environment-gated skips, zero failures), and `git diff --check` pass.
+- Current task: commit, push, wait for the production deployment, then run a fresh same-browser launch/callback proof. The previously opened standalone `rid=xxxx` URL has no launch cookie and is intentionally not recoverable.
+- Next task: Decipium should still be updated to use the signed `terminate_url` (and other outcome URLs) supplied at launch; the browser fallback protects same-browser placeholder callbacks but does not replace a correct server-to-server integration.
+- Session log (2026-10-18): reproduced the literal placeholder callback, rejected unsafe latest-session guessing, added an exact browser-bound session fallback with ambiguity protection and cleanup, and completed focused plus full verification.
+
 ## Client callback placeholder correction — 2026-10-18
 
 - Status: DONE locally. The reported callback was `/r/client/.../terminate?rid=xxxx`; `xxxx` was a literal unresolved placeholder, not a ResearchOps session identifier. Replaying the same client route with the actual `test2` session UUID succeeded with HTTP 302, recorded `TERMINATE`, and returned the original supplier reference to the configured supplier destination.
