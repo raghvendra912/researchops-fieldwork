@@ -98,6 +98,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: commit and push this verified checkpoint, then confirm production deployment health/readiness and the protected routes.
 - Next task: browser-prove the updated Project Details layout and editable respondent variable in an authenticated hosted session. Revisit client-side cross-page navigation only after a Vinext upgrade passes local and hosted hydration/navigation checks.
 - Session log (2026-10-18): resumed and preserved the existing five-file worktree, added the persistent instruction-capture workflow, restored operational Project Details features removed by the compact draft, fixed the changed-file lint finding, added tab state-retention coverage, rejected a crashing framework-link experiment, and completed compile/lint/build/unit/browser verification.
+- Release result: commit `17f732b` was pushed to `origin/main`; Vercel production deployment `dpl_CSFyDN2ygBuzXua4oeBJDWB5AY8k` reached Ready and is aliased to `www.asrv.co.in`. Hosted health is `healthy`, readiness is `ready`, and the protected `/projects/new` route returns HTTP 200.
 
 ## Organization user administration checkpoint — 2026-10-18
 
