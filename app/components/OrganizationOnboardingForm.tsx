@@ -4,8 +4,10 @@ import Link from "./NavigationLink";
 import { FormEvent, useState } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
+import { useRouter } from "next/navigation";
 
 export function OrganizationOnboardingForm() {
+  const router = useRouter();
   const { configured, session, signOut } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +23,7 @@ export function OrganizationOnboardingForm() {
         headers: session?.access_token ? { authorization: `Bearer ${session.access_token}` } : undefined,
         body: JSON.stringify({ name }),
       });
-      window.location.assign("/dashboard");
+      router.replace("/dashboard");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "The workspace could not be created.");
       setSubmitting(false);

@@ -73,6 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
+  const [organizationRetry, setOrganizationRetry] = useState(0);
   const title = titleForPath(pathname);
   const email = user?.email ?? "Demo workspace";
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "DM";
@@ -126,7 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
     void verify();
     return () => { active = false; clearTimeout(checkingTimer); timers.forEach(clearTimeout); };
-  }, [configured, pathname, router, session?.access_token, signOut, user]);
+  }, [configured, organizationRetry, pathname, router, session?.access_token, signOut, user]);
 
   useEffect(() => {
     if (organizationStatus === "missing" && pathname !== "/onboarding") router.replace("/onboarding");
@@ -152,7 +153,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (configured && organizationStatus === "error") {
-    return <main className="auth-loading"><p>Workspace connection could not be verified.</p><button className="button primary" type="button" onClick={() => window.location.reload()}>Try again</button></main>;
+    return <main className="auth-loading"><p>Workspace connection could not be verified.</p><button className="button primary" type="button" onClick={() => setOrganizationRetry((current) => current + 1)}>Try again</button></main>;
   }
 
   if (configured && organizationStatus === "checking") {

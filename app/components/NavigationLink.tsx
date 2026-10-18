@@ -1,11 +1,9 @@
-import type { ComponentProps, ReactNode } from "react";
+import NextLink from "next/link";
+import type { ComponentProps } from "react";
 
-type NavigationLinkProps = Omit<ComponentProps<"a">, "href" | "children"> & {
-  href: string;
-  children: ReactNode;
-};
+type NavigationLinkProps = ComponentProps<typeof NextLink>;
 
-/** Use document navigation so routes remain reliable through reverse tunnels. */
-export default function NavigationLink({ href, children, ...props }: NavigationLinkProps) {
-  return <a href={href} {...props}>{children}</a>;
+/** Shared client-side navigation keeps the application shell mounted between routes. */
+export default function NavigationLink(props: NavigationLinkProps) {
+  return <NextLink {...props} />;
 }
