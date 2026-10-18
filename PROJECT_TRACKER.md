@@ -110,8 +110,9 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Status: DONE locally. Replaced the shared hard-document navigation wrapper with framework client-side links so the application shell remains mounted while moving between product routes. Organization onboarding now uses client routing, and workspace connection retry reruns the authorization check without reloading the browser page.
 - Project Details remains manual-refresh only; the earlier 30-second polling loop stays removed. Hash links inside Project Details continue to scroll within the current page without route navigation.
 - Verification: `npx tsc --noEmit`, changed-file ESLint, and `npm run build` pass. The production build includes `/admin`, all product routes, and the dynamic project detail route.
-- Current task: commit and push the client-side navigation change, then verify production deployment uptake.
-- Next task: browser-check navigation between Dashboard, Project Center, Project Details, Respondents, Admin, and Settings in an authenticated hosted session and confirm the document is not reloaded.
+- Production result: commit `d63bcb5` was pushed to `origin/main`; Vercel production deployment `dpl_2iXuxFM1XJy89xka5S7bsYqXLpGG` reached Ready and is aliased to `www.asrv.co.in` and `asrv.co.in`.
+- Current task: browser-check navigation between Dashboard, Project Center, Project Details, Respondents, Admin, and Settings in an authenticated hosted session and confirm the document is not reloaded.
+- Next task: monitor for any reverse-proxy-specific client navigation failure; retain framework routing unless a reproducible hosted defect requires a targeted fallback.
 - Session log (2026-10-18): removed forced document navigation and onboarding reloads, added an in-app authorization retry, verified compile/lint/build, and preserved unrelated analytics/redirect working-tree changes.
 
 ## Admin ResearchOps Copilot checkpoint — 2026-10-04
