@@ -99,8 +99,9 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Stability correction: removed the 30-second Project Details polling loop that made the page repeatedly enter refresh state. Data loads once on entry and updates only through the explicit Refresh action.
 - Backend: added tenant-authorized `GET/PUT /api/projects/:projectId/screening-questions`; writes rely on existing project RLS/editor access and the migration `041` five-question database constraint.
 - Verification: focused admin, respondent-report, and screening workflow tests pass 7/7; `npx tsc --noEmit`, changed-file ESLint, `npm run build`, and `git diff --check` pass.
-- Current task: commit and push the combined requested changes.
-- Next task: authenticated hosted proof of the Project Details screening editor, full respondent CSV pagination, and organization invitation/role/revocation workflow.
+- Release result: commit `eef7096` was pushed to `origin/main` with the admin user-access page, exhaustive reference respondent export, persistent Project Details screening-question editor, and manual-only Project Details refresh behavior.
+- Current task: authenticated hosted proof of the Project Details screening editor, full respondent CSV pagination, and organization invitation/role/revocation workflow.
+- Next task: verify the resulting production deployment health/readiness and confirm the new `/admin` and Project Details assets are live.
 - Decision: the screenshot titled Project Details is a list-oriented reference, while this product already has Project Center for the list and a separate per-project detail route. The implementation applies its dense header/table/action language to the detail route without duplicating the Project Center.
 - Session log (2026-10-18): completed admin user access, made respondent export exhaustive and reference-aligned, implemented persistent screening-question management on Project Details, and prepared the combined change for verification and release.
 
