@@ -1,7 +1,7 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
 
-type AnalyticsEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
+type AnalyticsEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string; ABANDONMENT_TIMEOUT_MINUTES?: string };
 
 const demo = {
   portfolio: { testStarts: 24, testCompletes: 8, testTerminates: 4, testOverQuota: 2, testQualityTerminates: 1, starts: 5377, reached: 4920, completes: 1994, terminates: 2028, overQuota: 516, qualityTerminates: 224, abandons: 387, inProgress: 228, incidenceRate: 49.58, conversionRate: 40.53, dropOffRate: 7.2, lastEventAt: new Date().toISOString() },
@@ -12,11 +12,13 @@ const demo = {
 
 export async function reconcileAbandoned(env: AnalyticsEnv) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  const configuredTimeout = Number(env.ABANDONMENT_TIMEOUT_MINUTES ?? 30);
+  const timeoutMinutes = Number.isInteger(configuredTimeout) && configuredTimeout >= 15 && configuredTimeout <= 10080 ? configuredTimeout : 30;
   try {
     const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/reconcile_abandoned_sessions`, {
       method: "POST",
       headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" },
-      body: JSON.stringify({ p_timeout_minutes: 1440 }),
+      body: JSON.stringify({ p_timeout_minutes: timeoutMinutes }),
     });
     await response.arrayBuffer();
     if (!response.ok) console.warn("abandonment_reconciliation_failed", { status: response.status });

@@ -5,7 +5,7 @@ type NavigationLinkProps = Omit<ComponentProps<"a">, "href" | "children"> & {
   children: ReactNode;
 };
 
-/** Vinext's production RSC prefetch currently fails; native navigation remains reliable. */
+/** Vinext's Link shim currently breaks hydration; native navigation remains reliable. */
 export default function NavigationLink({ href, children, ...props }: NavigationLinkProps) {
   return <a href={href} {...props}>{children}</a>;
 }

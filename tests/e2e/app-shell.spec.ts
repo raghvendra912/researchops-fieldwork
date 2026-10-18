@@ -197,10 +197,13 @@ test("new project matches the compact survey-creation reference", async ({ page 
   await supplierSelect.selectOption(["CPX Research"]);
   await expect(page.getByText("Selected Supplier", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Test survey URL (optional)")).toHaveCount(0);
+  await page.getByLabel("Survey Name").fill("Tab state retention proof");
   await page.getByRole("tab", { name: "Security" }).click();
   await expect(page.getByLabel("Initial Status")).toBeVisible();
   await expect(page.getByLabel("Geo Security")).toBeVisible();
   await expect(page.getByLabel("FraudGuard")).toBeVisible();
+  await page.getByRole("tab", { name: "Project setup" }).click();
+  await expect(page.getByLabel("Survey Name")).toHaveValue("Tab state retention proof");
 });
 
 test("project name opens line-wise supplier test and live links", async ({ page, context }) => {

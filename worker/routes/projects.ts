@@ -7,7 +7,7 @@ import { assignmentLaunchTemplate } from "../domain/routing-links";
 import { validCountryCodes, validLanguageCodes } from "../../src/lib/market-options";
 import { reconcileAbandoned } from "./analytics";
 import { getProjectCapabilities } from "../lib/project-authorization";
-import { AUTOMATIC_SURVEY_PARAMETERS, automaticSurveyParameters } from "../domain/survey-url";
+import { automaticSurveyParameters, safeSurveyParameterName } from "../domain/survey-url";
 
 export type ProjectApiEnv = SupabaseEnv & { SUPABASE_SERVICE_ROLE_KEY?: string };
 
@@ -274,7 +274,9 @@ function parseCreatePayload(payload: Record<string, unknown> | null) {
     || (!suppliedMarkets && ((legacyLoi !== null && (!Number.isInteger(legacyLoi) || legacyLoi < 1)) || (legacyIncidence !== null && (!Number.isFinite(legacyIncidence) || legacyIncidence < 0 || legacyIncidence > 100))))) return null;
   const urls = [payload.surveyUrl, payload.testSurveyUrl].map((value) => String(value ?? "").trim());
   if (urls.some((value) => value && (!/^https?:\/\//i.test(value) || value.length > 2048))) return null;
-  const surveyParameters = payload.addAutomaticParameters === false ? [] : AUTOMATIC_SURVEY_PARAMETERS;
+  const respondentVariable = safeSurveyParameterName(payload.respondentVariable);
+  if (payload.addAutomaticParameters !== false && payload.respondentVariable && !respondentVariable) return null;
+  const surveyParameters = payload.addAutomaticParameters === false ? [] : automaticSurveyParameters(urls[0], respondentVariable || undefined);
   const supplierAssignments = Array.isArray(payload.supplierAssignments) ? payload.supplierAssignments.map((value) => { const item = value as Record<string, unknown>; return { name: String(item.name ?? "").trim(), supplier_cpi: Number(item.supplierCpi ?? 0) }; }) : [];
   if (supplierAssignments.length > 100 || supplierAssignments.some((item) => !item.name || !Number.isFinite(item.supplier_cpi) || item.supplier_cpi < 0) || new Set(supplierAssignments.map((item) => item.name.toLowerCase())).size !== supplierAssignments.length) return null;
   const questions = Array.isArray(payload.prescreeningQuestions) ? payload.prescreeningQuestions.slice(0, 5).map((value) => { const item = value as Record<string, unknown>; return { question: String(item.question ?? "").trim().slice(0, 500), answerType: String(item.answerType ?? "SINGLE_SELECT").trim().slice(0, 40) }; }).filter((item) => item.question) : [];
@@ -343,7 +345,7 @@ function parseAssignments(payload: Record<string, unknown> | null): SupplierAssi
   return valid && new Set(assignments.map((item) => item.supplierId)).size === assignments.length ? assignments : null;
 }
 
-function assignmentRow(row: { id?: string; supplier_id: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"]; suppliers?: { name: string; redirect_token?: string; redirect_mode?: string } | { name: string; redirect_token?: string; redirect_mode?: string }[] | null; supplier_name?: string; test_starts?: number; test_completes?: number; test_terminates?: number; test_over_quota?: number; test_quality_term?: number; starts?: number; reached?: number; completes?: number; terminates?: number; over_quota?: number; quality_term?: number; incidence_rate?: number | string | null; conversion_rate?: number | string | null; cost?: number | string }, origin?: string, projectCode?: string) {
+function assignmentRow(row: { id?: string; supplier_id: string; supplier_project_id: string | null; supplier_cpi: number | string; target_quota: number; status: SupplierAssignment["status"]; suppliers?: { name: string; redirect_token?: string; redirect_mode?: string } | { name: string; redirect_token?: string; redirect_mode?: string }[] | null; supplier_name?: string; test_starts?: number; test_completes?: number; test_terminates?: number; test_over_quota?: number; test_quality_term?: number; starts?: number; reached?: number; completes?: number; terminates?: number; over_quota?: number; quality_term?: number; incidence_rate?: number | string | null; conversion_rate?: number | string | null; cost?: number | string }, origin?: string) {
   const relation = Array.isArray(row.suppliers) ? row.suppliers[0] : row.suppliers;
   // Tool-only routing: every new project gets its supplier links from this
   // helper, never from hand-written URLs scattered across the UI.
@@ -509,10 +511,6 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       if (!access.ok) return authorizationError(access);
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
-      if (payload.p_survey_parameters.length) {
-        const clients = await supabaseJson<Array<{ respondent_parameter: string | null }>>(env, `/rest/v1/clients?select=respondent_parameter&organization_id=eq.${encodeURIComponent(access.membership.organization_id)}&name=eq.${encodeURIComponent(payload.p_client_name)}&limit=1`, access.authorization);
-        payload.p_survey_parameters = automaticSurveyParameters(String(payload.p_survey_url ?? ""), clients[0]?.respondent_parameter ?? "");
-      }
       const { geoSecurityEnabled, referenceSetup, markets, ...createPayload } = payload;
       const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
       const created = rows[0];
@@ -578,7 +576,7 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
         metricRows = await supabaseJson(env, `/rest/v1/project_supplier_event_metrics?select=supplier_id,starts,reached,completes,terminates,over_quota,quality_term,incidence_rate,cost&project_code=eq.${encodeURIComponent(projectCode)}`, access.authorization);
       }
       const metrics = new Map(metricRows.map((row) => [row.supplier_id, row]));
-      return Response.json({ data: rows.map((row) => assignmentRow({ ...row, ...metrics.get(row.supplier_id) }, capability?.can_operate ? new URL(request.url).origin : undefined, projectCode)), meta: { source: "supabase", canOperate: capability?.can_operate === true } });
+      return Response.json({ data: rows.map((row) => assignmentRow({ ...row, ...metrics.get(row.supplier_id) }, capability?.can_operate ? new URL(request.url).origin : undefined)), meta: { source: "supabase", canOperate: capability?.can_operate === true } });
     }
     if (assignmentsMatch && request.method === "PUT") {
       const access = await authorizeWorkspace(request, env, workspacePermissions.operate);

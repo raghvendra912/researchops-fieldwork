@@ -8,6 +8,13 @@ Overall state: GitHub `main` contains the screenshot-aligned Project Center, two
 
 ## Resume protocol
 
+### User instruction capture rule (2026-10-18)
+
+- Save every new tool/project instruction in this tracker immediately as a pending task before implementation.
+- Preserve all existing workspace changes; do not discard or overwrite unfinished work.
+- When an instruction is implemented and verified, commit and push the complete change, remove its pending entry, and retain a dated completion/session-log record. “Remove” applies only to the pending entry, never to completed code or repository history.
+- Batch related edits before verification. Run the complete verification command once at final handoff; after a failure, rerun only the failed or directly affected check instead of repeating already-passed commands.
+
 Every developer or coding agent must follow this sequence:
 
 1. Read this entire file and `README.md`.
@@ -80,6 +87,17 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Project setup tabs and accumulated workspace checkpoint — 2026-10-18
+
+- Status: DONE locally. Project Setup/Security are local-state tabs with explicit non-submit buttons. Browser coverage now enters a project name, switches to Security and back, and proves the value remains intact without a page refresh.
+- Preserved the compact Project Details redesign while restoring every previously completed operational section: live/test outcomes, fieldwork totals and lifecycle controls, suppliers, ownership, markets, survey setup, response variables, eligibility, quota cells, and project access.
+- Project creation now accepts a validated client respondent-variable name and derives automatic survey parameters from it. Abandonment reconciliation uses a bounded configurable timeout (30 minutes by default), and a launch with no client survey URL records an auditable `CLIENT_SURVEY_URL_MISSING` abandon event.
+- Navigation decision: cross-page product links remain native anchors. A focused attempt to restore Vinext `next/link` with prefetch disabled produced an invalid-hook hydration crash in the installed Vinext runtime; the unsafe change was removed. Full-reload-free cross-page navigation remains framework-blocked, while in-page tabs are confirmed refresh-free.
+- Verification: `npx tsc --noEmit`, changed-file ESLint, and `git diff --check` pass. `npm test` builds successfully and passes 62 tests with 6 environment-gated skips. Focused Chromium Project Creation coverage passes 1/1 and proves tab state retention.
+- Current task: commit and push this verified checkpoint, then confirm production deployment health/readiness and the protected routes.
+- Next task: browser-prove the updated Project Details layout and editable respondent variable in an authenticated hosted session. Revisit client-side cross-page navigation only after a Vinext upgrade passes local and hosted hydration/navigation checks.
+- Session log (2026-10-18): resumed and preserved the existing five-file worktree, added the persistent instruction-capture workflow, restored operational Project Details features removed by the compact draft, fixed the changed-file lint finding, added tab state-retention coverage, rejected a crashing framework-link experiment, and completed compile/lint/build/unit/browser verification.
 
 ## Organization user administration checkpoint — 2026-10-18
 

@@ -207,6 +207,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
       if (!surveyTemplate) {
         if (!isTest && reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
+        await recordEvent(request, env, supplier, projectCode, respondentRef, "ABANDON", "routing", isTest, { reasonCode: "CLIENT_SURVEY_URL_MISSING" });
         return isTest
           ? routingPage("The test hit was recorded", "ST has been added to supplier metrics. Add a valid client survey URL to test the onward redirect and RC metric.", 200, "success")
           : help("The client survey URL is not configured", 422, { fix: "Set the live survey URL in Project details → Survey routing setup." });
