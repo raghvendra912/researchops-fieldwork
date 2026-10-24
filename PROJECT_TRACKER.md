@@ -90,7 +90,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Stable client-side workspace navigation — 2026-10-24
 
-- Status: READY. The shared link adapter preserves the browser document, and the authenticated workspace no longer restarts its full-screen organization check on every pathname change.
+- Status: DONE. The shared link adapter preserves the browser document, and the authenticated workspace no longer restarts its full-screen organization check on every pathname change.
 - Root cause: `NavigationLink` depended on the legacy `window.next.router` global, which is not reliably exposed by the current Vinext runtime. When absent, same-origin clicks fell through to native anchor navigation and caused a complete document reload.
 - Change: `NavigationLink` now obtains the mounted App Router through `useRouter()` and intercepts ordinary same-origin clicks directly. Modified/external clicks retain native browser behavior, and an actual rejected router navigation still has the existing hard-navigation recovery.
 - Follow-up root cause: the organization verification effect included `pathname` in its dependencies and explicitly reset `organizationStatus` to `checking`. Every client-side route change therefore replaced the entire authenticated shell with `Checking your organization…` until the API request completed, even though the browser document itself remained mounted.
@@ -98,10 +98,12 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Follow-up verification: `npx tsc --noEmit`, targeted `AppShell.tsx` ESLint, and `git diff --check` pass.
 - Verification: `npx tsc --noEmit` and `git diff --check` passed. Local focused Chromium and targeted ESLint commands produced no diagnostic but did not finish inside the unusually slow local command windows. After deployment, a hosted Chromium document-identity proof navigated from `/login` to `/signup` through the shared adapter and preserved the in-memory `mounted` marker, confirming that the production document did not reload.
 - Deployment result: commit `2a38d49` was pushed to `origin/main`; Vercel reported `Deployment has completed` successfully. Canonical production health and readiness return HTTP 200 with Supabase configured and ready.
-- Current task: deploy the authenticated-shell stability correction and confirm production health/readiness.
+- Follow-up deployment result: commit `1832941` was pushed to `origin/main`; Vercel reported `Deployment has completed`. Canonical production health is healthy and readiness is ready with Supabase configured.
+- Current task: user confirmation across several authenticated workspace navigation tabs.
 - Next task: user confirmation across several authenticated workspace navigation tabs.
 - Decision: keep the hydration-safe anchor adapter instead of importing Vinext's previously failing `next/link` shim; the supported router hook removes the unreliable global lookup without reopening that hydration defect.
 - Session log (2026-10-24): traced repeated tab reloads to the missing legacy router global, switched shared links to the mounted App Router hook, passed TypeScript and the diff check, committed and pushed the fix, confirmed the Vercel deployment and production health/readiness, and proved hosted client-side navigation preserves the mounted document.
+- Session log (2026-10-24, authenticated follow-up): reproduced the remaining reload-like behavior in `AppShell`, removed pathname-driven organization reverification, passed TypeScript/targeted lint/diff verification, deployed commit `1832941`, and confirmed production health/readiness.
 
 ## Browser-bound client callback fallback — 2026-10-18
 
