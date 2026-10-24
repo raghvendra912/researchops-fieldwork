@@ -37,8 +37,11 @@ test("workspace navigation changes routes without reloading the document", async
   });
   const workspaceNavigation = page.getByRole("navigation", { name: "Workspace navigation" });
   await workspaceNavigation.getByText("Project Center", { exact: true }).click();
+  const projectMenu = workspaceNavigation.locator("details").filter({ hasText: "Project Center" });
+  await expect(projectMenu).toHaveAttribute("open", "");
   await workspaceNavigation.getByRole("link", { name: "All projects", exact: true }).click();
   await expect(page).toHaveURL(/\/projects$/);
+  await expect(projectMenu).not.toHaveAttribute("open", "");
   await expect.poll(() => page.evaluate(() => (window as Window & { __researchOpsNavigationProof?: string }).__researchOpsNavigationProof)).toBe("mounted");
   await expect(page.locator(".app-frame")).toHaveAttribute("data-navigation-proof", "same-shell");
 });

@@ -20,6 +20,7 @@ export default function NavigationLink({ href, children, onClick, target, ...pro
     if (destination.origin !== window.location.origin) return;
 
     event.preventDefault();
+    event.currentTarget.closest("details")?.removeAttribute("open");
     try {
       Promise.resolve(router.push(`${destination.pathname}${destination.search}${destination.hash}`)).catch(() => window.location.assign(destination.href));
     } catch {
