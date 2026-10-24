@@ -117,7 +117,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           return;
         } catch (cause) {
           if (cause instanceof ApiRequestError && cause.status === 401) {
-            if (active) { await signOut(); router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`); }
+            if (active) {
+              const returnTo = globalThis.location?.pathname ?? "/dashboard";
+              await signOut();
+              router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+            }
             return;
           }
           if (attempt < 2) await new Promise<void>((resolve) => { const timer = setTimeout(() => { timers.delete(timer); resolve(); }, 400 * (attempt + 1)); timers.add(timer); });
@@ -127,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
     void verify();
     return () => { active = false; clearTimeout(checkingTimer); timers.forEach(clearTimeout); };
-  }, [configured, organizationRetry, pathname, router, session?.access_token, signOut, user]);
+  }, [configured, organizationRetry, router, session?.access_token, signOut, user]);
 
   useEffect(() => {
     if (organizationStatus === "missing" && pathname !== "/onboarding") router.replace("/onboarding");
