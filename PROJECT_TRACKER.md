@@ -88,6 +88,17 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Stable client-side workspace navigation — 2026-10-24
+
+- Status: READY. Reported defect: changing workspace navigation tabs repeatedly reloaded the whole document instead of preserving the mounted application shell.
+- Root cause: `NavigationLink` depended on the legacy `window.next.router` global, which is not reliably exposed by the current Vinext runtime. When absent, same-origin clicks fell through to native anchor navigation and caused a complete document reload.
+- Change: `NavigationLink` now obtains the mounted App Router through `useRouter()` and intercepts ordinary same-origin clicks directly. Modified/external clicks retain native browser behavior, and an actual rejected router navigation still has the existing hard-navigation recovery.
+- Verification: `npx tsc --noEmit` passed. `git diff --check` reported only the repository's Windows LF-to-CRLF notices and no whitespace errors. The focused Chromium document-identity check and targeted ESLint produced no diagnostic but did not finish inside the unusually slow local command windows, so browser verification is not claimed.
+- Current task: commit and push at the user's explicit request, then run the existing document-identity navigation proof against the resulting hosted deployment.
+- Next task: smoke-test several authenticated workspace navigation links in production and confirm the mounted shell remains stable.
+- Decision: keep the hydration-safe anchor adapter instead of importing Vinext's previously failing `next/link` shim; the supported router hook removes the unreliable global lookup without reopening that hydration defect.
+- Session log (2026-10-24): traced repeated tab reloads to the missing legacy router global, switched shared links to the mounted App Router hook, passed TypeScript and the diff check, and recorded repeated local browser/targeted-lint command timeouts without overstating verification. The user explicitly requested commit, push, and deployment, so hosted verification follows the Git-triggered release.
+
 ## Browser-bound client callback fallback — 2026-10-18
 
 - Status: DONE locally. Supplier launches now store the exact ResearchOps session UUID in a six-hour, secure, HttpOnly, SameSite=Lax cookie scoped to that client's callback path. If Decipium returns a literal placeholder such as `rid=xxxx` in the same browser, the client callback safely substitutes that one browser-bound session, validates it against the client in the existing database lookup, records the requested outcome, and clears the cookie.
