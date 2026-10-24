@@ -31,12 +31,16 @@ test("workspace navigation changes routes without reloading the document", async
   test.setTimeout(90_000);
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.evaluate(() => { (window as Window & { __researchOpsNavigationProof?: string }).__researchOpsNavigationProof = "mounted"; });
+  await page.evaluate(() => {
+    (window as Window & { __researchOpsNavigationProof?: string }).__researchOpsNavigationProof = "mounted";
+    document.querySelector<HTMLElement>(".app-frame")!.dataset.navigationProof = "same-shell";
+  });
   const workspaceNavigation = page.getByRole("navigation", { name: "Workspace navigation" });
   await workspaceNavigation.getByText("Project Center", { exact: true }).click();
   await workspaceNavigation.getByRole("link", { name: "All projects", exact: true }).click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect.poll(() => page.evaluate(() => (window as Window & { __researchOpsNavigationProof?: string }).__researchOpsNavigationProof)).toBe("mounted");
+  await expect(page.locator(".app-frame")).toHaveAttribute("data-navigation-proof", "same-shell");
 });
 
 test("mobile navigation remains usable without the desktop toggle", async ({ page }) => {

@@ -2,7 +2,7 @@
 
 import Link from "./NavigationLink";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { useState } from "react";
 import { ApiRequestError, apiRequest } from "../../src/lib/api";
@@ -74,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
   const [organizationRetry, setOrganizationRetry] = useState(0);
+  const verifiedOrganizationUserId = useRef<string | null>(null);
   const title = titleForPath(pathname);
   const email = user?.email ?? "Demo workspace";
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "DM";
@@ -108,16 +109,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!configured || !user || !accessToken) return;
     let active = true;
     const timers = new Set<ReturnType<typeof setTimeout>>();
-    const checkingTimer = setTimeout(() => setOrganizationStatus("checking"), 0);
+    const checkingTimer = verifiedOrganizationUserId.current !== user.id
+      ? setTimeout(() => setOrganizationStatus("checking"), 0)
+      : undefined;
     const verify = async () => {
       for (let attempt = 0; attempt < 3 && active; attempt += 1) {
         try {
           const response = await apiRequest<{ data: { id: string; role: string } | null }>("/api/organizations/current", { headers: { authorization: `Bearer ${accessToken}` } });
-          if (active) { setOrganizationStatus(response.data ? "ready" : "missing"); setWorkspaceRole(response.data?.role ?? ""); }
+          if (active) {
+            verifiedOrganizationUserId.current = user.id;
+            setOrganizationStatus(response.data ? "ready" : "missing");
+            setWorkspaceRole(response.data?.role ?? "");
+          }
           return;
         } catch (cause) {
           if (cause instanceof ApiRequestError && cause.status === 401) {
             if (active) {
+              verifiedOrganizationUserId.current = null;
               const returnTo = globalThis.location?.pathname ?? "/dashboard";
               await signOut();
               router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
@@ -130,7 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (active) setOrganizationStatus("error");
     };
     void verify();
-    return () => { active = false; clearTimeout(checkingTimer); timers.forEach(clearTimeout); };
+    return () => { active = false; if (checkingTimer) clearTimeout(checkingTimer); timers.forEach(clearTimeout); };
   }, [configured, organizationRetry, router, session?.access_token, signOut, user]);
 
   useEffect(() => {
@@ -157,7 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (configured && organizationStatus === "error") {
-    return <main className="auth-loading"><p>Workspace connection could not be verified.</p><button className="button primary" type="button" onClick={() => setOrganizationRetry((current) => current + 1)}>Try again</button></main>;
+    return <main className="auth-loading"><p>Workspace connection could not be verified.</p><button className="button primary" type="button" onClick={() => { setOrganizationStatus("checking"); setOrganizationRetry((current) => current + 1); }}>Try again</button></main>;
   }
 
   if (configured && organizationStatus === "checking") {
