@@ -25,7 +25,11 @@ type ProjectMeta = {
   summary: ProjectSummary;
 };
 type ProjectsResponse = { data: Project[]; meta: ProjectMeta };
-type SupplierLink = NonNullable<Project["supplierAssignments"]>[number];
+type SupplierLink = NonNullable<Project["supplierAssignments"]>[number] & {
+  starts?: number; reached?: number; completes?: number; terminates?: number; overQuota?: number; qualityTerm?: number;
+  incidenceRate?: number; conversionRate?: number; cost?: number;
+  testStarts?: number; testCompletes?: number; testTerminates?: number; testOverQuota?: number; testQualityTerm?: number;
+};
 
 const initialStatuses: ProjectStatus[] = ["PENDING", "LIVE", "PAUSED", "ID_SUBMITTED", "INVOICED", "CLOSED"];
 const initialSummary = demoProjects.reduce<ProjectSummary>((summary, project) => {
@@ -180,6 +184,15 @@ export function ProjectCenter() {
     window.setTimeout(() => setCopiedLink((current) => current === key ? "" : current), 1800);
   }
 
+  function downloadSupplierCsv() {
+    if (!linkProject || supplierLinks.length === 0) return;
+    const headers = ["Project ID", "Project Name", "Supplier", "Status", "Supplier Project ID", "Target Quota", "CPI", "Live Starts", "Reached Client", "Completes", "Terminates", "Quota Full", "Quality Terminates", "Incidence Rate", "Conversion Rate", "Cost", "Test Starts", "Test Completes", "Test Terminates", "Test Quota Full", "Test Quality Terminates", "Test Link", "Live Link"];
+    const rows = supplierLinks.map((item) => [displayProjectId(linkProject), linkProject.name, item.supplierName, item.status, item.supplierProjectId, item.targetQuota, item.supplierCpi, item.starts ?? 0, item.reached ?? 0, item.completes ?? 0, item.terminates ?? 0, item.overQuota ?? 0, item.qualityTerm ?? 0, item.incidenceRate ?? 0, item.conversionRate ?? 0, item.cost ?? 0, item.testStarts ?? 0, item.testCompletes ?? 0, item.testTerminates ?? 0, item.testOverQuota ?? 0, item.testQualityTerm ?? 0, item.testLink ?? "", item.liveLink ?? ""]);
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${linkProject.id}-supplier-stats-links.csv`; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  }
+
   async function exportView() {
     if (meta.total === 0 || exporting) return;
     setExporting(true);
@@ -267,7 +280,7 @@ export function ProjectCenter() {
               {projects.map((project) => (
                 <tr key={project.id}>
                   <td><Link className="project-code" href={`/projects/${project.id}`}>{displayProjectId(project)}</Link></td>
-                  <td className="project-name-cell"><button className="project-name-link" type="button" onClick={() => void openSupplierLinks(project)}>{project.name}</button><span>{project.client} · {project.market} · {project.type}</span></td>
+                   <td className="project-name-cell"><div className="project-name-actions"><button className="project-name-link" type="button" onClick={() => void openSupplierLinks(project)}>{project.name}</button><button className="button small ghost" type="button" onClick={() => void openSupplierLinks(project)}>URLs</button></div><span>{project.client} · {project.market} · {project.type}</span></td>
                   {trafficView === "live" ? <>{meta.fullPortfolio ? <><td>{project.clientCode || "—"}</td><td>{project.clientPo || "—"}</td></> : null}<td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td><strong>{project.completes.toLocaleString()}</strong>/{project.quota?.toLocaleString() ?? "—"}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td><td>{Math.round(project.abandonRate)}%</td><td className="rate">{Math.round(project.incidenceRate)}%</td><td>{project.starts ? Math.round(100 * project.completes / project.starts) : 0}%</td>{meta.fullPortfolio ? <td>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(project.cpi)}</td> : null}</> : <><td>{project.testStarts ?? 0}</td><td>{project.testCompletes ?? 0}</td><td>{project.testTerminates ?? 0}</td><td>{project.testOverQuota ?? 0}</td><td>{project.testQualityTerm ?? 0}</td><td className="rate">{Math.round(testIncidence(project))}%</td></>}
                   <td><span className={`status-pill status-${project.status}`}>{statusLabel(project.status)}</span></td>
                   {trafficView === "live" && meta.fullPortfolio ? <><td>{project.secondaryManager ? `${project.manager} / ${project.secondaryManager}` : project.manager}</td><td>{shortDate(project.updatedAt ?? project.createdAt)}</td><td>{relativeTime(project.lastComplete)}</td></> : null}
@@ -292,7 +305,7 @@ export function ProjectCenter() {
         </div>
       </section>
 
-      {linkProject ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLinkProject(null); }}><section aria-modal="true" className="panel links-modal project-supplier-links-modal" role="dialog" aria-labelledby="project-supplier-links-title"><div className="section-head"><div><div className="eyebrow">Project suppliers</div><h2 id="project-supplier-links-title">{linkProject.name}</h2><p>{displayProjectId(linkProject)} · assigned suppliers and their masked routing links</p></div><button className="button small ghost" type="button" onClick={() => setLinkProject(null)}>Close</button></div>{linksLoading ? <div className="auth-loading">Loading supplier links…</div> : null}{linksError ? <div className="form-error data-error" role="alert">{linksError}</div> : null}{!linksLoading && !linksError ? <div className="project-supplier-link-list">{supplierLinks.map((assignment, index) => <article className="project-supplier-link-row" key={`${assignment.supplierName}-${index}`}><div className="project-supplier-link-name"><strong>{index + 1}. {assignment.supplierName}</strong><span className={`status-pill status-${assignment.status}`}>{assignment.status}</span></div><div className="project-supplier-link-value"><span>Test link</span><code>{assignment.testLink ?? "Unavailable"}</code><button className="button small ghost" disabled={!assignment.testLink} type="button" onClick={() => void copySupplierLink(`${index}-test`, assignment.testLink)}>{copiedLink === `${index}-test` ? "Copied" : "Copy test"}</button></div><div className="project-supplier-link-value"><span>Live link</span><code>{assignment.liveLink ?? "Unavailable"}</code><button className="button small ghost" disabled={!assignment.liveLink} type="button" onClick={() => void copySupplierLink(`${index}-live`, assignment.liveLink)}>{copiedLink === `${index}-live` ? "Copied" : "Copy live"}</button></div></article>)}{supplierLinks.length === 0 ? <div className="empty-state">No suppliers are assigned to this project.</div> : null}</div> : null}</section></div> : null}
+      {linkProject ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLinkProject(null); }}><section aria-modal="true" className="panel links-modal project-supplier-links-modal" role="dialog" aria-labelledby="project-supplier-links-title"><div className="section-head"><div><div className="eyebrow">Project suppliers</div><h2 id="project-supplier-links-title">{linkProject.name}</h2><p>{displayProjectId(linkProject)} · supplier stats and complete masked routing links</p></div><div className="row-actions"><button className="button small ghost" type="button" disabled={linksLoading || supplierLinks.length === 0} onClick={downloadSupplierCsv}>Download CSV</button><button className="button small ghost" type="button" onClick={() => setLinkProject(null)}>Close</button></div></div>{linksLoading ? <div className="auth-loading">Loading supplier links…</div> : null}{linksError ? <div className="form-error data-error" role="alert">{linksError}</div> : null}{!linksLoading && !linksError ? <div className="project-supplier-link-list">{supplierLinks.map((assignment, index) => <article className="project-supplier-link-row" key={`${assignment.supplierName}-${index}`}><div className="project-supplier-link-name"><strong>{index + 1}. {assignment.supplierName}</strong><span className={`status-pill status-${assignment.status}`}>{assignment.status}</span></div><dl className="project-supplier-stats"><SupplierStat label="Live starts" value={assignment.starts ?? 0} /><SupplierStat label="Reached client" value={assignment.reached ?? 0} /><SupplierStat label="Completes" value={assignment.completes ?? 0} /><SupplierStat label="Terminates" value={assignment.terminates ?? 0} /><SupplierStat label="Quota full" value={assignment.overQuota ?? 0} /><SupplierStat label="Quality terminates" value={assignment.qualityTerm ?? 0} /><SupplierStat label="Incidence rate" value={`${Number(assignment.incidenceRate ?? 0).toFixed(1)}%`} /><SupplierStat label="Conversion rate" value={`${Number(assignment.conversionRate ?? 0).toFixed(1)}%`} /><SupplierStat label="Test starts" value={assignment.testStarts ?? 0} /><SupplierStat label="Cost" value={new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(assignment.cost ?? 0)} /></dl><div className="project-supplier-link-value"><span>Test link</span><code>{assignment.testLink ?? "Unavailable"}</code><button className="button small ghost" disabled={!assignment.testLink} type="button" onClick={() => void copySupplierLink(`${index}-test`, assignment.testLink)}>{copiedLink === `${index}-test` ? "Copied" : "Copy test"}</button></div><div className="project-supplier-link-value"><span>Live link</span><code>{assignment.liveLink ?? "Unavailable"}</code><button className="button small ghost" disabled={!assignment.liveLink} type="button" onClick={() => void copySupplierLink(`${index}-live`, assignment.liveLink)}>{copiedLink === `${index}-live` ? "Copied" : "Copy live"}</button></div></article>)}{supplierLinks.length === 0 ? <div className="empty-state">No suppliers are assigned to this project.</div> : null}</div> : null}</section></div> : null}
     </div>
   );
 }
@@ -302,6 +315,10 @@ function testIncidence(project: Project) {
   const terminates = project.testTerminates ?? 0;
   return completes + terminates > 0 ? (completes / (completes + terminates)) * 100 : 0;
 }
+
+function SupplierStat({ label, value }: { label: string; value: string | number }) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }
+
+function csvCell(value: unknown) { const text = String(value ?? ""); return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; }
 
 function statusLabel(status: ProjectStatus) {
   return status.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());

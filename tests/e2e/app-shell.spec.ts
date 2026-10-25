@@ -258,7 +258,13 @@ test("project name opens line-wise supplier test and live links", async ({ page,
   await expect(dialog.getByText("CPX Research", { exact: false })).toBeVisible();
   await expect(dialog.getByText("Test link", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Live link", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Live starts", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Reached client", { exact: true })).toBeVisible();
   await expect(dialog.locator("code").first()).toContainText("/l/");
   await dialog.getByRole("button", { name: "Copy test" }).click();
   await expect(dialog.getByRole("button", { name: "Copied" })).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Download CSV" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toContain("supplier-stats-links.csv");
 });

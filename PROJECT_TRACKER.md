@@ -88,6 +88,14 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Project supplier stats and link export popup — 2026-10-25
+
+- Status: IN PROGRESS. The user requested that the Project Suppliers popup show each assigned supplier vertically with delivery statistics, full Test/Live URLs, a direct URL/Links action beside each project name, and a CSV download containing all supplier stats and links.
+- Change: Project Center now shows an explicit `URLs` action beside every project name. Its popup renders each assignment as a vertical supplier section with live starts, reached client, completes, terminates, quota full, quality terminates, incidence, conversion, test starts, cost, and the complete masked Test/Live URLs. `Download CSV` exports all displayed assignments, stats, and full links.
+- Verification: `npx tsc --noEmit`, targeted ESLint, and `git diff --check` pass. Focused Chromium popup coverage passes 1/1 and proves vertical stats are visible, full links remain copyable, and the supplier stats/links CSV downloads with the project-specific filename.
+- Current task: deploy the enhanced Project Suppliers popup and confirm production health/readiness.
+- Next task: user confirmation on a real multi-supplier project that every assignment appears vertically and every opaque URL remains intact in the CSV.
+
 ## Project-level respondent-variable editing — 2026-10-25
 
 - Status: DONE. The user reported that Project Details → Survey setup permits URL edits but does not expose the respondent variable used for the client handoff.
