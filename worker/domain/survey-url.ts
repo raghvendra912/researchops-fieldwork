@@ -77,5 +77,12 @@ export function previewSurveyUrl(template: string, parameters: SurveyParameter[]
 export function buildSurveyUrl(template: string, parameters: SurveyParameter[], context: SurveyUrlContext) {
   const target = new URL(interpolate(template, context));
   for (const parameter of parameters) target.searchParams.set(parameter.name, interpolate(parameter.value, context));
+  // Older projects may carry stale stored parameter mappings even though the
+  // pasted client URL itself identifies the expected attempt-id key (for
+  // example Decipium's `vid=`). The visible template contract wins at launch
+  // so the client never receives that recognized key blank.
+  const detectedRespondentParameter = detectSurveyRespondentParameter(template);
+  const transactionId = context.transaction_id ?? context.session_id ?? "";
+  if (detectedRespondentParameter && transactionId) target.searchParams.set(detectedRespondentParameter, transactionId);
   return target;
 }

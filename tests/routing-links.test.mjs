@@ -102,3 +102,13 @@ test("client respondent parameter is detected from pasted survey URLs", () => {
   const preview = previewSurveyUrl("https://survey.example/start?vid=XXXX", automaticSurveyParameters("https://survey.example/start?vid=XXXX"));
   assert.equal(new URL(preview).searchParams.get("vid"), "TOID-SAMPLE-1");
 });
+
+test("recognized empty respondent keys override stale stored mappings at launch", () => {
+  const survey = buildSurveyUrl("http://dst.decipium.com/survey/prodlink.php?id=82446&vid=", [
+    { name: "pid", value: "{{transaction_id}}" },
+    { name: "uid", value: "{{respondent_id}}" },
+  ], { transaction_id: "SESS-UUID-1184", session_id: "SESS-UUID-1184", respondent_id: "SUPPLIER-REF-1" });
+  assert.equal(survey.searchParams.get("vid"), "SESS-UUID-1184");
+  assert.equal(survey.searchParams.get("pid"), "SESS-UUID-1184");
+  assert.equal(survey.searchParams.get("uid"), "SUPPLIER-REF-1");
+});

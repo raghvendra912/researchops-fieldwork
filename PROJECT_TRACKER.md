@@ -88,6 +88,16 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## ROP-1184 Decipium respondent-ID investigation — 2026-10-25
+
+- Status: IN PROGRESS. The supplied Decipium DST report shows project `ROP-1184-DE` survey `D121020262-B2B_ADS260101453_DE` with Vendor Link `http://dst.decipium.com/survey/prodlink.php?id=82446&vid=` and Respondent ID `N/A` across incomplete and quality-terminate rows.
+- Root cause: the current detector recognizes an empty known key such as `vid=`, but routing used the project's stored `survey_parameters` snapshot. ROP-1184 appears to carry an older/default mapping, so the final URL could retain blank `vid` while adding the session UUID under a different alias. Decipium reads `vid`, hence its Respondent ID column shows `N/A`.
+- Correction: the final survey URL builder now treats the recognized respondent key visibly present in the pasted template as authoritative and writes the ResearchOps session UUID into it after applying stored mappings. This safely repairs stale projects without changing supplier ARIDs or outcome callbacks.
+- Scope decision: the supplied Decipium rows are dated 2026-10-18 and cannot be retroactively populated. Verification must use a fresh project-specific test launch; no real live traffic or quota reservation is authorized for diagnosis.
+- Verification: the exact `http://dst.decipium.com/survey/prodlink.php?id=82446&vid=` regression passes and proves `vid=SESS-UUID-1184` despite stale stored `pid`/`uid` mappings. Focused routing passes 6/6; TypeScript and targeted ESLint pass; `npm test` builds successfully and passes 64 tests with 6 environment-gated skips and zero failures.
+- Current task: run focused and full relevant routing verification, deploy, then prove a fresh ROP-1184 test handoff contains a non-empty `vid` if an assignment test link is available.
+- Next task: have Decipium confirm the fresh row records that UUID in Respondent ID and continues returning the same identifier on terminal callbacks.
+
 ## Stable client-side workspace navigation — 2026-10-24
 
 - Status: IN PROGRESS. The user reports that reload-like behavior still occurs after both deployed corrections. Generic navigation is now proven document-preserving, so the remaining defect is scoped to an as-yet unidentified authenticated source/destination or component remount.
