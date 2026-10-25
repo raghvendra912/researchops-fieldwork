@@ -90,12 +90,14 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Project-level respondent-variable editing — 2026-10-25
 
-- Status: IN PROGRESS. The user reported that Project Details → Survey setup permits URL edits but does not expose the respondent variable used for the client handoff.
+- Status: DONE. The user reported that Project Details → Survey setup permits URL edits but does not expose the respondent variable used for the client handoff.
 - Root cause: survey setup PUT always regenerates mappings from the client-directory default, and the editor sends only Live/Test URLs. Project-specific `survey_parameters` can store the override, but neither the API response nor UI currently treats its transaction-ID mapping as editable state.
 - Change: Project Details → Survey setup now exposes one simple `Respondent parameter` input. Entering `rid` and saving persists the project-level mapping and renames a recognized existing URL key such as `vid` to `rid` in the saved Live/Test client URLs; client-directory defaults remain unchanged.
 - Verification: focused routing coverage passes 7/7, including `vid` to `rid` rename and preview generation. `npx tsc --noEmit` and targeted ESLint pass.
-- Current task: deploy the project-level respondent-parameter option and confirm production health/readiness.
+- Deployment result: commit `e2ff9f6` was pushed to `origin/main`; Vercel reported `Deployment has completed`. Canonical production health is healthy and readiness is ready with Supabase configured.
+- Current task: user confirmation that the Respondent parameter option is visible under Project Details → Advanced tools → Survey setup.
 - Next task: user confirmation that ROP-1184 Survey setup displays the field and saves the intended key; use `rid` only if Decipium is configured to accept `rid` instead of `vid`.
+- Session log (2026-10-25): added the requested single respondent-parameter edit option, wired it through the existing survey setup API/RPC without a migration, added safe `vid` to `rid` URL-key rename behavior and regression coverage, passed compile/lint/focused tests, deployed `e2ff9f6`, and confirmed production health/readiness.
 
 ## ROP-1184 Decipium respondent-ID investigation — 2026-10-25
 
