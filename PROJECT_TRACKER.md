@@ -90,11 +90,13 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Separate supplier stats and URL popups — 2026-10-25
 
-- Status: IN PROGRESS. The user wants supplier metrics to remain in the current vertical row format while Test/Live URLs move into a separate popup.
+- Status: DONE. The user wants supplier metrics to remain in the current vertical row format while Test/Live URLs move into a separate popup.
 - Change: clicking the project name opens a stats-only dialog with the existing vertical metric rows and CSV action. Clicking the adjacent `URLs` button opens a separate links-only dialog with full Test/Live URLs and copy actions; neither dialog mixes the other view's content.
 - Verification: `npx tsc --noEmit`, targeted ESLint, and `git diff --check` pass. Focused Chromium coverage passes 1/1 and proves the stats dialog contains no Test link, closes cleanly, and the separate URLs dialog contains full Test/Live links but no stats rows.
-- Current task: deploy the separate stats and URLs dialogs and confirm production health/readiness.
+- Deployment result: commit `382bc01` was pushed to `origin/main`; Vercel reported `Deployment has completed`. Canonical production health is healthy and readiness is ready with Supabase configured.
+- Current task: user confirmation that project-name and `URLs` actions open their separate dialogs in production.
 - Next task: deploy and confirm both dialogs against a real multi-supplier project.
+- Session log (2026-10-25): separated the supplier views so project-name selection opens vertical stats/CSV and the adjacent `URLs` action opens full Test/Live links only; passed compile/lint/diff/browser verification, deployed `382bc01`, and confirmed production health/readiness.
 
 ## Project supplier stats and link export popup — 2026-10-25
 
