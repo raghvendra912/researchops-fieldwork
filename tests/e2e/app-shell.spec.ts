@@ -248,23 +248,29 @@ test("new project matches the compact survey-creation reference", async ({ page 
   await expect(page.getByLabel("Survey Name")).toHaveValue("Tab state retention proof");
 });
 
-test("project name opens line-wise supplier test and live links", async ({ page, context }) => {
+test("project supplier stats and URLs open in separate popups", async ({ page, context }) => {
   test.setTimeout(60_000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
   await page.locator(".project-name-link").first().click();
-  const dialog = page.getByRole("dialog", { name: /.+/ });
-  await expect(dialog.getByText("CPX Research", { exact: false })).toBeVisible();
-  await expect(dialog.getByText("Test link", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Live link", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Live starts", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Reached client", { exact: true })).toBeVisible();
-  await expect(dialog.locator("code").first()).toContainText("/l/");
-  await dialog.getByRole("button", { name: "Copy test" }).click();
-  await expect(dialog.getByRole("button", { name: "Copied" })).toBeVisible();
+  const statsDialog = page.getByRole("dialog", { name: /.+/ });
+  await expect(statsDialog.getByText("CPX Research", { exact: false })).toBeVisible();
+  await expect(statsDialog.getByText("Live starts", { exact: true })).toBeVisible();
+  await expect(statsDialog.getByText("Reached client", { exact: true })).toBeVisible();
+  await expect(statsDialog.getByText("Test link", { exact: true })).toHaveCount(0);
   const downloadPromise = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "Download CSV" }).click();
+  await statsDialog.getByRole("button", { name: "Download CSV" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toContain("supplier-stats-links.csv");
+  await statsDialog.getByRole("button", { name: "Close" }).click();
+
+  await page.getByRole("button", { name: "URLs" }).first().click();
+  const linksDialog = page.getByRole("dialog", { name: /.+/ });
+  await expect(linksDialog.getByText("Test link", { exact: true })).toBeVisible();
+  await expect(linksDialog.getByText("Live link", { exact: true })).toBeVisible();
+  await expect(linksDialog.getByText("Live starts", { exact: true })).toHaveCount(0);
+  await expect(linksDialog.locator("code").first()).toContainText("/l/");
+  await linksDialog.getByRole("button", { name: "Copy test" }).click();
+  await expect(linksDialog.getByRole("button", { name: "Copied" })).toBeVisible();
 });

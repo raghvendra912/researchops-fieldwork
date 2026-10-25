@@ -88,6 +88,14 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Separate supplier stats and URL popups — 2026-10-25
+
+- Status: IN PROGRESS. The user wants supplier metrics to remain in the current vertical row format while Test/Live URLs move into a separate popup.
+- Change: clicking the project name opens a stats-only dialog with the existing vertical metric rows and CSV action. Clicking the adjacent `URLs` button opens a separate links-only dialog with full Test/Live URLs and copy actions; neither dialog mixes the other view's content.
+- Verification: `npx tsc --noEmit`, targeted ESLint, and `git diff --check` pass. Focused Chromium coverage passes 1/1 and proves the stats dialog contains no Test link, closes cleanly, and the separate URLs dialog contains full Test/Live links but no stats rows.
+- Current task: deploy the separate stats and URLs dialogs and confirm production health/readiness.
+- Next task: deploy and confirm both dialogs against a real multi-supplier project.
+
 ## Project supplier stats and link export popup — 2026-10-25
 
 - Status: DONE. The user requested that the Project Suppliers popup show each assigned supplier vertically with delivery statistics, full Test/Live URLs, a direct URL/Links action beside each project name, and a CSV download containing all supplier stats and links.
