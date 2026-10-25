@@ -253,6 +253,7 @@ test("project supplier stats and URLs open in separate popups", async ({ page, c
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
+  await expect(page.getByRole("button", { name: "URLs" })).toHaveCount(0);
   await page.locator(".project-name-link").first().click();
   const statsDialog = page.getByRole("dialog", { name: /.+/ });
   await expect(statsDialog.getByText("CPX Research", { exact: false })).toBeVisible();
@@ -263,9 +264,7 @@ test("project supplier stats and URLs open in separate popups", async ({ page, c
   await statsDialog.getByRole("button", { name: "Download CSV" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toContain("supplier-stats-links.csv");
-  await statsDialog.getByRole("button", { name: "Close" }).click();
-
-  await page.getByRole("button", { name: "URLs" }).first().click();
+  await statsDialog.getByRole("button", { name: "URLs" }).click();
   const linksDialog = page.getByRole("dialog", { name: /.+/ });
   await expect(linksDialog.getByText("Test link", { exact: true })).toBeVisible();
   await expect(linksDialog.getByText("Live link", { exact: true })).toBeVisible();

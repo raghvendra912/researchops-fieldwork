@@ -88,6 +88,14 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Move URLs action into supplier-stats popup — 2026-10-25
+
+- Status: IN PROGRESS. The user wants the `URLs` action removed from the Project Center project-name cell and shown in the Project Supplier Stats popup header instead; the destination view must continue to show links only.
+- Change: the Project Center row now shows only the clickable project name. The stats popup header contains `Download CSV`, `URLs`, and `Close`; selecting `URLs` switches the same modal surface to the links-only view, with a `Stats` action to return.
+- Verification: standalone `npx tsc --noEmit` and targeted ESLint pass. Focused Chromium coverage passes 1/1 and proves no `URLs` button exists in the project table, the action appears in the stats popup, and it opens the links-only content.
+- Current task: deploy the corrected URL-action placement and confirm production health/readiness.
+- Next task: user confirmation of the final popup placement.
+
 ## Separate supplier stats and URL popups — 2026-10-25
 
 - Status: DONE. The user wants supplier metrics to remain in the current vertical row format while Test/Live URLs move into a separate popup.
