@@ -45,6 +45,21 @@ export function automaticSurveyParameters(template: string, preferred?: string):
   ];
 }
 
+export function renameSurveyRespondentParameter(template: string, requested: string) {
+  const name = safeSurveyParameterName(requested);
+  if (!template || !name) return template;
+  const url = new URL(template);
+  const current = detectSurveyRespondentParameter(template);
+  if (current && current.toLowerCase() !== name.toLowerCase()) {
+    const value = url.searchParams.get(current) ?? "";
+    url.searchParams.delete(current);
+    url.searchParams.set(name, value);
+  } else if (!current) {
+    url.searchParams.set(name, "");
+  }
+  return url.toString();
+}
+
 const ALIAS_CONTEXT: Record<string, string[]> = {
   project_id: ["project_id", "project_code", "project", "pid", "sur", "svid", "sid", "tid", "survey_id"],
   transaction_id: ["transaction_id", "toid", "session_id", "session_uuid", "attempt_id", "researchops_id", "rid"],

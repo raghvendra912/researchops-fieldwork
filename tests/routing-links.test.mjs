@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { projectsToCsv, projectRoutingColumns } from "../src/features/projects/project-export.ts";
-import { automaticSurveyParameters, buildSurveyUrl, detectSurveyRespondentParameter, previewSurveyUrl } from "../worker/domain/survey-url.ts";
+import { automaticSurveyParameters, buildSurveyUrl, detectSurveyRespondentParameter, previewSurveyUrl, renameSurveyRespondentParameter } from "../worker/domain/survey-url.ts";
 import {
   assignmentLaunchTemplate,
   clientOutcomeTemplates,
@@ -111,4 +111,13 @@ test("recognized empty respondent keys override stale stored mappings at launch"
   assert.equal(survey.searchParams.get("vid"), "SESS-UUID-1184");
   assert.equal(survey.searchParams.get("pid"), "SESS-UUID-1184");
   assert.equal(survey.searchParams.get("uid"), "SUPPLIER-REF-1");
+});
+
+test("project editors can rename a client respondent key from vid to rid", () => {
+  const renamed = renameSurveyRespondentParameter("https://survey.example/start?id=82446&vid=", "rid");
+  const url = new URL(renamed);
+  assert.equal(url.searchParams.has("vid"), false);
+  assert.equal(url.searchParams.get("rid"), "");
+  const preview = previewSurveyUrl(renamed, automaticSurveyParameters(renamed, "rid"));
+  assert.equal(new URL(preview).searchParams.get("rid"), "TOID-SAMPLE-1");
 });

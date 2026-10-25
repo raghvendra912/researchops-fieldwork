@@ -88,6 +88,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Project-level respondent-variable editing — 2026-10-25
+
+- Status: IN PROGRESS. The user reported that Project Details → Survey setup permits URL edits but does not expose the respondent variable used for the client handoff.
+- Root cause: survey setup PUT always regenerates mappings from the client-directory default, and the editor sends only Live/Test URLs. Project-specific `survey_parameters` can store the override, but neither the API response nor UI currently treats its transaction-ID mapping as editable state.
+- Change: Project Details → Survey setup now exposes one simple `Respondent parameter` input. Entering `rid` and saving persists the project-level mapping and renames a recognized existing URL key such as `vid` to `rid` in the saved Live/Test client URLs; client-directory defaults remain unchanged.
+- Verification: focused routing coverage passes 7/7, including `vid` to `rid` rename and preview generation. `npx tsc --noEmit` and targeted ESLint pass.
+- Current task: deploy the project-level respondent-parameter option and confirm production health/readiness.
+- Next task: user confirmation that ROP-1184 Survey setup displays the field and saves the intended key; use `rid` only if Decipium is configured to accept `rid` instead of `vid`.
+
 ## ROP-1184 Decipium respondent-ID investigation — 2026-10-25
 
 - Status: READY. The supplied Decipium DST report shows project `ROP-1184-DE` survey `D121020262-B2B_ADS260101453_DE` with Vendor Link `http://dst.decipium.com/survey/prodlink.php?id=82446&vid=` and Respondent ID `N/A` across incomplete and quality-terminate rows. The runtime correction is deployed; a fresh ROP-1184 test launch remains required for client-side confirmation.

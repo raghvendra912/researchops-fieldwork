@@ -1,19 +1,30 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization";
 import { getProjectCapabilities } from "../lib/project-authorization";
 import { isSupabaseConfigured, supabaseJson, type SupabaseEnv } from "../lib/supabase";
-import { AUTOMATIC_SURVEY_PARAMETERS, automaticSurveyParameters, previewSurveyUrl, type SurveyParameter } from "../domain/survey-url";
+import { AUTOMATIC_SURVEY_PARAMETERS, automaticSurveyParameters, previewSurveyUrl, renameSurveyRespondentParameter, safeSurveyParameterName, TRANSACTION_PLACEHOLDER, type SurveyParameter } from "../domain/survey-url";
 
 type SetupRow = { survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; clients?: { respondent_parameter?: string | null } | Array<{ respondent_parameter?: string | null }> };
 const defaults = AUTOMATIC_SURVEY_PARAMETERS;
 
 function parse(body: Record<string, unknown> | null, preferred = "") {
   if (!body) return null;
-  const liveUrl = String(body.liveUrl ?? "").trim(); const testUrl = String(body.testUrl ?? "").trim();
+  const requestedParameter = body.respondentParameter === undefined ? preferred : safeSurveyParameterName(body.respondentParameter);
+  if (body.respondentParameter !== undefined && !requestedParameter) return null;
+  const rawLiveUrl = String(body.liveUrl ?? "").trim(); const rawTestUrl = String(body.testUrl ?? "").trim();
+  const liveUrl = requestedParameter && rawLiveUrl ? renameSurveyRespondentParameter(rawLiveUrl, requestedParameter) : rawLiveUrl;
+  const testUrl = requestedParameter && rawTestUrl ? renameSurveyRespondentParameter(rawTestUrl, requestedParameter) : rawTestUrl;
   if ([liveUrl, testUrl].some((url) => url && (!/^https?:\/\//i.test(url) || url.length > 2048))) return null;
-  return { liveUrl, testUrl, parameters: automaticSurveyParameters(liveUrl || testUrl, preferred), respondentParameter: preferred };
+  return { liveUrl, testUrl, parameters: automaticSurveyParameters(liveUrl || testUrl, requestedParameter), respondentParameter: requestedParameter };
 }
 
-function preferredParameter(row: SetupRow) { const client = Array.isArray(row.clients) ? row.clients[0] : row.clients; return client?.respondent_parameter ?? ""; }
+function preferredParameter(row: SetupRow) {
+  const stored = Array.isArray(row.survey_parameters)
+    ? row.survey_parameters.find((value) => { const parameter = value as Partial<SurveyParameter>; return parameter.value === TRANSACTION_PLACEHOLDER && typeof parameter.name === "string"; }) as Partial<SurveyParameter> | undefined
+    : undefined;
+  if (stored?.name) return safeSurveyParameterName(stored.name);
+  const client = Array.isArray(row.clients) ? row.clients[0] : row.clients;
+  return client?.respondent_parameter ?? "";
+}
 function mapped(row: SetupRow) { const liveUrl = row.survey_url ?? ""; const testUrl = row.test_survey_url ?? ""; const respondentParameter = preferredParameter(row); return { liveUrl, testUrl, parameters: automaticSurveyParameters(liveUrl || testUrl, respondentParameter), respondentParameter }; }
 
 function previews(liveUrl: string, testUrl: string, parameters: SurveyParameter[]) {
