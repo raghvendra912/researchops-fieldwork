@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-10-18
+Last updated: 2026-10-26
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -87,6 +87,17 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Complete repository and production audit — 2026-10-26
+
+- Status: DONE. The user requested an A-to-Z review and authorization to complete the safe repairs needed within the existing product scope.
+- Added acceptance requirement: ordinary authenticated use must not show unexpected redirects, document reloads, raw error pages, or technical error text. Required survey/supplier HTTP redirects remain part of the routing contract, but redirect loops, broken destinations, and unhandled errors must fail safely.
+- Repairs: upgraded the production `fflate` dependency from `0.8.2` to `0.8.3`, closing GHSA-px8p-9vwx-vf98 (malformed ZIP64 denial of service), and corrected README migration guidance from `042` to the actual highest migration `044`, including the browser-session and operating-system metadata migrations.
+- Verification: `npx tsc --noEmit`, full ESLint, the production/test build, and `git diff --check` pass. `npm test` passes 65 tests with 6 environment-gated skips and zero failures after the dependency update. Full Chromium coverage passes 17/17, including document-preserving workspace navigation, automatic menu close, clean client outcome URLs, protected operations, and separate supplier stats/URL views. `npm audit --omit=dev` reports zero production vulnerabilities. Canonical production health/readiness are healthy/ready; `/login` returns HTTP 200 with no redirect, and the public protected-route shell returns HTTP 200 without a redirect loop.
+- Decision/blocker: the remaining audit findings are development/build-tool-only (24 total: 1 low, 5 moderate, 18 high) and require coordinated upgrades of pinned Vinext/React/Cloudflare/Vite tooling. Those upgrades are not bundled into this repair because this runtime has a documented navigation/hydration compatibility history; they require their own branch-sized compatibility pass and full hosted authentication/navigation proof. Local database integration checks remain environment-gated because a local Supabase/Docker runtime is unavailable.
+- Current task: commit and push this verified audit repair, then confirm the resulting Vercel deployment and canonical production health/readiness.
+- Next task: run a dedicated build-tool upgrade compatibility pass, then execute the six currently environment-gated Supabase/database integration proofs when Docker or an isolated database is available.
+- Session log (2026-10-26): completed the repository, compile, lint, build, unit/API, browser, dependency, documentation, and production smoke audit; repaired the production ZIP parser advisory and stale migration documentation; confirmed no ordinary-route redirect loop or navigation reload regression; and recorded the remaining environment/toolchain boundaries without unsafe blind upgrades.
 
 ## Move URLs action into supplier-stats popup — 2026-10-25
 
