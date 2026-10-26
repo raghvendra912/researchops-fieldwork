@@ -62,21 +62,46 @@ test("supplier launch sends our attempt ID to the client and returns the supplie
 
     const returnPath = `/r/client/${clientToken}/complete`;
     const outcome = await handleRedirectApi(new Request(`https://router.example${returnPath}?rid=${attemptId}&project=ROP-42`), returnPath, env);
-    assert.equal(outcome?.status, 302);
-    const supplierReturn = new URL(outcome.headers.get("location"));
+    assert.equal(outcome?.status, 200);
+    const outcomeHtml = await outcome.text();
+    assert.match(outcomeHtml, /Survey completed/);
+    const supplierReturn = new URL(outcomeHtml.match(/class="continue" href="([^"]+)"/)?.[1].replaceAll("&amp;", "&"));
     assert.equal(supplierReturn.searchParams.get("uid"), supplierRef);
     assert.equal(supplierReturn.searchParams.get("respondent_id"), supplierRef);
     assert.equal(events.at(-1).p_respondent_ref, supplierRef);
     assert.ok(lookups.some((query) => query.includes(`id=eq.${attemptId}`)));
 
     const placeholderOutcome = await handleRedirectApi(new Request(`https://router.example${returnPath}?rid=xxxx`, { headers: { cookie: routingCookie.split(";", 1)[0] } }), returnPath, env);
-    assert.equal(placeholderOutcome?.status, 302);
-    assert.equal(new URL(placeholderOutcome.headers.get("location")).searchParams.get("uid"), supplierRef);
+    assert.equal(placeholderOutcome?.status, 200);
+    const placeholderHtml = await placeholderOutcome.text();
+    assert.equal(new URL(placeholderHtml.match(/class="continue" href="([^"]+)"/)?.[1].replaceAll("&amp;", "&")).searchParams.get("uid"), supplierRef);
     assert.match(placeholderOutcome.headers.get("set-cookie"), /Max-Age=0/);
 
     const legacy = await handleRedirectApi(new Request(`https://router.example${returnPath}?rid=${supplierRef}&project=ROP-42`), returnPath, env);
-    assert.equal(legacy?.status, 302);
+    assert.equal(legacy?.status, 200);
+    assert.match(await legacy.text(), /Survey completed/);
     assert.ok(lookups.some((query) => query.includes(`respondent_ref=eq.${supplierRef}`)));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("every client terminal outcome renders a ResearchOps end page", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(input);
+    if (url.pathname.endsWith("/clients")) return Response.json([{ id: "client-1" }]);
+    if (url.pathname.endsWith("/survey_sessions")) return Response.json([session]);
+    if (url.pathname.endsWith("/rpc/ingest_survey_event")) return Response.json([{ session_id: attemptId, event_id: crypto.randomUUID(), created: true }]);
+    throw new Error(`Unexpected route ${url.pathname}`);
+  };
+  try {
+    for (const [outcome, title] of [["complete", "Survey completed"], ["terminate", "Survey ended"], ["quota-full", "Survey quota reached"], ["security-terminate", "Survey ended"]]) {
+      const path = `/r/client/${clientToken}/${outcome}`;
+      const response = await handleRedirectApi(new Request(`https://router.example${path}?rid=${attemptId}&project=ROP-42`), path, env);
+      assert.equal(response?.status, 200);
+      assert.match(await response.text(), new RegExp(`<title>${title} \\| ResearchOps</title>`));
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }

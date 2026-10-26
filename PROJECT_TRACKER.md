@@ -88,6 +88,17 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## ResearchOps end page for every terminal status — 2026-10-26
+
+- Status: DONE. The user requires a ResearchOps-branded end page for Complete, Terminate, Quota Full, and Quality Terminate instead of an immediate invisible supplier redirect.
+- Scope: render the terminal status page after recording the outcome, preserve configured supplier returns through a visible Continue action and short automatic handoff, and cover both signed per-session outcomes and legacy client callback routes. External survey platforms must still invoke one of the supplied ResearchOps outcome URLs.
+- Change: signed per-session and legacy client callbacks now always return the matching branded ResearchOps page after the outcome is recorded. Complete shows `Survey completed`, Terminate and Quality Terminate show `Survey ended`, and Quota Full shows `Survey quota reached`. If the assignment has a supplier destination, the page displays a five-second countdown plus `Continue now`, then hands off with the existing project/respondent/status parameters.
+- Verification: TypeScript, targeted ESLint, and `git diff --check` pass. Focused routing coverage passes 6/6 and explicitly opens all four end-page variants. The production/test build succeeds and the standard suite passes 67 tests with 6 environment-gated skips and zero failures.
+- Decision: outcome pages do not fabricate a terminal event. Decipium or another client platform must still open the supplied signed outcome URL (or valid legacy callback); a session that never returns remains `REACHED_CLIENT`.
+- Current task: commit/push the verified terminal-page behavior and confirm Vercel production health/readiness.
+- Next task: configure ROP-1184's Decipium terminal actions to open the four supplied outcome URLs, then run one fresh Test attempt through each status.
+- Session log (2026-10-26): replaced immediate supplier redirects after recorded client outcomes with visible ResearchOps terminal pages, retained timed/manual supplier return, added all-status regression coverage, and completed compile/lint/build/unit verification.
+
 ## Visible respondent IP and city export — 2026-10-26
 
 - Status: DONE. The user explicitly requires respondent IP Address and City to be visible in the respondent CSV instead of `Protected`/blank values.
