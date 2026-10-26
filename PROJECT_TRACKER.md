@@ -99,6 +99,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: commit and push the verified implementation, then confirm Vercel deployment and production health/readiness.
 - Next task: run one fresh test launch, download a new Respondents CSV, and confirm its IP/City evidence from the real hosting edge; do not expect historical rows to change.
 - Session log (2026-10-26): replaced the fixed `Protected` CSV value with authorized captured IP data, generalized network-context capture to every new session, applied production migration `045`, preserved non-blocking respondent routing, updated documentation/tests, and completed compile/lint/build/unit/browser verification.
+- Deployment result: feature commit `f2ac9be` was pushed to `origin/main`; Vercel production deployment `dpl_FKW53cvgJTyN1vvnx3vGMd5BSgY9` reached Ready and is aliased to `www.asrv.co.in`. Canonical health/readiness are healthy/ready, and the remote migration ledger confirms `045` applied.
 
 ## Complete repository and production audit — 2026-10-26
 
