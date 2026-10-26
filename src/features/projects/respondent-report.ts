@@ -13,6 +13,7 @@ export type RespondentReportRow = {
   deviceType?: string;
   osType?: string;
   browserType?: string;
+  ipAddress?: string;
   geoCity?: string;
   startedAt: string;
   completedAt?: string;
@@ -54,7 +55,7 @@ export function buildRespondentReportCsv(rows: RespondentReportRow[]) {
     const [startDate, startTime] = dateAndTime(row.startedAt);
     const [endDate, endTime] = dateAndTime(row.completedAt);
     const quality = row.riskStatus && row.riskStatus !== "CLEAR" ? row.riskStatus : row.riskFlagCount ? "Review" : "Pass";
-    return [index + 1, row.projectCode, row.clientName, row.projectName, row.supplierName ?? "Direct", row.supplierCpi ?? 0, row.clientCpi ?? 0, row.digitalFingerprinting ? "ON" : "OFF", quality, row.id, row.respondentRef, row.providerTransactionId ?? "NA", surveyStatus(row.status), "Protected", row.osType ?? row.deviceType ?? "UNKNOWN", row.browserType ?? "UNKNOWN", row.geoCity ?? "", startDate, startTime, endDate, endTime, loi(row.durationSeconds)];
+    return [index + 1, row.projectCode, row.clientName, row.projectName, row.supplierName ?? "Direct", row.supplierCpi ?? 0, row.clientCpi ?? 0, row.digitalFingerprinting ? "ON" : "OFF", quality, row.id, row.respondentRef, row.providerTransactionId ?? "NA", surveyStatus(row.status), row.ipAddress ?? "", row.osType ?? row.deviceType ?? "UNKNOWN", row.browserType ?? "UNKNOWN", row.geoCity ?? "", startDate, startTime, endDate, endTime, loi(row.durationSeconds)];
   });
   return `\uFEFF${[header, ...data].map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
 }

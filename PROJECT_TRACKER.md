@@ -88,6 +88,18 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Visible respondent IP and city export — 2026-10-26
+
+- Status: DONE. The user explicitly requires respondent IP Address and City to be visible in the respondent CSV instead of `Protected`/blank values.
+- Scope: capture access-controlled IP and edge-derived city for every new routed session, return them through the authorized respondents API, and export them in the existing report columns. The project Geo Security setting continues to control country-mismatch enforcement; it no longer prevents operational IP/City reporting. Historical rows without captured values cannot be reconstructed.
+- Change: migration `045_visible_session_network_context.sql` adds the nullable `survey_sessions.ip_address` network field and a service-role-only capture RPC. Every fresh supplier launch now records its trusted hosting-edge IP plus country/region/city without allowing capture failure to interrupt respondent routing. The authorized Respondents API returns `ipAddress`, and the existing report places it in `IP Address` instead of the former `Protected` marker; City uses the already-defined export column.
+- Database result: migration `045` was successfully applied to the linked production Supabase project before application deployment. It is additive and does not alter existing session values.
+- Verification: TypeScript, targeted ESLint, and `git diff --check` pass. Focused migration/routing/export coverage passes 9/9. The production/test build succeeds and the standard suite passes 66 tests with 6 environment-gated skips and zero failures. Focused Chromium Respondents refresh coverage passes 1/1.
+- Decision: IP/City capture applies to all new routed sessions so existing projects receive the requested data without recreation. Geo Security continues to decide country-match enforcement only. IP/City remain available only through the existing authenticated, tenant-scoped Respondents API/export. Old rows remain blank because the original network data was never retained, and city may remain blank if the hosting edge supplies no city header.
+- Current task: commit and push the verified implementation, then confirm Vercel deployment and production health/readiness.
+- Next task: run one fresh test launch, download a new Respondents CSV, and confirm its IP/City evidence from the real hosting edge; do not expect historical rows to change.
+- Session log (2026-10-26): replaced the fixed `Protected` CSV value with authorized captured IP data, generalized network-context capture to every new session, applied production migration `045`, preserved non-blocking respondent routing, updated documentation/tests, and completed compile/lint/build/unit/browser verification.
+
 ## Complete repository and production audit — 2026-10-26
 
 - Status: DONE. The user requested an A-to-Z review and authorization to complete the safe repairs needed within the existing product scope.

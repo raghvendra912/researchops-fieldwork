@@ -97,6 +97,15 @@ function geoEvidence(request: Request, enabled: boolean, targetCountries: string
   return { countryCode, regionCode, city, status };
 }
 
+function clientIpAddress(request: Request) {
+  const candidate = [request.headers.get("cf-connecting-ip"), request.headers.get("x-real-ip"), request.headers.get("x-vercel-forwarded-for"), request.headers.get("x-forwarded-for")]
+    .map((value) => value?.split(",", 1)[0]?.trim() ?? "")
+    .find(Boolean) ?? "";
+  const ipv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(candidate) && candidate.split(".").every((part) => Number(part) <= 255);
+  const ipv6 = candidate.length <= 45 && candidate.includes(":") && /^[0-9a-f:]+$/i.test(candidate);
+  return ipv4 || ipv6 ? candidate : "";
+}
+
 async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false, context: Record<string, unknown> = {}) {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
   return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest, deviceType: deviceType(request), browserType: browserType(request), osType: operatingSystem(request), ...context } }, env);
@@ -206,7 +215,10 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return help("The respondent session could not be started", 502, { stage: routingStage }); }
       const geo = geoEvidence(request, project.geo_security_enabled === true, project.project_markets.map((item) => item.country_code));
-      if (project.geo_security_enabled === true && startBody?.data?.sessionId) await serviceRpc(env, "capture_session_geolocation", { p_session_id: startBody.data.sessionId, p_country_code: geo.countryCode, p_region_code: geo.regionCode, p_city: geo.city, p_check_status: geo.status });
+      if (startBody?.data?.sessionId) {
+        try { await serviceRpc(env, "capture_session_network_context", { p_session_id: startBody.data.sessionId, p_ip_address: clientIpAddress(request), p_country_code: geo.countryCode, p_region_code: geo.regionCode, p_city: geo.city, p_check_status: geo.status }); }
+        catch (error) { safeLog("warn", "session_network_context_capture_failed", { path: pathname, error: error instanceof Error ? error.message : "Unknown network-context failure" }); }
+      }
       if (geo.status === "MISMATCH") {
         if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "geo-security", isTest, { reasonCode: "GEO_COUNTRY_MISMATCH", detectedCountry: geo.countryCode });

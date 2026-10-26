@@ -8,7 +8,7 @@ import { buildRespondentReportCsv, respondentReportFilename } from "../../src/fe
 type Session = {
   id: string; respondentRef: string; status: string; isTest?: boolean; startedAt: string; reachedClientAt?: string; completedAt?: string; durationSeconds?: number | null;
   projectCode?: string; projectName?: string; clientName?: string; clientCpi?: number; digitalFingerprinting?: boolean; countryCode?: string; languageCode?: string; supplierName?: string; supplierProjectId?: string; supplierCpi?: number;
-  providerTransactionId?: string; terminationReasonCode?: string; deviceType?: string; osType?: string; browserType?: string; geoCity?: string; riskStatus?: string; riskFlagCount?: number; internalApprovalStatus?: string; vendorApprovalStatus?: string;
+  providerTransactionId?: string; terminationReasonCode?: string; deviceType?: string; osType?: string; browserType?: string; ipAddress?: string; geoCity?: string; riskStatus?: string; riskFlagCount?: number; internalApprovalStatus?: string; vendorApprovalStatus?: string;
   events: Array<{ id: string; eventType: string; occurredAt: string; providerTransactionId?: string }>;
 };
 type ProjectOption = { code: string; name: string };
