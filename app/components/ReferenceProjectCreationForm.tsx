@@ -3,11 +3,11 @@
 /* eslint-disable jsx-a11y/label-has-associated-control -- Research Defender labels contain mapped visible text and nested checkbox controls. */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
 import { countryOptions, languageOptionsForCountry } from "../../src/lib/market-options";
 import { automaticSurveyParameters, previewSurveyUrl } from "../../worker/domain/survey-url";
-import Link from "./NavigationLink";
 
 type Client = { name: string; status: string; salesUser?: string; respondentParameter?: string };
 type Supplier = { name: string; status: string };
@@ -21,6 +21,7 @@ const newMarket = (): Market => ({ countryCode: "", languageCode: "en", targetQu
 const defaultSecurity: Record<SecurityKey, boolean> = { search: false, review: false, predupe: true, activity: false, emailVerify: false, fraudGuard: false, dfioPortal: false, survalidate: false, prescreeningCaptcha: false, speederTerminate: false, duplicateIp: true };
 
 export function ReferenceProjectCreationForm() {
+  const router = useRouter();
   const { configured, session } = useAuth();
   const [clients, setClients] = useState<Client[]>(configured ? [] : [{ name: "Northstar Bank", status: "ACTIVE", salesUser: "Workspace sales", respondentParameter: "rid" }]);
   const [suppliers, setSuppliers] = useState<Supplier[]>(configured ? [] : [{ name: "CPX Research", status: "ACTIVE" }]);
@@ -35,7 +36,6 @@ export function ReferenceProjectCreationForm() {
   const [securityControls, setSecurityControls] = useState(defaultSecurity);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [created, setCreated] = useState("");
   const token = session?.access_token;
   const headers = useMemo(() => token ? { authorization: `Bearer ${token}` } : undefined, [token]);
 
@@ -56,12 +56,12 @@ export function ReferenceProjectCreationForm() {
     try {
       const response = await apiRequest<{ data: { id: string } }>("/api/projects", { method: "POST", headers, body: JSON.stringify({ projectName: form.get("projectName"), type: form.get("type"), category: form.get("category"), surveyMultiLink: form.get("surveyMultiLink") === "ON", client: selectedClient, clientPo: form.get("clientPo"), clientCpi: form.get("clientCpi"), respondentVariable: variableName, segment: form.get("segment"), endDate: form.get("endDate"), markets: markets.map((item) => ({ ...item, targetQuota: item.targetQuota || form.get("quota") })), surveyUrl, testSurveyUrl: "", addAutomaticParameters: true, supplierAssignments: supplierRows.map((item) => ({ name: item.name, supplierCpi: item.cpi || 0 })), prescreeningQuestions: [], securityControls, campaignBanner, geoSecurityEnabled }) });
       if (form.get("projectStatus") === "LIVE") await apiRequest(`/api/projects/${encodeURIComponent(response.data.id)}/transitions`, { method: "POST", headers, body: JSON.stringify({ status: "LIVE", launchConfirmed: true }) });
-      setCreated(response.data.id);
+      router.push(`/projects/${encodeURIComponent(response.data.id)}`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Project could not be created."); }
     finally { setBusy(false); }
   }
 
-  return <section className="panel survey-reference-form"><div className="survey-reference-title">Create Project</div>{error ? <div className="form-error" role="alert">{error}</div> : null}{created ? <div className="success-banner"><span>Project {created} created.</span><Link href={`/projects/${created}`}>Open project →</Link></div> : null}<form onSubmit={submit}>
+  return <section className="panel survey-reference-form"><div className="survey-reference-title">Create Project</div>{error ? <div className="form-error" role="alert">{error}</div> : null}<form onSubmit={submit}>
     <div className="survey-reference-tabs" role="tablist" aria-label="Project creation sections"><button className={activeTab === "details" ? "active" : ""} type="button" role="tab" aria-selected={activeTab === "details"} onClick={() => setActiveTab("details")}>Project setup</button><button className={activeTab === "security" ? "active" : ""} type="button" role="tab" aria-selected={activeTab === "security"} onClick={() => setActiveTab("security")}>Security</button></div>
     <div hidden={activeTab !== "details"}>
       <div className="survey-reference-grid top-row"><Field label="Survey Name" name="projectName" required /><Select label="Project Type" name="type" options={types} required /><Select label="Survey Multi Link" name="surveyMultiLink" options={["OFF", "ON"]} /><Select label="Survey Category" name="category" options={categories} /></div>

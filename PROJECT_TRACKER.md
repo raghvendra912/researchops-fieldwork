@@ -2,7 +2,7 @@
 
 > This file is the single source of truth for project progress. Read it before making changes and update it before ending every development session.
 
-Last updated: 2026-10-26
+Last updated: 2026-10-30
 Current milestone: Fieldwork intelligence and operational workbook — plus whole-tool Project Center UI system
 Overall state: GitHub `main` contains the screenshot-aligned Project Center, two-ID client/supplier handoff, commit `fa1fee3` (centralized routing links, `?diagnose=1` help, `node scripts/check-route.mjs`, routing columns in the Project Center CSV), and the QA routing scripts. Vercel CLI access was recovered: the `researchops-fieldwork` project is reachable, production serves `https://www.asrv.co.in` with health and readiness OK. A full hosted end-to-end routing proof ran against production using a fresh anonymous signup, its own client/supplier/project (`ROP-1141`): supplier live hit returned 302 to the survey with a new session UUID as `RID` plus per-session outcome URLs, the client complete return resolved the UUID and sent the supplier's original reference back in its own redirect parameters, the respondent row reached `COMPLETE` with duration captured, and a replayed outcome callback stayed idempotent. Hosted routing is therefore independently proven. Migration `038` ownership proofs and the `039` capability RPC probe remain pending. Local `docker` is not resolvable on PATH, so local database verification is unavailable.
 
@@ -87,6 +87,26 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Project creation success and details redirect - 2026-10-30
+
+- Status: DONE locally. The reported Create Project error occurred after the project RPC succeeded: the follow-up metadata PATCH correctly returned `204 No Content`, but the API attempted to parse that empty response as JSON and converted the successful creation into a generic database failure.
+- Change: the metadata PATCH now uses the no-content-safe request path. Existing validation, authorization, multi-market, geo-security, supplier-assignment, and optional initial-LIVE behavior remain unchanged. After the create API (and requested LIVE transition) succeeds, the form navigates directly to the new `/projects/{projectId}` detail route.
+- Verification: the fresh-build API regression reproduces a successful `204` metadata PATCH and receives `201` with project `ROP-2001`; TypeScript and focused ESLint pass; focused Chromium fills the creation form and reaches `/projects/ROP-1049`; the production/test build succeeds and the standard suite passes 68 tests with 6 environment-gated skips and zero failures.
+- Decision: no database migration is needed; this was an HTTP response-body handling defect after a successful database write.
+- Current task: commit/push the verified fix and confirm Vercel production health/readiness.
+- Next task: authenticated production creation smoke-test confirming a real new project opens its persisted details page.
+- Session log (2026-10-30): traced the misleading post-create error to JSON parsing of a valid empty PostgREST response, repaired the request path, added API/browser regressions, and completed compile/lint/build/test verification.
+
+## Supplier comparison matrix view — 2026-10-30
+
+- Status: DONE locally. Project Suppliers now matches the supplied comparison reference: suppliers are horizontal columns and operational metrics are vertical rows in the stats modal.
+- Change: the accessible matrix includes supplier code/status, quota/CPI, Live starts, Reached client, terminal outcomes, IR, conversion, Test starts, and cost. The metric column and supplier headings stay visible while the modal scrolls; many suppliers scroll horizontally. URLs remain in their own popup and CSV export remains available from stats.
+- Verification: TypeScript, focused ESLint, and `git diff --check` pass. Focused Chromium verifies the matrix headings/rows, separate URLs popup, CSV download, and copy action. The production/test build succeeds and the standard suite passes 68 tests with 6 environment-gated skips and zero failures.
+- Decision: reused existing assignment metrics and definitions; no routing, event, or database contract changed.
+- Current task: commit/push the verified matrix and confirm the production deployment.
+- Next task: authenticated production visual confirmation on a project with multiple assigned suppliers.
+- Session log (2026-10-30): converted the supplier stats cards into the requested horizontal comparison matrix, preserved separate links and export workflows, added browser coverage, and completed compile/lint/build/test verification.
 
 ## ResearchOps end page for every terminal status — 2026-10-26
 

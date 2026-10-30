@@ -401,6 +401,32 @@ test("enforces workspace roles on protected project operations", async () => {
   }
 });
 
+test("project creation accepts the successful no-content metadata update", async () => {
+  const originalFetch = globalThis.fetch;
+  let metadataPatchSeen = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/auth/v1/user")) return Response.json({ id: "user-1" });
+    if (url.includes("/organization_members")) return Response.json([{ organization_id: "org-1", user_id: "user-1", role: "PM" }]);
+    if (url.includes("/rpc/create_project_with_market_v4")) return Response.json([{ project_id: "00000000-0000-4000-8000-000000002001", project_code: "ROP-2001", status: "PENDING" }]);
+    if (url.includes("/rest/v1/projects?id=eq.00000000-0000-4000-8000-000000002001") && init?.method === "PATCH") {
+      metadataPatchSeen = true;
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`Unexpected Supabase request: ${url}`);
+  };
+  try {
+    const response = await request("/api/projects", {
+      method: "POST",
+      headers: { authorization: "Bearer valid-user-token", "content-type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+      body: JSON.stringify({ projectName: "No-content creation", client: "Northstar Bank", quota: 100, clientCpi: 8.5 }),
+    }, { SUPABASE_URL: "https://example.supabase.co", SUPABASE_ANON_KEY: "public-anon-key" });
+    assert.equal(response.status, 201);
+    assert.equal((await response.json()).data.id, "ROP-2001");
+    assert.equal(metadataPatchSeen, true);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("serves the existing project portfolio and detail before ownership migration 038", async () => {
   const originalFetch = globalThis.fetch;
   let legacyReads = 0;

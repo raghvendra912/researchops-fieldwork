@@ -246,16 +246,30 @@ test("new project matches the compact survey-creation reference", async ({ page 
   await expect(page.getByLabel("FraudGuard")).toBeVisible();
   await page.getByRole("tab", { name: "Project setup" }).click();
   await expect(page.getByLabel("Survey Name")).toHaveValue("Tab state retention proof");
+  await page.getByLabel("Project Type").selectOption("B2C");
+  await page.getByLabel("Client", { exact: true }).selectOption("Northstar Bank");
+  await page.getByLabel("Quota", { exact: true }).fill("100");
+  await page.getByLabel("IR", { exact: true }).fill("40");
+  await page.getByLabel("LOI", { exact: true }).fill("10");
+  await page.getByLabel("CPI", { exact: true }).fill("8.5");
+  await page.getByRole("button", { name: "Create Project" }).click();
+  await expect(page).toHaveURL(/\/projects\/ROP-1049$/);
 });
 
-test("project supplier stats and URLs open in separate popups", async ({ page, context }) => {
-  test.setTimeout(60_000);
+test("project supplier comparison matrix and URLs open in separate views", async ({ page, context }) => {
+  test.setTimeout(120_000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
   await expect(page.getByRole("button", { name: "URLs" })).toHaveCount(0);
   await page.locator(".project-name-link").first().click();
   const statsDialog = page.getByRole("dialog", { name: /.+/ });
+  await expect(statsDialog.getByText("Suppliers view", { exact: true })).toBeVisible();
+  const matrix = statsDialog.locator(".supplier-matrix");
+  await expect(matrix).toBeVisible();
+  await expect(matrix.getByRole("columnheader", { name: "Metric" })).toBeVisible();
+  await expect(matrix.getByRole("columnheader", { name: /CPX Research/ })).toBeVisible();
+  await expect(matrix.getByRole("rowheader", { name: "Supplier code" })).toBeVisible();
   await expect(statsDialog.getByText("CPX Research", { exact: false })).toBeVisible();
   await expect(statsDialog.getByText("Live starts", { exact: true })).toBeVisible();
   await expect(statsDialog.getByText("Reached client", { exact: true })).toBeVisible();
