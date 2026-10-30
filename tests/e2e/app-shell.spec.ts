@@ -27,6 +27,15 @@ test("desktop unified navigation and build identity are visible", async ({ page 
   await expect(page.getByLabel("ResearchOps AI assistant")).toBeVisible();
 });
 
+test("installable app assets are publicly available", async ({ request }) => {
+  const manifest = await request.get("/manifest.webmanifest");
+  expect(manifest.status()).toBe(200);
+  await expect(manifest.json()).resolves.toMatchObject({ name: "ResearchOps Fieldwork", display: "standalone", start_url: "/dashboard" });
+  const worker = await request.get("/sw.js");
+  expect(worker.status()).toBe(200);
+  await expect(worker.text()).resolves.toContain("researchops-network-only-v1");
+});
+
 test("workspace navigation changes routes without reloading the document", async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
@@ -47,9 +56,24 @@ test("workspace navigation changes routes without reloading the document", async
 });
 
 test("mobile navigation remains usable without the desktop toggle", async ({ page }) => {
+  test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+  for (const route of ["/dashboard", "/projects", "/projects/new", "/projects/PRJ-1048", "/respondents"]) {
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+    await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    if (route === "/dashboard") {
+      await page.evaluate(() => {
+        const prompt = new Event("beforeinstallprompt", { cancelable: true }) as Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted"; platform: string }> };
+        prompt.prompt = async () => {};
+        prompt.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
+        window.dispatchEvent(prompt);
+      });
+      await expect(page.getByRole("button", { name: "Install ResearchOps app" })).toBeVisible();
+    }
+  }
   await expect(page.getByRole("button", { name: /sidebar/i })).toBeHidden();
 });
 
@@ -79,13 +103,24 @@ test("client handoff exposes clean outcome URLs", async ({ page }) => {
 });
 
 test("project search, refresh, clear filters, metric views, and CSV download work", async ({ page }) => {
+  test.setTimeout(120_000);
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
   await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   await page.getByLabel("Project ID", { exact: true }).fill("PRJ-1048");
   await page.getByRole("button", { name: "Search projects" }).click();
-  await expect(page.getByRole("link", { name: "PRJ-1048-IN" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "PRJ-1048-IN" })).toBeVisible();
   await expect(page.getByText("PRJ-1047", { exact: true })).toHaveCount(0);
+
+  await page.locator(".project-center-table tbody tr").filter({ hasText: "PRJ-1048-IN" }).getByRole("button", { name: "Open →" }).click();
+  const actionDialog = page.getByRole("dialog", { name: "Digital Wallet Adoption" });
+  await expect(actionDialog.getByRole("link", { name: /Open Project/ })).toHaveAttribute("href", "/projects/PRJ-1048");
+  await expect(actionDialog.getByRole("button", { name: /Supplier View/ })).toBeVisible();
+  await expect(actionDialog.getByText("More actions", { exact: true })).toBeVisible();
+  const projectDownload = page.waitForEvent("download");
+  await actionDialog.getByRole("button", { name: /Download CSV/ }).click();
+  expect((await projectDownload).suggestedFilename()).toBe("PRJ-1048-project.csv");
+  await actionDialog.getByRole("button", { name: "Close" }).click();
 
   await page.getByRole("button", { name: "Test metrics" }).click();
   await expect(page.getByRole("columnheader", { name: "Test QT" })).toBeVisible();
@@ -93,7 +128,7 @@ test("project search, refresh, clear filters, metric views, and CSV download wor
   await expect(page.getByRole("columnheader", { name: "CO (%)" })).toBeVisible();
 
   await page.getByRole("button", { name: "Refresh projects" }).click();
-  await expect(page.getByRole("link", { name: "PRJ-1048-IN" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "PRJ-1048-IN" })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByLabel("Project ID", { exact: true })).toHaveValue("");
   await expect(page.getByText("PRJ-1047-US", { exact: true })).toBeVisible();

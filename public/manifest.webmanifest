@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "ResearchOps Fieldwork",
+  "short_name": "ResearchOps",
+  "description": "Research fieldwork operations, supplier performance and project delivery.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f8f6",
+  "theme_color": "#173a42",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Projects", "short_name": "Projects", "url": "/projects" },
+    { "name": "Respondents", "short_name": "Respondents", "url": "/respondents" },
+    { "name": "Analytics", "short_name": "Analytics", "url": "/analytics" }
+  ]
+}

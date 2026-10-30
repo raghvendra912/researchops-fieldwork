@@ -12,6 +12,7 @@ Overall state: GitHub `main` contains the screenshot-aligned Project Center, two
 
 - Save every new tool/project instruction in this tracker immediately as a pending task before implementation.
 - Preserve all existing workspace changes; do not discard or overwrite unfinished work.
+- If an agent/runtime limit interrupts active work, resume automatically from the recorded current task when capacity returns; do not wait for the user to repeat the instruction and do not redo already completed checks.
 - When an instruction is implemented and verified, commit and push the complete change, remove its pending entry, and retain a dated completion/session-log record. “Remove” applies only to the pending entry, never to completed code or repository history.
 - Batch related edits before verification. Run the complete verification command once at final handoff; after a failure, rerun only the failed or directly affected check instead of repeating already-passed commands.
 
@@ -87,6 +88,17 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Next task: browser-verify the updated editor in an authenticated hosted release after deployment; Decipium must configure its terminal redirects to the generated ResearchOps outcome URLs (or equivalent `rid` client-return links) before real respondents can automatically return from the external survey.
 
 ## Current focus
+
+## Project actions, mobile web, and Android install - 2026-10-30
+
+- Status: DONE locally. The Action-column Open control now opens an extensible project-actions popup with Open Project, Supplier View, single-project CSV download, and a clearly labeled reserved area for future approved actions.
+- Mobile web: strengthened the complete shell at 760px and below with safe-area-aware sticky header/bottom navigation, horizontally scrollable access to every primary and Settings/Admin destination, single-column filters/actions, contained tables, touch targets, and full-height mobile action/supplier modals. Representative 390x844 routes (Dashboard, Projects, New Project, Project Details, Respondents) have no document-level horizontal overflow.
+- Android application form: added a standards-based installable PWA manifest, scalable maskable icon, service-worker registration, install prompt, standalone display, and project/respondent/analytics shortcuts. The service worker is deliberately network-only; authenticated project, respondent, supplier, and API data are never written to an offline cache, so the installed application uses the same live authorization and functions as the browser tool.
+- Verification: TypeScript, focused ESLint, and `git diff --check` pass. Focused Chromium verifies public manifest/service-worker assets, the Android install prompt, mobile navigation/Settings access and width containment across five routes, and the Action popup including Open Project, Supplier View, reserved More actions space, and `<project>-project.csv` download. The production/test build succeeds and the standard suite passes 68 tests with 6 environment-gated skips and zero failures.
+- Decision: the installed app remains an online PWA rather than a separate native codebase, preventing browser/app behavior drift and avoiding sensitive-data caching. Installation is available through supporting Android browsers' Add to Home screen/Install app flow.
+- Current task: commit/push and confirm production deployment, health/readiness, manifest, and service-worker availability.
+- Next task: install from one real Android device and confirm authenticated sign-in plus a Project Center action end to end.
+- Session log (2026-10-30): added the extensible row-action popup and per-project CSV, hardened the responsive shell for the full tool, added network-only Android PWA installation, expanded browser coverage, and completed compile/lint/build/test verification.
 
 ## Project Center identity actions - 2026-10-30
 

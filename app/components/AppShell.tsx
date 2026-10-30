@@ -57,7 +57,7 @@ function NavLink({ href, label, glyph, secondary = false }: { href: string; labe
   const pathname = usePathname();
   const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
   return (
-    <Link className={["nav-link", active ? "active" : "", secondary ? "secondary-mobile" : ""].filter(Boolean).join(" ")} href={href} aria-current={active ? "page" : undefined}>
+    <Link className={["nav-link", active ? "active" : "", secondary ? "secondary-mobile" : ""].filter(Boolean).join(" ")} href={href} aria-current={active ? "page" : undefined} aria-label={label} title={label}>
       <span className="nav-glyph" aria-hidden="true">{glyph}</span>
       <span>{label}</span>
     </Link>

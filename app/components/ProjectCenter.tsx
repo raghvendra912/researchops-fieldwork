@@ -92,6 +92,7 @@ export function ProjectCenter() {
   const [linksLoading, setLinksLoading] = useState(false);
   const [linksError, setLinksError] = useState("");
   const [copiedLink, setCopiedLink] = useState("");
+  const [actionProject, setActionProject] = useState<Project | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setHydrated(true), 0);
@@ -195,6 +196,17 @@ export function ProjectCenter() {
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${linkProject.id}-supplier-stats-links.csv`; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
   }
 
+  function downloadProjectCsv(project: Project) {
+    const url = URL.createObjectURL(new Blob(["\uFEFF", projectsToCsv([project])], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${project.id}-project.csv`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function exportView() {
     if (meta.total === 0 || exporting) return;
     setExporting(true);
@@ -286,7 +298,7 @@ export function ProjectCenter() {
                   {trafficView === "live" ? <>{meta.fullPortfolio ? <><td>{project.clientCode || "—"}</td><td>{project.clientPo || "—"}</td></> : null}<td>{project.starts.toLocaleString()}</td><td>{project.reached.toLocaleString()}</td><td className="number-muted">{project.l24}</td><td><strong>{project.completes.toLocaleString()}</strong>/{project.quota?.toLocaleString() ?? "—"}</td><td>{project.terminates}</td><td className="number-muted">{project.overQuota}</td><td className="number-muted">{project.qualityTerm}</td><td>{Math.round(project.abandonRate)}%</td><td className="rate">{Math.round(project.incidenceRate)}%</td><td>{project.starts ? Math.round(100 * project.completes / project.starts) : 0}%</td>{meta.fullPortfolio ? <td>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(project.cpi)}</td> : null}</> : <><td>{project.testStarts ?? 0}</td><td>{project.testCompletes ?? 0}</td><td>{project.testTerminates ?? 0}</td><td>{project.testOverQuota ?? 0}</td><td>{project.testQualityTerm ?? 0}</td><td className="rate">{Math.round(testIncidence(project))}%</td></>}
                   <td><span className={`status-pill status-${project.status}`}>{statusLabel(project.status)}</span></td>
                   {trafficView === "live" && meta.fullPortfolio ? <><td>{project.secondaryManager ? `${project.manager} / ${project.secondaryManager}` : project.manager}</td><td>{shortDate(project.updatedAt ?? project.createdAt)}</td><td>{relativeTime(project.lastComplete)}</td></> : null}
-                  <td><Link className="button small ghost" href={`/projects/${project.id}`}>Open →</Link></td>
+                  <td><button className="button small ghost" type="button" onClick={() => setActionProject(project)}>Open →</button></td>
                 </tr>
               ))}
               {projects.length === 0 && <tr><td colSpan={trafficView === "live" ? (meta.fullPortfolio ? 20 : 14) : 10} style={{ textAlign: "center", padding: 36, color: "var(--muted)" }}>{loadError ? "No project data is available." : "No projects match these filters."}</td></tr>}
@@ -306,6 +318,18 @@ export function ProjectCenter() {
           </div>
         </div>
       </section>
+
+      {actionProject ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActionProject(null); }}>
+        <section aria-modal="true" className="panel links-modal project-action-modal" role="dialog" aria-labelledby="project-action-title">
+          <div className="section-head"><div><div className="eyebrow">Project actions</div><h2 id="project-action-title">{actionProject.name}</h2><p>{displayProjectId(actionProject)} · choose what you want to open or download</p></div><button className="button small ghost" type="button" onClick={() => setActionProject(null)}>Close</button></div>
+          <div className="project-action-grid">
+            <Link className="project-action-card" href={`/projects/${actionProject.id}`} onClick={() => setActionProject(null)}><strong>Open Project</strong><span>Open complete project details and configuration.</span><b aria-hidden="true">→</b></Link>
+            <button className="project-action-card" type="button" onClick={() => { const project = actionProject; setActionProject(null); void openSupplierLinks(project, "stats"); }}><strong>Supplier View</strong><span>Compare assigned supplier delivery statistics.</span><b aria-hidden="true">→</b></button>
+            <button className="project-action-card" type="button" onClick={() => downloadProjectCsv(actionProject)}><strong>Download CSV</strong><span>Download the current operational row for this project.</span><b aria-hidden="true">↓</b></button>
+          </div>
+          <div className="project-action-reserved"><strong>More actions</strong><span>Reserved for future approved project actions.</span></div>
+        </section>
+      </div> : null}
 
       {linkProject ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLinkProject(null); }}>
         <section aria-modal="true" className="panel links-modal project-supplier-links-modal" role="dialog" aria-labelledby="project-supplier-links-title">
