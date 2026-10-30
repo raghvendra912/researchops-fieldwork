@@ -97,6 +97,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: commit/push the verified fix and confirm Vercel production health/readiness.
 - Next task: authenticated production creation smoke-test confirming a real new project opens its persisted details page.
 - Session log (2026-10-30): traced the misleading post-create error to JSON parsing of a valid empty PostgREST response, repaired the request path, added API/browser regressions, and completed compile/lint/build/test verification.
+- Deployment result: commit `7927d1e` was pushed to `origin/main`; Vercel production deployment `dpl_4GwFPwZmDgNCd6FojfDzMmtaiQga` reached Ready and is aliased to `www.asrv.co.in`. Canonical health is `healthy`, readiness is `ready`, and `/projects/new` returns HTTP 200.
 
 ## Supplier comparison matrix view — 2026-10-30
 
@@ -107,6 +108,7 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Current task: commit/push the verified matrix and confirm the production deployment.
 - Next task: authenticated production visual confirmation on a project with multiple assigned suppliers.
 - Session log (2026-10-30): converted the supplier stats cards into the requested horizontal comparison matrix, preserved separate links and export workflows, added browser coverage, and completed compile/lint/build/test verification.
+- Deployment result: released with commit `7927d1e` in production deployment `dpl_4GwFPwZmDgNCd6FojfDzMmtaiQga`; canonical health/readiness checks pass.
 
 ## ResearchOps end page for every terminal status — 2026-10-26
 
