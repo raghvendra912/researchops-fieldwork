@@ -434,8 +434,8 @@ textarea.control { height: auto; min-height: 88px; resize: vertical; padding-top
 .selected-supplier-row .supplier-remove { top: 5px; right: 5px; }
 .survey-security-tab { min-height: 360px; }
 .survey-security-tab .security-check-grid { padding: 0; }
-.project-name-link { appearance: none; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
-.project-name-link:hover, .project-name-link:focus-visible { color: var(--navy); text-decoration-color: currentColor; }
+.project-name-link, .project-supplier-trigger { appearance: none; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+.project-name-link:hover, .project-name-link:focus-visible, .project-supplier-trigger:hover, .project-supplier-trigger:focus-visible { color: var(--navy); text-decoration-color: currentColor; }
 .project-detail-reference { margin-bottom: 10px; }
 .project-detail-reference-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 0 12px; }
 .project-detail-reference-head h1 { margin: 0; font-size: 16px; }

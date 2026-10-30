@@ -88,6 +88,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Project Center identity actions - 2026-10-30
+
+- Status: DONE locally. The screenshot's column order is unchanged: Project ID remains first and Project Name second.
+- Change: Project ID now opens Supplier View; Project Name now opens the Project Details route. Sticky columns and all metrics remain unchanged.
+- Verification: TypeScript, focused ESLint, and `git diff --check` pass. Existing supplier-view browser coverage now targets the Project ID trigger.
+- Current task: commit/push and confirm production deployment.
+- Next task: authenticated production click confirmation for both identity columns.
+- Session log (2026-10-30): clarified that the requested interchange applied to click functions rather than visual order, restored the original order, swapped the two actions, and completed focused static verification.
+
 ## Project creation success and details redirect - 2026-10-30
 
 - Status: DONE locally. The reported Create Project error occurred after the project RPC succeeded: the follow-up metadata PATCH correctly returned `204 No Content`, but the API attempted to parse that empty response as JSON and converted the successful creation into a generic database failure.

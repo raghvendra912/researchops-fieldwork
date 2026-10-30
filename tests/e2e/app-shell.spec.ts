@@ -262,7 +262,7 @@ test("project supplier comparison matrix and URLs open in separate views", async
   await page.goto("/projects", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
   await expect(page.getByRole("button", { name: "URLs" })).toHaveCount(0);
-  await page.locator(".project-name-link").first().click();
+  await page.locator(".project-supplier-trigger").first().click();
   const statsDialog = page.getByRole("dialog", { name: /.+/ });
   await expect(statsDialog.getByText("Suppliers view", { exact: true })).toBeVisible();
   const matrix = statsDialog.locator(".supplier-matrix");
