@@ -89,6 +89,20 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Production-readiness remediation (parallel workstreams) - 2026-11-01
+
+- Status: IN PROGRESS. The user requested fixing the 2026-11-01 audit findings end to end using parallel agents, and noted that an Android APK build of the tool is wanted later (keep the PWA/manifest intact and Android-packaging friendly; a Trusted Web Activity is the intended path).
+- Audit findings being addressed (verified in code on 2026-11-01; `npm test` = 68 passed, 0 failed, 6 environment-gated DB skips):
+  - WS-A (critical): per-session outcome URLs are unsigned, share one token across all four outcomes, and are exposed to the respondent browser via `complete_url`; legacy `/r/client` returns need only the fixed client token plus the visible session UUID. Respondents can self-complete. Settings falsely claims signed callbacks.
+  - WS-B: confirmed fraud flags, internal/vendor rejections, and speeding completes still count toward completes, supplier cost, and quota.
+  - WS-C: HTML pages lack security headers; rate limiter is per-instance memory on Vercel; `/api/readiness` never checks the database; request-size/secret helpers unused; no CI workflow; no error-tracking hook.
+  - WS-D: no scheduler — abandonment reconciled only on reads, `purge_expired_survey_response_values` never invoked, `PACING_RISK`/`QUOTA_REACHED`/`CALLBACK_FAILURE` never emitted, email toggle sends nothing.
+  - WS-E: project creation is four non-atomic calls; inviting an email that already has an account fails; workspace timezone unused in exports; no project clone/archive.
+  - WS-F: no audit-log viewer; no MFA.
+  - WS-G (user request 2026-11-01): record-level visibility. Each user must see only the clients/projects/respondent data their profile is designed for — record ownership, organization-wide defaults, client-level team assignment, and sharing settings (sharing rules + manual shares), enforced in the database (RLS) and reflected in the UI.
+- Migration numbers reserved: `046` WS-A, `047` WS-B, `048` WS-C, `049` WS-D, `050` WS-E, `051` WS-F, `052` WS-G. Hosted migrations are NOT applied and nothing is pushed/deployed without explicit user approval.
+- Still blocked on external decisions (not in scope): financial model/billing, provider sandbox certification, Flamingo contract.
+
 ## Project actions, mobile web, and Android install - 2026-10-30
 
 - Status: DONE locally. The Action-column Open control now opens an extensible project-actions popup with Open Project, Supplier View, single-project CSV download, and a clearly labeled reserved area for future approved actions.
