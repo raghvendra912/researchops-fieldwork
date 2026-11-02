@@ -183,3 +183,7 @@ npm run test:e2e
 ```
 
 Complete product and technical behavior is documented in [docs/PRODUCT_AND_TECHNICAL_GUIDE.md](docs/PRODUCT_AND_TECHNICAL_GUIDE.md). The target user hierarchy and prioritized market-research gap analysis are in [docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md](docs/ROLE_HIERARCHY_AND_GAP_ANALYSIS.md). Operational procedures are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Shared rate limiting
+
+Migration `056` adds a Postgres-backed rate limiter (`check_rate_limit`, service role only). `checkSharedRateLimit` in `worker/lib/rate-limit.ts` uses it so limits hold across serverless instances, and falls back to the in-memory limiter if the database call fails or exceeds 800 ms. Postback endpoints use it today; call `purgeSharedRateLimitBuckets` from maintenance to prune stale buckets.

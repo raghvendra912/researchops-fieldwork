@@ -12,7 +12,7 @@ import { recordEvent, type SupplierRow } from "./redirects";
 import { validSignature, type EventEnv } from "./events";
 import { isValidClientSecretEnvName } from "../domain/client-signing";
 import { serviceRows } from "../lib/supabase-read";
-import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
+import { checkSharedRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { requestId, safeLog } from "../lib/observability";
 
 const outcomes = {
@@ -43,7 +43,7 @@ export async function handleClientPostbackApi(request: Request, pathname: string
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return reply({ error: "Postbacks are not configured" }, 503);
 
   const id = requestId(request);
-  const limited = checkRateLimit(`postback:${match[1]}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 300, 60);
+  const limited = await checkSharedRateLimit(env, `postback:${match[1]}`, 300, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
   if (!limited.allowed) return rateLimitResponse(limited);
 
   const rawBody = await request.text();
