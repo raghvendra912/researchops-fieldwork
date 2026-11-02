@@ -89,6 +89,14 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Deployment of 046-055 and the routing work - 2026-11-02
+
+- Status: DEPLOYED to production (`https://www.asrv.co.in`) via push to `github/main` (merge `56447d6`, cron fix `e89cd80`). Migrations `046`-`055` were applied to the linked Supabase project first.
+- Incident: the first deployment (`2hna7psbi`) ended in Error. The only deploy-config change since the last good build was the `0 */4 * * *` maintenance cron in `vercel.json`, which Vercel Hobby does not allow. Changing it to daily (`0 3 * * *`) produced a Ready deployment (`7yadwyk7b`). Cause inferred from that change, not from a build log (the CLI returned none). Consequence: abandonment reconciliation and partition upkeep now run once a day, not every 4 hours; upgrade the Vercel plan to restore 4-hourly runs.
+- Parallel work: another contributor pushed a competing routing implementation (`99deddc`) that was superseded by decision of the user; see the SUPERSEDED entry. The workspace owner should tell contributors that routing belongs to migrations `054`/`055`.
+- Smoke test (production): `/api/health` and `/api/readiness` 200; a click on an unknown supplier token returned 404 with an `ro_vid` HttpOnly cookie and created a `routing_hits` row (decision INACTIVE, hop SUPPLIER_ENTRY, route_kind supplier, visitor id present). That one test row (respondent SMOKE1) remains in `routing_hits`.
+- Not yet done: authenticated browser smoke test; a real accepted click and client return; a pilot client with `CLIENT_<NAME>_SECRET` on HOLD.
+
 ## Signed client returns and held completes (Phase 2 of the click-tracking plan) - 2026-11-02
 
 - Status: DATABASE APPLIED 2026-11-02 (migrations `046`-`055` pushed to linked production project `cmrktkzdptmywrtscalu` with `supabase db push`, after a dry run listed exactly those ten; remote history now matches local through `055`). Hosted checks: 3 routing_hits partitions, RLS on, both client signing columns, 7 new functions, 4 outcome-token columns present. The Worker/app code is NOT deployed, so hit logging, signed returns and postbacks are not live yet; no secrets exist; no `CLIENT_<NAME>_SECRET` exists anywhere; nothing here has run on a deployed Worker or been driven in a browser.
