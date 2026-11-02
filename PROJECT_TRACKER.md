@@ -128,6 +128,12 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Not verified: rendering and clicking in a browser; the PostgREST `project_suppliers(suppliers(name))` embed and the `!inner` project filter against the hosted database (written to match existing embeds but never executed). Each list is capped at 100 rows, so the badge shows "100+" beyond that.
 - Current task: none in progress. Next: browser check of /fraud signed in; confirm the supplier embed returns names on hosted data.
 
+## Browser (Playwright) verification in demo mode - 2026-11-02
+
+- Status: DONE locally. Playwright 1.63 and its Chromium were already installed (nothing to install). Full Chromium suite against the local demo-mode app: 25 passed (18 existing + 7 new in `tests/e2e/routing-features.spec.ts`, covering the supplier funnel page, funnel navigation without a reload, the Fraud review held-completes tab, rule/status/project filters and friendly labels, whitelisted fraud-list query parameters, the respondent click timeline, the hidden return-signing section in demo mode, and anonymous refusal of the new APIs).
+- Fixed along the way: a stale `.vinext/dev/lock.json` (gitignored runtime file naming a recycled PID) blocked the dev server; removed it. Six older project-page tests failed because `getByLabel("Tool")` also matched the long-existing "Flamingo Tool" nav link; they now use `{ exact: true }`. My own new test had the same substring problem with "Clicks" vs "Rejected clicks".
+- NOT verified: signed-in behaviour against real Supabase (funnel numbers, held-queue Release/Reject, the return-signing form, the click timeline with real hits). Demo mode cannot exercise these; needs a signed-in session or a seeded test workspace.
+
 ## Phase 4 and held-completes queue deployed; latency finding - 2026-11-02
 
 - Status: DEPLOYED (`main` `d6b38d5`, no new migrations; production deployment Ready). Includes: parallel entry reads plus a <=60s config cache for rules, quota cells and marketplace config (status and quota are never cached), `Server-Timing` on entry redirects, the Fraud review "Held completes" tab with Release/Reject, and rule/status/project filters. Verified before deploy: tsc and ESLint clean, `npm test` 194 tests, 188 pass, 0 fail, 6 environment-gated skips. Production smoke: health/readiness 200, funnel page 200, funnel and fraud APIs 401 without a session, `Server-Timing` present.

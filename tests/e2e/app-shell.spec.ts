@@ -172,7 +172,7 @@ test("respondent operations can refresh newly routed statuses", async ({ page })
 test("secondary PM and sales ownership can be edited in demo mode", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByLabel("Tool").selectOption("ownership");
+  await page.getByLabel("Tool", { exact: true }).selectOption("ownership");
   await expect(page.getByRole("heading", { name: "Project ownership" })).toBeVisible();
   await page.getByRole("button", { name: "Edit ownership" }).click();
   await page.getByLabel("Secondary PM").selectOption("00000000-0000-4000-8000-000000000012");
@@ -190,7 +190,7 @@ test("Flamingo Tool is a planned integration placeholder", async ({ page }) => {
 test("supplier delivery separates test starts from live metrics", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByLabel("Tool").selectOption("suppliers");
+  await page.getByLabel("Tool", { exact: true }).selectOption("suppliers");
   await expect(page.getByRole("heading", { name: "Supplier delivery" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "TST" })).toHaveAttribute("title", "Test starts");
   await expect(page.getByText("Test hits are separated from live delivery and cost.")).toBeVisible();
@@ -199,7 +199,7 @@ test("supplier delivery separates test starts from live metrics", async ({ page 
 test("supplier routing links open in a separated bordered dialog", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByLabel("Tool").selectOption("suppliers");
+  await page.getByLabel("Tool", { exact: true }).selectOption("suppliers");
   await page.getByRole("button", { name: "Links" }).click();
 
   const dialog = page.getByRole("dialog", { name: "CPX Research links" });
@@ -216,7 +216,7 @@ test("supplier routing links open in a separated bordered dialog", async ({ page
 test("project eligibility rules are visible and editable", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByLabel("Tool").selectOption("eligibility");
+  await page.getByLabel("Tool", { exact: true }).selectOption("eligibility");
   await expect(page.getByRole("heading", { name: "Eligibility rules" })).toBeVisible();
   await expect(page.getByText("country", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).last().click();
@@ -227,7 +227,7 @@ test("project eligibility rules are visible and editable", async ({ page }) => {
 test("interlocked quota cells are visible and editable", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByLabel("Tool").selectOption("quotas");
+  await page.getByLabel("Tool", { exact: true }).selectOption("quotas");
   await expect(page.getByRole("heading", { name: "Interlocked quota cells" })).toBeVisible();
   await expect(page.getByText("India · age 21–34", { exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Filled" })).toBeVisible();
@@ -241,7 +241,7 @@ test("interlocked quota cells are visible and editable", async ({ page }) => {
 test("project leads can manage role-compatible project access", async ({ page }) => {
   await page.goto("/projects/PRJ-1048", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
-  await page.getByLabel("Tool").selectOption("access");
+  await page.getByLabel("Tool", { exact: true }).selectOption("access");
   await expect(page.getByRole("heading", { name: "Project team access" })).toBeVisible();
   await expect(page.getByText("Kabir Rao", { exact: true })).toBeVisible();
   await expect(page.getByText("REVIEWER", { exact: true })).toBeVisible();
