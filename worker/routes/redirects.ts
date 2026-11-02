@@ -4,15 +4,43 @@ import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
 import { hasUnresolvedClientAttemptId, outcomeRouteFromSession, parseAssignmentRoute, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
 import { requestId, safeLog } from "../lib/observability";
+import { checkClientReturn, type ClientSigningConfig, type ReturnCheck } from "../domain/client-signing";
+import { buildRoutingHit, hostOf, insertRoutingHit, readVisitorId, uuidv7, visitorCookie, type RoutingHop, type RoutingTrace } from "../lib/routing-hits";
 import { eligibilityAnswers, evaluateEligibility, type EligibilityRule } from "../domain/eligibility";
 import { matchingQuotaCellIds, type QuotaCell } from "../domain/quota";
 import { buildSurveyUrl, type SurveyParameter } from "../domain/survey-url";
 import { serviceRows } from "../lib/supabase-read";
+import { isValidSecretEnvName } from "../domain/marketplace";
+import { adapterFor, type MarketplaceConfig } from "../providers/marketplace";
+import { getSigningSecret, signOutcome, verifyOutcomeSignature } from "../lib/outcome-signatures";
+
+// A project whose client belongs to a marketplace may need a signed entry link.
+// The lookup is cached briefly; a missing `marketplaces` table (migration 053 not
+// applied yet) simply means "not a marketplace", so routing never depends on it.
+type MarketplaceEntry = { provider: string; config: MarketplaceConfig };
+const marketplaceEntryCache = new Map<string, { value: MarketplaceEntry | null; expires: number }>();
+async function marketplaceEntry(env: EventEnv, clientId: string | null | undefined): Promise<MarketplaceEntry | null> {
+  if (!clientId) return null;
+  const cached = marketplaceEntryCache.get(clientId);
+  if (cached && cached.expires > Date.now()) return cached.value;
+  try {
+    const rows = await serviceRows<{ provider: string; config: MarketplaceConfig | null }>(env, `/rest/v1/marketplaces?select=provider,config&client_id=eq.${encodeURIComponent(clientId)}&status=eq.ACTIVE&limit=1`);
+    const value = rows[0] ? { provider: rows[0].provider, config: rows[0].config ?? {} } : null;
+    if (marketplaceEntryCache.size > 500) marketplaceEntryCache.clear();
+    marketplaceEntryCache.set(clientId, { value, expires: Date.now() + 60_000 });
+    return value;
+  } catch (error) {
+    const missingTable = error instanceof Error && /status 404/.test(error.message);
+    if (missingTable) marketplaceEntryCache.set(clientId, { value: null, expires: Date.now() + 300_000 });
+    else safeLog("warn", "marketplace_entry_lookup_failed", { error: error instanceof Error ? error.message : "unknown" });
+    return null;
+  }
+}
 
 type RedirectEnv = EventEnv;
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
-type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
-type LiveProject = { id: string; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; geo_security_enabled?: boolean; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
+export type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
+type LiveProject = { id: string; client_id?: string | null; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; geo_security_enabled?: boolean; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
 type LiveAssignment = { id: string; supplier_id: string; target_quota: number; status: string; projects: LiveProject | LiveProject[]; suppliers?: SupplierRow | SupplierRow[] };
 type EligibilityRow = { variable_key: string; operator: EligibilityRule["operator"]; values: unknown; required: boolean; active: boolean };
 type QuotaCellRow = { id: string; name: string; target_quota: number; priority: number; active: boolean; conditions: unknown };
@@ -109,7 +137,7 @@ function clientIpAddress(request: Request) {
   return ipv4 || ipv6 ? candidate : "";
 }
 
-async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false, context: Record<string, unknown> = {}) {
+export async function recordEvent(request: Request, env: RedirectEnv, supplier: SupplierRow, projectCode: string, respondentRef: string, eventType: string, source = "redirect", isTest = false, context: Record<string, unknown> = {}) {
   const metadata = await riskMetadata(request, new URL(request.url).searchParams.get("device"), env.FRAUD_HASH_SECRET);
   return ingestNormalizedEvent({ organizationId: supplier.organization_id, projectCode, supplierId: supplier.id, respondentRef, eventType, providerTransactionId: `${eventType}:${respondentRef}`, isTest, metadata: { ...metadata, source, isTest, deviceType: deviceType(request), browserType: browserType(request), osType: operatingSystem(request), ...context } }, env);
 }
@@ -130,7 +158,53 @@ async function supplierByToken(env: RedirectEnv, token: string) {
   return rows.length === 1 ? rows[0] : undefined;
 }
 
-export async function handleRedirectApi(request: Request, pathname: string, env: RedirectEnv): Promise<Response | null> {
+type RedirectContext = { waitUntil(promise: Promise<unknown>): void };
+
+/**
+ * Reads the client's return-signing policy. A 400 from PostgREST means migration 055 is not
+ * applied yet (unknown column), which behaves as policy OFF; any other failure propagates so a
+ * client that requires signatures is never silently downgraded.
+ */
+async function clientReturnCheck(env: RedirectEnv, clientId: string | null | undefined, sessionId: string, outcome: string, provided: string | null): Promise<ReturnCheck> {
+  let config: ClientSigningConfig | undefined;
+  if (clientId) {
+    try { config = (await serviceRows<ClientSigningConfig>(env, `/rest/v1/clients?select=signing_secret_env,signed_return_policy&id=eq.${encodeURIComponent(clientId)}&limit=1`))[0]; }
+    catch (error) { if (!(error instanceof Error && /upstream status 400\b/.test(error.message))) throw error; }
+  }
+  return checkClientReturn(config, env as unknown as Record<string, unknown>, sessionId, outcome, provided);
+}
+
+/**
+ * Routes the request, then logs one routing_hits row (accepted or rejected) without
+ * delaying the response. Logging only happens when an execution context is supplied.
+ */
+export async function handleRedirectApi(request: Request, pathname: string, env: RedirectEnv, ctx?: RedirectContext): Promise<Response | null> {
+  const startedAt = Date.now();
+  const trace: RoutingTrace = {};
+  let response = await routeRedirect(request, pathname, env, trace);
+  if (!response) return null;
+  const isEntry = Boolean(parseSupplierRoute(pathname) ?? parseSupplierShortRoute(pathname) ?? parseAssignmentRoute(pathname));
+  const hop: RoutingHop = isEntry ? "SUPPLIER_ENTRY" : "CLIENT_RETURN";
+  const existingVisitor = readVisitorId(request);
+  const visitorId = existingVisitor ?? uuidv7();
+  if (isEntry && !existingVisitor) {
+    const tagged = new Response(response.body, response);
+    tagged.headers.append("set-cookie", visitorCookie(visitorId));
+    response = tagged;
+  }
+  if (ctx && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+    const finalResponse = response;
+    const routeKind = isEntry ? (parseAssignmentRoute(pathname) ? "assignment" : "supplier") : parseOutcomeRoute(pathname) ? "outcome" : "client";
+    if (!trace.targetHost) trace.targetHost = hostOf(finalResponse.headers.get("location"));
+    ctx.waitUntil((async () => {
+      const row = await buildRoutingHit({ request, env, trace, hop, routeKind, status: finalResponse.status, clickId: uuidv7(), visitorId, latencyMs: Date.now() - startedAt });
+      await insertRoutingHit(env, row);
+    })());
+  }
+  return response;
+}
+
+async function routeRedirect(request: Request, pathname: string, env: RedirectEnv, trace: RoutingTrace): Promise<Response | null> {
   const supplierRoute = parseSupplierRoute(pathname) ?? parseSupplierShortRoute(pathname);
   const assignmentRoute = parseAssignmentRoute(pathname);
   const clientRoute = parseClientRoute(pathname);
@@ -153,7 +227,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       let supplier: SupplierRow | undefined;
       if (assignmentRoute) {
         routingStage = "masked assignment lookup";
-        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,suppliers(${SUPPLIER_COLUMNS}),projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&id=eq.${encodeURIComponent(assignmentRoute.token)}&limit=1`);
+        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,suppliers(${SUPPLIER_COLUMNS}),projects!inner(id,client_id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&id=eq.${encodeURIComponent(assignmentRoute.token)}&limit=1`);
         assignment = rows[0];
         project = assignment ? first(assignment.projects) ?? undefined : undefined;
         supplier = assignment ? first(assignment.suppliers) ?? undefined : undefined;
@@ -161,6 +235,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         routingStage = "supplier lookup";
         supplier = await supplierByToken(env, supplierRoute!.token);
       }
+      if (supplier) { trace.organizationId = supplier.organization_id; trace.supplierId = supplier.id; }
+      if (!supplier || supplier.status !== "ACTIVE") trace.decision = "INACTIVE";
       if (!supplier || supplier.status !== "ACTIVE") return help("Supplier link is inactive", 404, { fix: "Set the supplier status to ACTIVE in the Supplier directory." });
       if (supplierRoute?.mode === "test") {
         const outcome = (url.searchParams.get("outcome") ?? "complete").toLowerCase() as Outcome;
@@ -176,18 +252,23 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!limited.allowed) return rateLimitResponse(limited);
       const projectCode = project?.project_code ?? readProjectCode(url.searchParams);
       const respondentRef = readRespondentRef(url.searchParams);
+      trace.respondentRef = respondentRef || undefined;
+      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) trace.decision = "INVALID";
       if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help(assignmentRoute ? "ARID is required" : "Project and respondent are required", 400, { fix: assignmentRoute ? `/l/${assignmentRoute.token}?arid=UNIQUE-ID` : ROUTING_HELP.supplierLiveExample });
       if (!assignment) {
         routingStage = "project assignment lookup";
-        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
+        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,client_id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
         assignment = rows[0]; project = assignment ? first(assignment.projects) ?? undefined : undefined;
       }
+      if (!assignment || !project) trace.decision = "NOT_ASSIGNED"; else trace.projectId = project.id;
       if (!assignment || !project) return help("The supplier is not assigned to this project.", 404, { fix: "Assign this supplier to the project in Project details → Supplier delivery." });
       if (!await supplierScopedRefReady(env)) {
         const priorSessions = await serviceRows<{ project_supplier_id: string | null }>(env, `/rest/v1/survey_sessions?select=project_supplier_id&project_id=eq.${encodeURIComponent(project.id)}&respondent_ref=eq.${encodeURIComponent(respondentRef)}&limit=1`);
+        if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) trace.decision = "DUPLICATE";
         if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) return help("This supplier attempt ID is already used by another source on this project", 409, { fix: "Send a unique respondent value for every launch, or apply migration 039 for assignment-scoped IDs." });
       }
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
+        trace.decision = "PAUSED";
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
         return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : help("Project traffic is not active", 409, { fix: "Set the project to LIVE and the supplier assignment to ACTIVE." });
       }
@@ -197,6 +278,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const market = project.project_markets?.[0]; const sessionContext = { countryCode: /^[A-Za-z]{2}$/.test(answers.country ?? "") ? answers.country!.toUpperCase() : market?.country_code, languageCode: /^[A-Za-z]{2}$/.test(answers.language ?? "") ? answers.language!.toLowerCase() : market?.language_code, responseVariables: answers };
       const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), answers);
       if (!eligibility.eligible) {
+        trace.decision = "INELIGIBLE";
         const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
         if (!start.ok) return help("The respondent session could not be started", 502, { stage: routingStage });
         await recordEvent(request, env, supplier, projectCode, respondentRef, "TERMINATE", `eligibility:${eligibility.failedRule ?? "rule"}`, isTest, { reasonCode: "ELIGIBILITY_SCREEN_OUT" });
@@ -208,6 +290,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         const quotaCells: QuotaCell[] = quotaRows.map((cell) => ({ id: cell.id, name: cell.name, targetQuota: cell.target_quota, priority: cell.priority, active: cell.active, conditions: (Array.isArray(cell.conditions) ? cell.conditions : []).map((condition) => { const value = condition as Record<string, unknown>; return { variableKey: String(value.variable_key ?? ""), operator: String(value.operator ?? "EQ") as EligibilityRule["operator"], values: Array.isArray(value.values) ? value.values.map(String) : [], required: value.required !== false, active: true }; }) }));
         const reservations = await serviceRpc<QuotaReservationRow>(env, "reserve_project_quota", { p_organization_id: supplier.organization_id, p_project_code: projectCode, p_supplier_id: supplier.id, p_respondent_ref: respondentRef, p_matching_cell_ids: matchingQuotaCellIds(quotaCells, answers) });
         if (!reservations[0]?.allowed) {
+        trace.decision = "QUOTA_FULL";
           await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL", `quota:${reservations[0]?.reason ?? "full"}`, false, { reasonCode: "QUOTA_FULL" });
           return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("The requested quota is full", 409);
         }
@@ -216,6 +299,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       routingStage = "respondent start";
       const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
+      trace.sessionId = startBody?.data?.sessionId;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return help("The respondent session could not be started", 502, { stage: routingStage }); }
       const geo = geoEvidence(request, project.geo_security_enabled === true, project.project_markets.map((item) => item.country_code));
       if (startBody?.data?.sessionId) {
@@ -223,6 +307,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
         catch (error) { safeLog("warn", "session_network_context_capture_failed", { path: pathname, error: error instanceof Error ? error.message : "Unknown network-context failure" }); }
       }
       if (geo.status === "MISMATCH") {
+        trace.decision = "SECURITY";
         if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "geo-security", isTest, { reasonCode: "GEO_COUNTRY_MISMATCH", detectedCountry: geo.countryCode });
         return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : help("The respondent location does not match the project market", 403);
@@ -246,7 +331,20 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       const sessionRows = await serviceRows<{ outcome_token: string }>(env, `/rest/v1/survey_sessions?select=outcome_token&id=eq.${encodeURIComponent(sessionId)}&limit=1`);
       const outcomeToken = sessionRows[0]?.outcome_token;
       if (!outcomeToken) return help("The respondent outcome route could not be created", 502, { stage: routingStage });
-      const callback = (outcome: Outcome) => outcomeRouteFromSession(url.origin, outcomeToken, outcome);
+      const secret = getSigningSecret(env);
+      const [completeSig, terminateSig, quotaFullSig, securityTerminateSig] = await Promise.all([
+        signOutcome(outcomeToken, "complete", secret),
+        signOutcome(outcomeToken, "terminate", secret),
+        signOutcome(outcomeToken, "quota-full", secret),
+        signOutcome(outcomeToken, "security-terminate", secret),
+      ]);
+      const callback = (outcome: Outcome) => {
+        const sig = outcome === "complete" ? completeSig
+          : outcome === "terminate" ? terminateSig
+          : outcome === "quota-full" ? quotaFullSig
+          : securityTerminateSig;
+        return outcomeRouteFromSession(url.origin, outcomeToken, outcome, sig);
+      };
       const configuredParameters = Array.isArray(project.survey_parameters) ? project.survey_parameters.filter((value): value is SurveyParameter => { const item = value as Partial<SurveyParameter>; return typeof item?.name === "string" && typeof item?.value === "string"; }) : [];
       const surveyUrl = buildSurveyUrl(surveyTemplate, configuredParameters, { ...answers, project_id: projectCode, transaction_id: sessionId, respondent_id: respondentRef, session_id: sessionId, complete_url: callback("complete"), terminate_url: callback("terminate"), quota_full_url: callback("quota-full"), security_terminate_url: callback("security-terminate") });
       if (!surveyUrl.searchParams.has("rid")) surveyUrl.searchParams.set("rid", sessionId);
@@ -254,22 +352,51 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
       if (!surveyUrl.searchParams.has("terminate_url")) surveyUrl.searchParams.set("terminate_url", callback("terminate"));
       if (!surveyUrl.searchParams.has("quota_full_url")) surveyUrl.searchParams.set("quota_full_url", callback("quota-full"));
       if (!surveyUrl.searchParams.has("security_terminate_url")) surveyUrl.searchParams.set("security_terminate_url", callback("security-terminate"));
+      let destination = surveyUrl.toString();
+      const marketplace = await marketplaceEntry(env, project.client_id);
+      if (marketplace?.config.entrySigning?.enabled) {
+        routingStage = "marketplace entry link";
+        const secretEnv = marketplace.config.secretEnv;
+        destination = await adapterFor(marketplace.provider).buildEntryUrl(destination, marketplace.config, isValidSecretEnvName(secretEnv) ? (env as unknown as Record<string, string | undefined>)[secretEnv] : undefined);
+      }
       routingStage = "client reached event";
       await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT", isTest ? "test-redirect" : "redirect", isTest);
       const clientToken = first(project.clients)?.redirect_token;
-      return redirect(surveyUrl.toString(), clientToken ? { "set-cookie": routingSessionCookie(sessionId, clientToken) } : {});
+      return redirect(destination, clientToken ? { "set-cookie": routingSessionCookie(sessionId, clientToken) } : {});
     }
 
     if (outcomeRoute) {
       const quotaReservationId = clean(url.searchParams.get("quota_reservation_id") ?? url.searchParams.get("reservation_id"), 80) || undefined;
-      const outcomeSessions = await serviceRows<{ respondent_ref: string; status: string; is_test: boolean; projects: { project_code: string } | { project_code: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=respondent_ref,status,is_test,projects!inner(project_code),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))&outcome_token=eq.${encodeURIComponent(outcomeRoute.token)}&limit=1`);
+      const signature = url.searchParams.get("sig");
+      const secret = getSigningSecret(env);
+      if (signature) {
+        const isValid = await verifyOutcomeSignature(outcomeRoute.token, outcomeRoute.outcome, signature, secret);
+        if (!isValid) return help("The respondent outcome signature is invalid", 403, { stage: "outcome signature verification" });
+      }
+      const tokenField = outcomeRoute.outcome === "complete" ? "complete_token"
+        : outcomeRoute.outcome === "terminate" ? "terminate_token"
+        : outcomeRoute.outcome === "quota-full" ? "quota_full_token"
+        : "security_terminate_token";
+      const sessionSelect = "id,respondent_ref,status,is_test,projects!inner(project_code,client_id),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))";
+      let outcomeSessions = await serviceRows<{ respondent_ref: string; status: string; is_test: boolean; projects: { project_code: string } | { project_code: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=${sessionSelect}&${tokenField}=eq.${encodeURIComponent(outcomeRoute.token)}&limit=1`).catch(() => []);
+      if (!outcomeSessions.length) {
+        outcomeSessions = await serviceRows<{ respondent_ref: string; status: string; is_test: boolean; projects: { project_code: string } | { project_code: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] }>(env, `/rest/v1/survey_sessions?select=${sessionSelect}&outcome_token=eq.${encodeURIComponent(outcomeRoute.token)}&limit=1`);
+      }
       const outcomeSession = outcomeSessions[0]; const outcomeProject = outcomeSession ? first(outcomeSession.projects) : undefined; const outcomeAssignment = outcomeSession ? first(outcomeSession.project_suppliers) : undefined; const outcomeSupplier = outcomeAssignment ? first(outcomeAssignment.suppliers) : undefined;
       if (!outcomeSession || !outcomeProject || !outcomeSupplier) return help("Respondent routing session was not found", 404, { fix: "Open this outcome link only from a fresh supplier launch; each session token works once." });
+      trace.organizationId = outcomeSupplier.organization_id; trace.supplierId = outcomeSupplier.id; trace.respondentRef = outcomeSession.respondent_ref; trace.sessionId = (outcomeSession as unknown as { id?: string }).id;
       const terminalStatuses = new Set(["COMPLETE", "TERMINATE", "QUOTA_FULL", "QUALITY_TERMINATE", "ABANDON"]);
       const expectedEvent = outcomes[outcomeRoute.outcome].eventType;
       if (terminalStatuses.has(outcomeSession.status) && outcomeSession.status !== expectedEvent) return help(`This respondent is already recorded as ${outcomeSession.status.toLowerCase().replaceAll("_", " ")}`, 409);
       const reasonCode = expectedEvent === "TERMINATE" ? "CLIENT_TERMINATE" : expectedEvent === "QUOTA_FULL" ? "QUOTA_FULL" : expectedEvent === "QUALITY_TERMINATE" ? "QUALITY_REJECT" : undefined;
-      const result = await recordEvent(request, env, outcomeSupplier, outcomeProject.project_code, outcomeSession.respondent_ref, expectedEvent, "client-outcome", outcomeSession.is_test, reasonCode ? { reasonCode } : {});
+      let returnVerification: string | undefined;
+      if (outcomeSession.status !== expectedEvent) {
+        routingStage = "client return verification";
+        const check = await clientReturnCheck(env, (outcomeProject as unknown as { client_id?: string }).client_id, trace.sessionId ?? "", outcomeRoute.outcome, url.searchParams.get("h"));
+        if (!check.ok) { trace.decision = "SECURITY"; return help(check.reason, check.status, { stage: routingStage }); }
+        returnVerification = check.verification;
+      }
+      const result = await recordEvent(request, env, outcomeSupplier, outcomeProject.project_code, outcomeSession.respondent_ref, expectedEvent, "client-outcome", outcomeSession.is_test, { ...(reasonCode ? { reasonCode } : {}), ...(returnVerification ? { returnVerification } : {}) });
       if (!result.ok) return help("The respondent outcome could not be recorded", 502, { stage: "respondent outcome" });
       if (quotaReservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: quotaReservationId }).catch(() => []);
       const target = outcomeSupplier[outcomes[outcomeRoute.outcome].field];
@@ -288,7 +415,7 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     const clients = await serviceRows<{ id: string }>(env, `/rest/v1/clients?select=id&redirect_token=eq.${encodeURIComponent(clientRoute!.token)}&limit=1`); if (!clients[0]) return help("Client link was not found", 404);
     const projectFilter = requestedProjectCode ? `projects.project_code=eq.${encodeURIComponent(requestedProjectCode)}` : `projects.client_id=eq.${clients[0].id}`;
     type ClientSession = { respondent_ref: string; is_test: boolean; projects: { project_code: string; client_id: string } | { project_code: string; client_id: string }[]; project_suppliers: { suppliers: SupplierRow | SupplierRow[] } | { suppliers: SupplierRow | SupplierRow[] }[] };
-    const sessionSelect = "respondent_ref,is_test,projects!inner(project_code,client_id),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))";
+    const sessionSelect = "id,respondent_ref,status,is_test,projects!inner(project_code,client_id),project_suppliers(suppliers(id,organization_id,status,redirect_mode,complete_url,terminate_url,quota_full_url,security_terminate_url))";
     const sessionQuery = (field: "id" | "respondent_ref") => `/rest/v1/survey_sessions?select=${sessionSelect}&${field}=eq.${encodeURIComponent(clientAttemptId)}&${projectFilter}&order=started_at.desc&limit=${field === "id" ? 1 : 2}`;
     const isSessionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientAttemptId);
     let sessions = isSessionId ? await serviceRows<ClientSession>(env, sessionQuery("id")) : [];
@@ -299,9 +426,17 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     }
     const session = sessions[0]; const project = session ? first(session.projects) : undefined; const assignment = session ? first(session.project_suppliers) : undefined; const supplier = assignment ? first(assignment.suppliers) : undefined;
     if (!session || !project || project.client_id !== clients[0].id || !supplier) return help("Respondent routing session was not found", 404, { fix: "Return the ResearchOps session UUID received at survey entry, and include ?project=ROP-XXX." });
+    trace.organizationId = supplier.organization_id; trace.supplierId = supplier.id; trace.respondentRef = session.respondent_ref; trace.sessionId = (session as unknown as { id?: string }).id;
     const projectCode = project.project_code;
     const eventType = outcomes[outcome].eventType; const reasonCode = eventType === "TERMINATE" ? "CLIENT_TERMINATE" : eventType === "QUOTA_FULL" ? "QUOTA_FULL" : eventType === "QUALITY_TERMINATE" ? "QUALITY_REJECT" : undefined;
-    const result = await recordEvent(request, env, supplier, projectCode, session.respondent_ref, eventType, "client-outcome", session.is_test, reasonCode ? { reasonCode } : {}); if (!result.ok) return help("The respondent outcome could not be recorded", 502, { stage: "respondent outcome" });
+    let returnVerification: string | undefined;
+    if ((session as unknown as { status?: string }).status !== eventType) {
+      routingStage = "client return verification";
+      const check = await clientReturnCheck(env, clients[0].id, trace.sessionId ?? "", outcome, url.searchParams.get("h"));
+      if (!check.ok) { trace.decision = "SECURITY"; return help(check.reason, check.status, { stage: routingStage }); }
+      returnVerification = check.verification;
+    }
+    const result = await recordEvent(request, env, supplier, projectCode, session.respondent_ref, eventType, "client-outcome", session.is_test, { ...(reasonCode ? { reasonCode } : {}), ...(returnVerification ? { returnVerification } : {}) }); if (!result.ok) return help("The respondent outcome could not be recorded", 502, { stage: "respondent outcome" });
     const target = supplier[outcomes[outcome].field];
     const supplierReturn = typeof target === "string" && target ? standardSupplierRedirect(target, projectCode, session.respondent_ref, outcomes[outcome].eventType) : undefined;
     return outcomePage(outcomes[outcome].eventType, { "set-cookie": routingSessionCookie(clientAttemptId, clientRoute!.token, true) }, supplierReturn);

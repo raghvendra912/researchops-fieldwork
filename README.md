@@ -87,6 +87,12 @@ Copy `.env.example` to `.env.local`, then supply your public Supabase URL and an
 
 Apply the SQL files in `supabase/migrations/` in filename order. Migration `001_core_schema.sql` creates the tenant data model and Row Level Security policies. Later migrations add atomic onboarding and project creation, role-aware policies, audited lifecycle changes, multi-market quota replacement, persistent supplier assignments, workspace settings, opaque redirect tokens, contact and outcome configuration, survey routing, duration metrics, tenant-visible member profiles, commercial workflow states, durable project-manager display history, respondent outcome tracking, test/live traffic separation, versioned eligibility rules, atomic project/supplier/interlocked quota reservations, scoped access, repaired production RPC/RLS behavior, standardized outcome metrics, privacy-safe session context, controlled response-variable retention, respondent review/reconciliation, PM-wide portfolio visibility, performance indexes, tenant-checked secondary PM/sales assignments, supplier-scoped respondent references, optional privacy-limited geolocation security, reference workflow fields, client respondent-parameter configuration, browser-session routing context, operating-system session metadata, and access-controlled respondent network context. Apply through the highest numbered migration (currently `045`) before live verification. Review production table size and active traffic before applying the regular index builds in `037` or changing unique constraints in `039`.
 
+Marketplace supply (migration `053`, numbered after the reserved `046`–`052`) lets the workspace broker its own suppliers' traffic into surveys listed on sample marketplaces (Cint, PureSpectrum, Dynata, Toluna style). It adds marketplaces, survey inventory, a qualification-code map, and a finance ledger. Operators (OWNER/ADMIN/PM) import an inventory feed (JSON or CSV), map the marketplace's qualification codes to eligibility variables, and import a survey as a pending project whose client is the marketplace. Each non-test complete then posts one revenue and one supplier-cost ledger row; marketplace completes stay `PENDING` until the marketplace confirms them through the signed `/api/marketplace-callbacks/:marketplaceId` endpoint (or its optional reversal window passes), and reversals are posted once and reverse both sides. Entry links can be HMAC-signed per marketplace. Secrets are never stored in the database: a marketplace names a server variable of the form `MARKETPLACE_<NAME>_SECRET`. The ledger records amounts in the project currency with no FX or tax assumption, and the provider-specific contracts (entry-link recipe, callback payloads) still use the generic adapter until each marketplace's sandbox documentation is available. Hosted `053` is not applied until explicitly approved.
+
+Migration `054` adds the `routing_hits` log: every router hit, accepted or rejected, is recorded (hashed IP/user agent, target host only, decision, latency) in monthly partitions kept 90 days, and the router sets a 24-hour `ro_vid` visitor cookie. The maintenance cron creates and drops partitions; until `054` is applied, hit logging fails silently and routing is unaffected.
+
+Migration `055` adds signed client returns. A client names a Worker env var `CLIENT_<NAME>_SECRET` and a policy: `OFF` (default), `HOLD` (unsigned completes are accepted but held for review as `UNVERIFIED_RETURN`), or `REJECT` (unsigned returns are refused). The client signs browser returns with `h = hex(HMAC-SHA256(secret, "<session uuid>|<complete|terminate|quota-full|security-terminate>"))`, or POSTs `{rid,status}` to `/api/postbacks/<client token>` with `x-researchops-timestamp` and `x-researchops-signature = HMAC-SHA256(secret, "<timestamp>.<raw body>")`. A verified postback automatically dismisses an earlier unsigned hold. Independently, any complete with no recorded client hand-off is held as `NO_CLIENT_REACH`. Held completes stay out of valid completes, supplier cost and consumed quota until an operator dismisses or confirms the flag.
+
 Until migration `038` is applied, project list and detail reads use the existing schema and the ownership editor shows a pending-migration message; secondary PM and sales assignments cannot be saved.
 
 Add your local and deployed `/reset-password` URLs to the Supabase Auth redirect allowlist before testing password recovery.
@@ -119,6 +125,8 @@ npx supabase start
 - `PATCH /api/suppliers/:supplierId`
 - `POST /api/events`
 - `POST /api/callbacks/:provider`
+- `POST /api/postbacks/:clientRedirectToken` (client server-to-server outcome; HMAC-signed, see Signed client returns)
+- `GET/PUT /api/clients/:clientId/return-signing` (OWNER/ADMIN)
 - `GET /api/respondents`
 - `PATCH /api/respondents/:sessionId/review`
 - `GET/PUT /api/projects/:projectId/response-variables`
@@ -127,6 +135,13 @@ npx supabase start
 - `GET /api/analytics`
 - `GET/PATCH /api/notifications/:notificationId`
 - `GET/PUT /api/notification-rules`
+- `GET/POST /api/marketplaces`, `PATCH /api/marketplaces/:id` (OWNER/ADMIN to change)
+- `POST /api/marketplaces/:id/sync` (JSON or CSV inventory; optional full snapshot)
+- `GET/PUT/DELETE /api/marketplaces/:id/qualification-map`
+- `GET /api/marketplace-surveys`, `POST /api/marketplace-surveys/:id/import`
+- `GET /api/finance/summary`, `GET /api/finance/suppliers`, `POST /api/finance/reversals`, `POST /api/finance/confirmations`
+- `POST /api/marketplace-callbacks/:marketplaceId` (signed server-to-server confirmations and reversals)
+- `GET /api/cron/marketplace` (scheduled maintenance; requires `Authorization: Bearer $CRON_SECRET`)
 - `GET /r/supplier/:token/test`
 - `GET /r/supplier/:token/live?project=PRJ-...&respondent=...`
 - `GET /l/:assignmentToken?arid=...` (masked project-specific launch)

@@ -512,12 +512,44 @@ export async function handleProjectsApi(request: Request, pathname: string, env:
       const payload = parseCreatePayload(await request.json().catch(() => null) as Record<string, unknown> | null);
       if (!payload || !payload.p_client_name) return Response.json({ error: "Valid project name, client, quota and CPI are required" }, { status: 400 });
       const { geoSecurityEnabled, referenceSetup, markets, ...createPayload } = payload;
-      const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
-      const created = rows[0];
+      let created: { project_id: string; project_code: string; status: ProjectStatus } | undefined;
+
+      try {
+        const atomicRows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(
+          env,
+          "/rest/v1/rpc/create_project_atomic",
+          access.authorization,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              p_project_name: createPayload.p_project_name,
+              p_client_name: createPayload.p_client_name,
+              p_client_po: createPayload.p_client_po,
+              p_type: createPayload.p_project_type,
+              p_category: createPayload.p_category,
+              p_client_cpi: createPayload.p_client_cpi,
+              p_currency: "USD",
+              p_survey_url: createPayload.p_survey_url,
+              p_test_survey_url: createPayload.p_test_survey_url,
+              p_survey_parameters: createPayload.p_survey_parameters,
+              p_supplier_assignments: createPayload.p_supplier_assignments,
+              p_markets: markets,
+              p_geo_security_enabled: Boolean(geoSecurityEnabled),
+              p_reference_setup: referenceSetup,
+            }),
+          }
+        );
+        created = atomicRows[0];
+      } catch {
+        const rows = await supabaseJson<Array<{ project_id: string; project_code: string; status: ProjectStatus }>>(env, "/rest/v1/rpc/create_project_with_market_v4", access.authorization, { method: "POST", body: JSON.stringify(createPayload) });
+        created = rows[0];
+        if (!created) throw new Error("Supabase did not return the created project");
+        if (markets.length > 1) await supabaseJson(env, "/rest/v1/rpc/replace_project_markets", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_markets: markets.map((market) => ({ country_code: market.countryCode, language_code: market.languageCode, target_quota: market.targetQuota, expected_loi_minutes: market.expectedLoiMinutes, expected_ir: market.expectedIr })) }) });
+        if (geoSecurityEnabled) await supabaseJson(env, "/rest/v1/rpc/configure_project_geo_security", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_enabled: true }) });
+        await supabaseRequest(env, `/rest/v1/projects?id=eq.${created.project_id}`, access.authorization, { method: "PATCH", body: JSON.stringify(referenceSetup) });
+      }
+
       if (!created) throw new Error("Supabase did not return the created project");
-      if (markets.length > 1) await supabaseJson(env, "/rest/v1/rpc/replace_project_markets", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_markets: markets.map((market) => ({ country_code: market.countryCode, language_code: market.languageCode, target_quota: market.targetQuota, expected_loi_minutes: market.expectedLoiMinutes, expected_ir: market.expectedIr })) }) });
-      if (geoSecurityEnabled) await supabaseJson(env, "/rest/v1/rpc/configure_project_geo_security", access.authorization, { method: "POST", body: JSON.stringify({ p_project_code: created.project_code, p_enabled: true }) });
-      await supabaseRequest(env, `/rest/v1/projects?id=eq.${created.project_id}`, access.authorization, { method: "PATCH", body: JSON.stringify(referenceSetup) });
       return Response.json({ data: { id: created.project_code, databaseId: created.project_id, status: created.status }, meta: { source: "supabase" } }, { status: 201 });
     }
     const detailMatch = pathname.match(/^\/api\/projects\/([A-Z]{2,10}-[A-Z0-9-]+)$/i);

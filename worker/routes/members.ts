@@ -53,13 +53,43 @@ export async function handleMembersApi(request: Request, pathname: string, env: 
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     const email = cleanEmail(body?.email); const displayName = cleanName(body?.displayName); const role = body?.role as WorkspaceRole;
     if (!validEmail(email) || !displayName || !assignableRoles.includes(role) || !canManage(access.membership.role, role)) return Response.json({ error: "A valid name, email, and permitted role are required" }, { status: 400 });
-    const invite = await supabaseRequest(env, "/auth/v1/invite", serviceAuthorization(env), { method: "POST", body: JSON.stringify({ email, data: { display_name: displayName } }) });
-    const user = await invite.json() as AuthUser;
+    // Check if user already exists in auth or profile before inviting
+    let user: AuthUser | undefined;
+    let isExistingAccount = false;
+    const existingProfiles = await supabaseJson<Array<{ id: string; email: string }>>(
+      env,
+      `/rest/v1/user_profiles?select=id,email&email=eq.${encodeURIComponent(email)}&limit=1`,
+      serviceAuthorization(env),
+    ).catch(() => []);
+
+    const existingProfile = existingProfiles[0];
+    if (existingProfile) {
+      const existingMembers = await supabaseJson<Array<{ user_id: string }>>(
+        env,
+        `/rest/v1/organization_members?organization_id=eq.${access.membership.organization_id}&user_id=eq.${existingProfile.id}&limit=1`,
+        serviceAuthorization(env),
+      ).catch(() => []);
+      if (existingMembers[0]) {
+        return Response.json({ error: "User is already a member of this workspace" }, { status: 409 });
+      }
+      user = { id: existingProfile.id, email: existingProfile.email };
+      isExistingAccount = true;
+    } else {
+      const invite = await supabaseRequest(env, "/auth/v1/invite", serviceAuthorization(env), { method: "POST", body: JSON.stringify({ email, data: { display_name: displayName } }) });
+      if (!invite.ok) {
+        const err = (await invite.json().catch(() => ({}))) as { msg?: string; message?: string };
+        return Response.json({ error: err.msg || err.message || "Failed to invite user" }, { status: invite.status });
+      }
+      user = await invite.json() as AuthUser;
+    }
+
     try {
       await supabaseRequest(env, "/rest/v1/organization_members", serviceAuthorization(env), { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ organization_id: access.membership.organization_id, user_id: user.id, role }) });
       await audit(env, access.membership.user_id, access.membership.organization_id, "ORGANIZATION_MEMBER_INVITED", user.id, role);
     } catch (error) {
-      await supabaseRequest(env, `/auth/v1/admin/users/${user.id}`, serviceAuthorization(env), { method: "DELETE" }).catch(() => undefined);
+      if (!isExistingAccount) {
+        await supabaseRequest(env, `/auth/v1/admin/users/${user.id}`, serviceAuthorization(env), { method: "DELETE" }).catch(() => undefined);
+      }
       throw error;
     }
     return Response.json({ data: { userId: user.id, email, displayName, role, createdAt: new Date().toISOString() } }, { status: 201 });

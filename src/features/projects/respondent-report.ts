@@ -28,11 +28,29 @@ function csvCell(value: unknown) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function dateAndTime(value?: string) {
+function dateAndTime(value?: string, timezone = "UTC") {
   if (!value) return ["", ""];
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return ["", ""];
-  return [date.toISOString().slice(0, 10), date.toISOString().slice(11, 19)];
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(date);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    const dateStr = `${get("year")}-${get("month")}-${get("day")}`;
+    const timeStr = `${get("hour")}:${get("minute")}:${get("second")}`;
+    return [dateStr, timeStr];
+  } catch {
+    return [date.toISOString().slice(0, 10), date.toISOString().slice(11, 19)];
+  }
 }
 
 function loi(seconds?: number | null) {
@@ -49,11 +67,11 @@ function surveyStatus(status: string) {
   return labels[status] ?? status;
 }
 
-export function buildRespondentReportCsv(rows: RespondentReportRow[]) {
+export function buildRespondentReportCsv(rows: RespondentReportRow[], timezone?: string) {
   const header = ["S.No", "Project Name", "Client", "Client Name", "Supplier Name", "CPI", "Survey Cost", "Digital Fingerprinting", "Quality Check", "Global Sample ID", "Vendor Respondent ID", "Vendor Original ID", "Survey Status", "IP Address", "Device Type", "Browser Type", "City", "Start Date", "Start Time", "End Date", "End Time", "LOI"];
   const data = rows.map((row, index) => {
-    const [startDate, startTime] = dateAndTime(row.startedAt);
-    const [endDate, endTime] = dateAndTime(row.completedAt);
+    const [startDate, startTime] = dateAndTime(row.startedAt, timezone);
+    const [endDate, endTime] = dateAndTime(row.completedAt, timezone);
     const quality = row.riskStatus && row.riskStatus !== "CLEAR" ? row.riskStatus : row.riskFlagCount ? "Review" : "Pass";
     return [index + 1, row.projectCode, row.clientName, row.projectName, row.supplierName ?? "Direct", row.supplierCpi ?? 0, row.clientCpi ?? 0, row.digitalFingerprinting ? "ON" : "OFF", quality, row.id, row.respondentRef, row.providerTransactionId ?? "NA", surveyStatus(row.status), row.ipAddress ?? "", row.osType ?? row.deviceType ?? "UNKNOWN", row.browserType ?? "UNKNOWN", row.geoCity ?? "", startDate, startTime, endDate, endTime, loi(row.durationSeconds)];
   });

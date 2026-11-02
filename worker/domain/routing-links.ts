@@ -29,8 +29,9 @@ export function clientOutcomeTemplates(origin: string, token: string) {
   };
 }
 
-export function outcomeRouteFromSession(origin: string, outcomeToken: string, outcome: RoutingOutcome) {
-  return `${origin.replace(/\/$/, "")}/r/outcome/${outcomeToken}/${outcome}`;
+export function outcomeRouteFromSession(origin: string, outcomeToken: string, outcome: RoutingOutcome, signature?: string) {
+  const base = `${origin.replace(/\/$/, "")}/r/outcome/${outcomeToken}/${outcome}`;
+  return signature ? `${base}?sig=${signature}` : base;
 }
 
 export type ParsedSupplierRoute = { token: string; mode: "test" | "live" };

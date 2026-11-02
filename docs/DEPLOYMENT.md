@@ -27,6 +27,11 @@ Server-only Worker secrets:
 - `BITLABS_CALLBACK_SECRET`
 - `PURESPECTRUM_CALLBACK_SECRET`
 - `FRAUD_HASH_SECRET`
+- `CRON_SECRET` (authorizes the scheduled `/api/cron/marketplace` call; Vercel sends it as a Bearer token)
+- `CLIENT_<NAME>_SECRET` (optional, one per client; migration 055. The client record names the variable; the value signs `h=` on browser returns and the `/api/postbacks/<client token>` server-to-server callback)
+- `MARKETPLACE_<NAME>_SECRET` (one per marketplace; the marketplace's settings name which variable holds its entry-link signing and callback secret)
+
+Marketplace maintenance now runs inside `/api/cron/maintenance` (it confirms marketplace completes whose reversal window has passed and pauses projects whose marketplace survey closed); `/api/cron/marketplace` remains for manual runs. A marketplace inventory sync already pauses those projects immediately, so the scheduled run is a backstop.
 
 Never expose server-only values with a `VITE_` prefix. Configure them using the chosen Cloudflare hosting secret manager, not source files.
 
