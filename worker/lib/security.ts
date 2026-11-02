@@ -137,3 +137,59 @@ export function blockDevFeatureInProduction(featureName: string): Response {
     { status: 403 }
   );
 }
+
+// Cryptographic HMAC-SHA256 signature generation and constant-time verification for secure outcome links
+export async function createHmacSignature(secret: string, data: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, enc.encode(data));
+  return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function verifyHmacSignature(secret: string, data: string, signature: string): Promise<boolean> {
+  if (!signature || signature.length !== 64) return false;
+  const expected = await createHmacSignature(secret, data);
+  if (expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// UUIDv7 generator for hit audit click IDs
+export function generateClickId(): string {
+  const timestamp = Date.now();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[0] = Math.floor(timestamp / 0x10000000000) & 0xff;
+  bytes[1] = Math.floor(timestamp / 0x100000000) & 0xff;
+  bytes[2] = Math.floor(timestamp / 0x1000000) & 0xff;
+  bytes[3] = Math.floor(timestamp / 0x10000) & 0xff;
+  bytes[4] = Math.floor(timestamp / 0x100) & 0xff;
+  bytes[5] = timestamp & 0xff;
+  bytes[6] = (bytes[6] & 0x0f) | 0x70; // version 7
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant RFC 4122
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// Persistent visitor cookie (ro_vid) with 24-hour TTL for cross-attempt deduplication
+export function extractOrSetVisitorId(request: Request): { visitorId: string; setCookieHeader?: string } {
+  const cookie = request.headers.get("cookie") ?? "";
+  const match = cookie.match(/(?:^|;\s*)ro_vid=([0-9a-fA-F-]+)/);
+  if (match && match[1]) {
+    return { visitorId: match[1] };
+  }
+  const newId = generateClickId();
+  return {
+    visitorId: newId,
+    setCookieHeader: `ro_vid=${newId}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`,
+  };
+}
