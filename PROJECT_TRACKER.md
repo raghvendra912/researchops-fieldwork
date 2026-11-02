@@ -107,6 +107,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Pending: switch `worker/routes/redirects.ts` supplier-live call site (and optionally callbacks/events/marketplace) to `checkSharedRateLimit`; call purge from the cron; apply 056 in a controlled window.
 - Verification: `tests/rate-limit-shared.test.mjs` (mocked RPC, fallback, validation, SQL static checks) passes. SQL was replayed on PGlite (Postgres engine) with migrations 001-056 plus 056 re-run twice: 150 sequential calls at limit 100 gave 100 allowed / 50 blocked, window expiry resets, 60 parallel calls at limit 25 gave 25 allowed, invalid input raises, anon/authenticated denied on function and table. `tsc --noEmit` and targeted ESLint pass.
 
+## Parallel agent work merged locally (056-058) - 2026-11-02
+
+- Status: MERGED LOCALLY (commit `5661aa9`), NOT pushed, NOT deployed. Migrations `056`, `057`, `058` are NOT applied to production; applying them and deploying need explicit user approval (the production apply was blocked pending that approval).
+- Merged: shared Postgres rate limiter (`056`, `check_rate_limit`/`purge_rate_limit_buckets`, in-memory fallback if the database is slow or down; now used by supplier entry, `/api/events`, provider callbacks, marketplace callbacks and postbacks; purge runs from the daily cron); supplier funnel report and respondent click timeline (`057`, `/supplier-funnel`, `GET /api/routing/funnel`, `GET /api/respondents/:id/timeline`); SUPPLIER_EXIT and CLIENT_REDIRECT hop logging, removal of the per-click `supplier_scoped_ref_ready` call, advisory HOSTING_ASN flag (`058`); return-signing settings on the Clients page and friendly Fraud review labels.
+- Deploy order: apply `056`-`058` first, then push (the new Worker calls `check_rate_limit`, and falls back to memory if it is missing, but the funnel report needs `057`).
+- Verified locally: `tsc` clean; ESLint clean over `worker src app tests`; `npm test` = 174 tests, 167 pass before one stale assertion was fixed (marketplace callback test counted the new rate-limit RPC), then that file passes 9/9; all migrations `001`-`058` replay on a real Postgres engine and the 14 earlier behaviour checks still pass on top of `058`. Not verified: any browser view of the new pages, hosted PostgREST for the new RPCs, real Cloudflare ASN values.
+- Not built: Phase 4 (single entry RPC and configuration cache); a held-completes queue screen; the Fraud review page has no filter by rule type. Known: the shared limiter adds one database round trip per limited request and runs before signature checks on callbacks.
+- Next tasks, in order: (1) with explicit approval, apply `056`-`058` then push; (2) smoke-test funnel page and timeline signed in; (3) pilot client on HOLD; (4) Phase 4.
+
 ## Deployment of 046-055 and the routing work - 2026-11-02
 
 - Status: DEPLOYED to production (`https://www.asrv.co.in`) via push to `github/main` (merge `56447d6`, cron fix `e89cd80`). Migrations `046`-`055` were applied to the linked Supabase project first.
