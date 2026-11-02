@@ -129,6 +129,8 @@ npx supabase start
 - `GET/PUT /api/clients/:clientId/return-signing` (OWNER/ADMIN)
 - `GET /api/respondents`
 - `PATCH /api/respondents/:sessionId/review`
+- `GET /api/respondents/:sessionId/timeline` (ordered router hits, survey events and review flags for one respondent; no hashes, IPs or full URLs; router hits are operator-only via RLS)
+- `GET /api/routing/funnel?from=&to=&projectCode=&supplierId=&limit=&offset=` (operators only; per-supplier clicks, routed/rejected with decision breakdown, starts, reached, completes; default 30 days, max 92; calls migration `057` function `supplier_funnel_report` with the caller token)
 - `GET/PUT /api/projects/:projectId/response-variables`
 - `GET/PUT /api/projects/:projectId/screening-questions`
 - `GET/PATCH /api/fraud-flags/:flagId`
