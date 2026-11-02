@@ -120,6 +120,28 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Not built (external gates): real Cint/PureSpectrum/Dynata API clients and their private entry-link and callback contracts (`BLK-03`, `PURE-01`); commercial finance rules (FX, tax, revenue-recognition timing) (`BLK-04`, `FIN-01`); automatic inventory pull (only pushed/pasted feeds exist because no marketplace API contract is available); a survey router; import of marketplace quota cells (stored for reference, not enforced).
 - Current task: none in progress. Next tasks, in order: (1) with explicit approval, apply `053` to hosted Supabase and re-run the `pg_proc`/RLS checks there; (2) obtain the first marketplace's sandbox documentation and credentials, then replace its entry in `marketplaceAdapters` and certify entry-link hashing and callbacks; (3) authenticated browser verification of `/marketplace`; (4) decide `FIN-01` rules, then add FX/tax; (5) router and quota-cell import.
 - Risks noticed in other workstreams: (a) FIXED 2026-11-01: `/api/cron/maintenance` used to skip authentication when `CRON_SECRET` was unset; it now returns 503 when a database is configured and no secret is set (mock mode unchanged), with a test; (b) STILL OPEN: its `0 */4 * * *` schedule is more frequent than Vercel Hobby allows (daily), which can fail deployment on that plan; confirm the Vercel plan or change the schedule.
+## SUPERSEDED - parallel routing implementation by Amit Singh (commit `99deddc`, 2026-11-02)
+
+- Decision (2026-11-02, user): the implementation in this entry was NOT adopted. Its code and its migration file (`046_industry_standard_routing_and_hit_audit.sql`, which collided with the already-applied `046_signed_outcome_tokens`) were left out of the merge; the history keeps them. The adopted design is migration `054` (partitioned `routing_hits`) and `055` (per-client signed returns), documented above. Ideas in the superseded entry that are NOT yet in the adopted design and could be ported against the live schema: a `SUPPLIER_EXIT` log row for the outbound supplier redirect, and a single-transaction `route_supplier_entry` function (Phase 4).
+
+## Fieldwork router industry-grade architecture & security overhaul — 2026-11-02
+
+- Status: DONE locally. Completed full implementation of industry-grade fieldwork routing, hit auditing, cryptographic outcome protection, and anti-fraud holds:
+  1. **Hit Logging (`routing_hits` Table & RPC)**: Created migration `046_industry_standard_routing_and_hit_audit.sql` with dedicated append-only `routing_hits` table and fast `record_routing_hit` RPC. Captures every hit (both ACCEPTED and REJECTED) across `ENTRY`, `CLIENT_RETURN`, and `SUPPLIER_EXIT` with `click_id` (UUIDv7), `visitor_id` (`ro_vid`), IP, Country, ASN, User-Agent, rejection reason, target URL, and latency.
+  2. **Non-Blocking Background Logging (`ctx.waitUntil`)**: Wired `ctx` from Cloudflare Worker fetch into `handleRedirectApi` so all audit inserts execute asynchronously via `ctx.waitUntil`, adding 0ms latency to respondent redirects.
+  3. **Cryptographic HMAC-SHA256 Outcome Signing**: Implemented `createHmacSignature` and timing-safe `verifyHmacSignature`. Outcome URLs generated at launch carry cryptographic signatures (`&h=HMAC(secret, session_id + ":" + outcome)&rid=...`). Outcome endpoints verify signatures and reject tampered URLs with 403.
+  4. **Anti-Fraud Fast-Complete Hold**: Completes finishing in under 25 seconds are flagged with `SPEEDING_HELD_FOR_REVIEW` and held for review rather than credited automatically for supplier payout/invoicing.
+  5. **Outbound Supplier Notification Audit (`SUPPLIER_EXIT`)**: Outbound redirects back to supplier destination URLs are logged as `SUPPLIER_EXIT` with target URLs and timestamps, providing non-repudiable delivery proof.
+  6. **Visitor Identification (`ro_vid`)**: Implemented UUIDv7 generator and 24-hour HttpOnly, Secure, SameSite=Lax `ro_vid` cookie for persistent browser/device-level deduplication.
+  7. **Single-Transaction Entry RPC (`route_supplier_entry`)**: Added atomic PostgreSQL function to collapse supplier validation, project status check, cross-supplier collision check, geo-security verification, and quota reservation into a single atomic transaction.
+- Verification:
+  - `npx tsc --noEmit` passed with 0 errors.
+  - `git diff --check` passed with 0 errors.
+  - `npm test` completed production build and passed 73 tests with 6 environment-gated skips and 0 failures.
+  - Dedicated test suite `tests/industry-routing-audit-and-security.test.mjs` passed 5/5 covering HMAC verification, tamper detection, UUIDv7 generation, visitor cookie handling, and speeding holds.
+- Current task: Commit and push changes to GitHub `main` and confirm deployment.
+- Next task: Apply migration `046_industry_standard_routing_and_hit_audit.sql` on remote production Supabase project and confirm hosted health/readiness.
+- Session log (2026-11-02): implemented hit audit logging, HMAC outcome signing, non-blocking `ctx.waitUntil` logging, anti-fraud speeding hold, supplier exit logging, and visitor cookie tracking; verified compile, lint, and full test suite (73 passed, 0 failed).
 
 ## Production-readiness remediation (parallel workstreams) - 2026-11-01
 
