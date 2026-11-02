@@ -13,32 +13,32 @@ import { serviceRows } from "../lib/supabase-read";
 import { isValidSecretEnvName } from "../domain/marketplace";
 import { adapterFor, type MarketplaceConfig } from "../providers/marketplace";
 import { networkRiskContext } from "../domain/network-risk";
+import { type ConfigCacheEnv, configCacheTtlMs, readConfigCache, writeConfigCache, cachedConfig } from "../lib/config-cache";
 import { getSigningSecret, signOutcome, verifyOutcomeSignature } from "../lib/outcome-signatures";
 
 // A project whose client belongs to a marketplace may need a signed entry link.
 // The lookup is cached briefly; a missing `marketplaces` table (migration 053 not
 // applied yet) simply means "not a marketplace", so routing never depends on it.
 type MarketplaceEntry = { provider: string; config: MarketplaceConfig };
-const marketplaceEntryCache = new Map<string, { value: MarketplaceEntry | null; expires: number }>();
-async function marketplaceEntry(env: EventEnv, clientId: string | null | undefined): Promise<MarketplaceEntry | null> {
+async function marketplaceEntry(env: EventEnv & ConfigCacheEnv, clientId: string | null | undefined): Promise<MarketplaceEntry | null> {
   if (!clientId) return null;
-  const cached = marketplaceEntryCache.get(clientId);
-  if (cached && cached.expires > Date.now()) return cached.value;
+  const ttl = configCacheTtlMs(env);
+  const cached = ttl > 0 ? readConfigCache<MarketplaceEntry | null>("marketplace", clientId) : { hit: false as const };
+  if (cached.hit) return cached.value;
   try {
     const rows = await serviceRows<{ provider: string; config: MarketplaceConfig | null }>(env, `/rest/v1/marketplaces?select=provider,config&client_id=eq.${encodeURIComponent(clientId)}&status=eq.ACTIVE&limit=1`);
     const value = rows[0] ? { provider: rows[0].provider, config: rows[0].config ?? {} } : null;
-    if (marketplaceEntryCache.size > 500) marketplaceEntryCache.clear();
-    marketplaceEntryCache.set(clientId, { value, expires: Date.now() + 60_000 });
+    writeConfigCache("marketplace", clientId, value, ttl);
     return value;
   } catch (error) {
     const missingTable = error instanceof Error && /status 404/.test(error.message);
-    if (missingTable) marketplaceEntryCache.set(clientId, { value: null, expires: Date.now() + 300_000 });
+    if (missingTable) writeConfigCache("marketplace", clientId, null, ttl > 0 ? 300_000 : 0);
     else safeLog("warn", "marketplace_entry_lookup_failed", { error: error instanceof Error ? error.message : "unknown" });
     return null;
   }
 }
 
-type RedirectEnv = EventEnv & { NETWORK_RISK_ASNS?: string };
+type RedirectEnv = EventEnv & { NETWORK_RISK_ASNS?: string; ROUTER_CONFIG_CACHE_SECONDS?: string };
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 export type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
 type LiveProject = { id: string; client_id?: string | null; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; geo_security_enabled?: boolean; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
@@ -191,6 +191,8 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
   let response = await routeRedirect(request, pathname, env, trace);
   if (!response) return null;
   const isEntry = Boolean(parseSupplierRoute(pathname) ?? parseSupplierShortRoute(pathname) ?? parseAssignmentRoute(pathname));
+  // Duration only: no ids, hosts or secrets.
+  if (isEntry) { try { response.headers.set("server-timing", `entry;dur=${Date.now() - startedAt}`); } catch { /* immutable headers: skip */ } }
   const hop: RoutingHop = isEntry ? "SUPPLIER_ENTRY" : "CLIENT_RETURN";
   const existingVisitor = readVisitorId(request);
   const visitorId = existingVisitor ?? uuidv7();
@@ -261,17 +263,26 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
 
       const isTest = url.searchParams.get("mode") === "test";
       const routeToken = assignmentRoute?.token ?? supplierRoute!.token;
-      const limited = await checkSharedRateLimit(env, `supplier-live:${routeToken}`, 120, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
-      if (!limited.allowed) return rateLimitResponse(limited);
       const projectCode = project?.project_code ?? readProjectCode(url.searchParams);
       const respondentRef = readRespondentRef(url.searchParams);
+      const inputsValid = /^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) && Boolean(respondentRef);
+      // The rate-limit check and the assignment lookup do not depend on each other, so they run
+      // concurrently. The lookup is only started for well-formed input, and its outcome (even a
+      // failure) is only consulted after the rate limit has passed, so the order of decisions is
+      // unchanged: rate limit, then input validation, then assignment.
+      const lookup = !assignment && inputsValid
+        ? serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,client_id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`).then((rows) => ({ rows }), (error: unknown) => ({ error }))
+        : undefined;
+      const limited = await checkSharedRateLimit(env, `supplier-live:${routeToken}`, 120, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
+      if (!limited.allowed) return rateLimitResponse(limited);
       trace.respondentRef = respondentRef || undefined;
-      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) trace.decision = "INVALID";
-      if (!/^[A-Z]{2,10}-[A-Z0-9-]+$/.test(projectCode) || !respondentRef) return help(assignmentRoute ? "ARID is required" : "Project and respondent are required", 400, { fix: assignmentRoute ? `/l/${assignmentRoute.token}?arid=UNIQUE-ID` : ROUTING_HELP.supplierLiveExample });
+      if (!inputsValid) trace.decision = "INVALID";
+      if (!inputsValid) return help(assignmentRoute ? "ARID is required" : "Project and respondent are required", 400, { fix: assignmentRoute ? `/l/${assignmentRoute.token}?arid=UNIQUE-ID` : ROUTING_HELP.supplierLiveExample });
       if (!assignment) {
         routingStage = "project assignment lookup";
-        const rows = await serviceRows<LiveAssignment>(env, `/rest/v1/project_suppliers?select=id,supplier_id,target_quota,status,projects!inner(id,client_id,project_code,status,survey_url,test_survey_url,survey_parameters,geo_security_enabled,clients(redirect_token),project_markets(country_code,language_code))&supplier_id=eq.${supplier.id}&projects.project_code=eq.${encodeURIComponent(projectCode)}&limit=1`);
-        assignment = rows[0]; project = assignment ? first(assignment.projects) ?? undefined : undefined;
+        const looked = await lookup!;
+        if ("error" in looked) throw looked.error;
+        assignment = looked.rows[0]; project = assignment ? first(assignment.projects) ?? undefined : undefined;
       }
       if (!assignment || !project) trace.decision = "NOT_ASSIGNED"; else trace.projectId = project.id;
       if (!assignment || !project) return help("The supplier is not assigned to this project.", 404, { fix: "Assign this supplier to the project in Project details → Supplier delivery." });
@@ -281,7 +292,15 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
         return target ? supplierExit(trace, target, projectCode, respondentRef, "TERMINATE", "PAUSED_EXIT") : help("Project traffic is not active", 409, { fix: "Set the project to LIVE and the supplier assignment to ACTIVE." });
       }
       routingStage = "eligibility lookup";
-      const eligibilityRows = await serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=sort_order.asc`);
+      // Eligibility rules, quota cells and the marketplace entry config are independent reads of
+      // slow-changing configuration (cached up to ROUTER_CONFIG_CACHE_SECONDS, see lib/config-cache.ts),
+      // so they run concurrently. Quota cells and the marketplace entry are speculative: failures are
+      // captured and only surface at the point the sequential code used to read them.
+      const projectId = project.id;
+      const settle = <T,>(promise: Promise<T>) => promise.then((value) => ({ value }), (error: unknown) => ({ error }));
+      const quotaCellsRead = isTest ? undefined : settle(cachedConfig(env, "quota-cells", projectId, () => serviceRows<QuotaCellRow>(env, `/rest/v1/project_quota_cells?select=id,name,target_quota,priority,active,conditions&project_id=eq.${encodeURIComponent(projectId)}&active=eq.true&order=priority.asc,name.asc`)));
+      const marketplaceRead = marketplaceEntry(env, project.client_id);
+      const eligibilityRows = await cachedConfig(env, "eligibility-rules", projectId, () => serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(projectId)}&active=eq.true&order=sort_order.asc`));
       const answers = eligibilityAnswers(url.searchParams);
       const market = project.project_markets?.[0]; const sessionContext = { countryCode: /^[A-Za-z]{2}$/.test(answers.country ?? "") ? answers.country!.toUpperCase() : market?.country_code, languageCode: /^[A-Za-z]{2}$/.test(answers.language ?? "") ? answers.language!.toLowerCase() : market?.language_code, responseVariables: answers };
       const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), answers);
@@ -294,7 +313,9 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       }
       let reservationId: string | null = null;
       if (!isTest) {
-        const quotaRows = await serviceRows<QuotaCellRow>(env, `/rest/v1/project_quota_cells?select=id,name,target_quota,priority,active,conditions&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=priority.asc,name.asc`);
+        const quotaRead = await quotaCellsRead!;
+        if ("error" in quotaRead) throw quotaRead.error;
+        const quotaRows = quotaRead.value;
         const quotaCells: QuotaCell[] = quotaRows.map((cell) => ({ id: cell.id, name: cell.name, targetQuota: cell.target_quota, priority: cell.priority, active: cell.active, conditions: (Array.isArray(cell.conditions) ? cell.conditions : []).map((condition) => { const value = condition as Record<string, unknown>; return { variableKey: String(value.variable_key ?? ""), operator: String(value.operator ?? "EQ") as EligibilityRule["operator"], values: Array.isArray(value.values) ? value.values.map(String) : [], required: value.required !== false, active: true }; }) }));
         const reservations = await serviceRpc<QuotaReservationRow>(env, "reserve_project_quota", { p_organization_id: supplier.organization_id, p_project_code: projectCode, p_supplier_id: supplier.id, p_respondent_ref: respondentRef, p_matching_cell_ids: matchingQuotaCellIds(quotaCells, answers) });
         if (!reservations[0]?.allowed) {
@@ -310,8 +331,18 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       trace.sessionId = startBody?.data?.sessionId;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return help("The respondent session could not be started", 502, { stage: routingStage }); }
       const geo = geoEvidence(request, project.geo_security_enabled === true, project.project_markets.map((item) => item.country_code));
-      if (startBody?.data?.sessionId) {
-        try { await serviceRpc(env, "capture_session_network_context", { p_session_id: startBody.data.sessionId, p_ip_address: clientIpAddress(request), p_country_code: geo.countryCode, p_region_code: geo.regionCode, p_city: geo.city, p_check_status: geo.status }); }
+      const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
+      // Network-context capture, the open-HIGH-flag check and the outcome-token read depend only on
+      // the session id, not on each other (capture does not raise fraud flags), so they overlap.
+      // The two reads are only started when the code below is going to need them, and their failures
+      // are captured and raised where the sequential code used to raise them. Capture finishes
+      // before any further event is written.
+      const sessionIdForReads = startBody?.data?.sessionId;
+      const proceeds = Boolean(sessionIdForReads) && geo.status !== "MISMATCH" && Boolean(surveyTemplate);
+      const flagsRead = proceeds ? settle(serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${sessionIdForReads}&status=eq.OPEN&severity=eq.HIGH&limit=1`)) : undefined;
+      const tokenRead = proceeds ? settle(serviceRows<{ outcome_token: string }>(env, `/rest/v1/survey_sessions?select=outcome_token&id=eq.${encodeURIComponent(sessionIdForReads!)}&limit=1`)) : undefined;
+      if (sessionIdForReads) {
+        try { await serviceRpc(env, "capture_session_network_context", { p_session_id: sessionIdForReads, p_ip_address: clientIpAddress(request), p_country_code: geo.countryCode, p_region_code: geo.regionCode, p_city: geo.city, p_check_status: geo.status }); }
         catch (error) { safeLog("warn", "session_network_context_capture_failed", { path: pathname, error: error instanceof Error ? error.message : "Unknown network-context failure" }); }
       }
       if (geo.status === "MISMATCH") {
@@ -320,7 +351,6 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "geo-security", isTest, { reasonCode: "GEO_COUNTRY_MISMATCH", detectedCountry: geo.countryCode });
         return supplier.security_terminate_url ? supplierExit(trace, supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE", "SECURITY_EXIT") : help("The respondent location does not match the project market", 403);
       }
-      const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
       if (!surveyTemplate) {
         if (!isTest && reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
         await recordEvent(request, env, supplier, projectCode, respondentRef, "ABANDON", "routing", isTest, { reasonCode: "CLIENT_SURVEY_URL_MISSING" });
@@ -330,13 +360,17 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       }
       if (startBody?.data?.sessionId) {
         routingStage = "fraud check";
-        const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
+        const flagsResult = await flagsRead!;
+        if ("error" in flagsResult) throw flagsResult.error;
+        const flags = flagsResult.value;
         if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "security", isTest, { reasonCode: "SECURITY_REJECT" }); return supplier.security_terminate_url ? supplierExit(trace, supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE", "SECURITY_EXIT") : help("The respondent did not pass security checks", 403); }
       }
       const sessionId = startBody?.data?.sessionId;
       if (!sessionId) return help("The respondent session could not be secured", 502, { stage: routingStage });
       routingStage = "outcome route lookup";
-      const sessionRows = await serviceRows<{ outcome_token: string }>(env, `/rest/v1/survey_sessions?select=outcome_token&id=eq.${encodeURIComponent(sessionId)}&limit=1`);
+      const tokenResult = await tokenRead!;
+      if ("error" in tokenResult) throw tokenResult.error;
+      const sessionRows = tokenResult.value;
       const outcomeToken = sessionRows[0]?.outcome_token;
       if (!outcomeToken) return help("The respondent outcome route could not be created", 502, { stage: routingStage });
       const secret = getSigningSecret(env);
@@ -361,7 +395,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       if (!surveyUrl.searchParams.has("quota_full_url")) surveyUrl.searchParams.set("quota_full_url", callback("quota-full"));
       if (!surveyUrl.searchParams.has("security_terminate_url")) surveyUrl.searchParams.set("security_terminate_url", callback("security-terminate"));
       let destination = surveyUrl.toString();
-      const marketplace = await marketplaceEntry(env, project.client_id);
+      const marketplace = await marketplaceRead;
       if (marketplace?.config.entrySigning?.enabled) {
         routingStage = "marketplace entry link";
         const secretEnv = marketplace.config.secretEnv;
