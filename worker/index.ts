@@ -29,6 +29,7 @@ import { securityHeaders, validateCSRF, csrfError, requestSizeError } from "./li
 import { trackError } from "./lib/observability";
 import { handleClientPostbackApi } from "./routes/postbacks";
 import { handleClientSigningApi } from "./routes/client-signing";
+import { handleRoutingReportsApi } from "./routes/routing-reports";
 
 interface Env {
   ASSETS: Fetcher;
@@ -237,6 +238,11 @@ const worker = {
 
     if (url.pathname.startsWith("/api/callbacks/")) {
       const apiResponse = await handleCallbacksApi(request, url.pathname, projectEnv);
+      if (apiResponse) return observed(apiResponse);
+    }
+
+    if (url.pathname === "/api/routing/funnel" || /^\/api\/respondents\/[^/]+\/timeline$/.test(url.pathname)) {
+      const apiResponse = await handleRoutingReportsApi(request, url.pathname, projectEnv);
       if (apiResponse) return observed(apiResponse);
     }
 
