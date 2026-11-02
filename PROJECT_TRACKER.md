@@ -89,6 +89,15 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 
 ## Current focus
 
+## Shared rate limiter (migration 056) - 2026-11-02
+
+- Status: code and migration READY on branch; migration 056 NOT applied to any hosted database.
+- Problem: `checkRateLimit` keeps counters per serverless instance, so limits reset per instance and are not shared.
+- Change: `supabase/migrations/056_shared_rate_limit.sql` adds UNLOGGED `public.rate_limit_buckets` (RLS on, service_role only), `public.check_rate_limit(p_key, p_limit, p_window_seconds)` (security definer, atomic upsert, validated input) and `public.purge_rate_limit_buckets()`. `worker/lib/rate-limit.ts` adds `checkSharedRateLimit(env, key, limit, windowSeconds, { ip })` (800 ms timeout, hashes the IP into the key, FAIL-SAFE fallback to the in-memory limiter with a throttled `shared_rate_limit_fallback` warning) and `purgeSharedRateLimitBuckets(env)`. The sync `checkRateLimit` is unchanged. `worker/routes/postbacks.ts` now uses the shared limiter.
+- Decision: purge deletes buckets whose `window_start` is older than 25 hours because the window length is not stored (max window 24 h plus 1 h). Until the maintenance cron calls `purgeSharedRateLimitBuckets`, stale rows accumulate (small, unlogged).
+- Pending: switch `worker/routes/redirects.ts` supplier-live call site (and optionally callbacks/events/marketplace) to `checkSharedRateLimit`; call purge from the cron; apply 056 in a controlled window.
+- Verification: `tests/rate-limit-shared.test.mjs` (mocked RPC, fallback, validation, SQL static checks) passes. SQL was replayed on PGlite (Postgres engine) with migrations 001-056 plus 056 re-run twice: 150 sequential calls at limit 100 gave 100 allowed / 50 blocked, window expiry resets, 60 parallel calls at limit 25 gave 25 allowed, invalid input raises, anon/authenticated denied on function and table. `tsc --noEmit` and targeted ESLint pass.
+
 ## Deployment of 046-055 and the routing work - 2026-11-02
 
 - Status: DEPLOYED to production (`https://www.asrv.co.in`) via push to `github/main` (merge `56447d6`, cron fix `e89cd80`). Migrations `046`-`055` were applied to the linked Supabase project first.
