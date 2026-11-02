@@ -33,7 +33,8 @@ test("fraud rule labels cover the new codes and fall back to a humanized label",
   assert.equal(fraudRuleInfo("UNVERIFIED_RETURN").holds, true);
   assert.equal(fraudRuleInfo("NO_CLIENT_REACH").holds, true);
   assert.equal(fraudRuleInfo("SPEEDING").label, "Speeding");
-  assert.equal(fraudRuleInfo("SPEEDING").holds, false);
+  assert.equal(fraudRuleInfo("SPEEDING").holds, true);
+  assert.equal(fraudRuleInfo("HOSTING_ASN").holds, false);
   assert.equal(fraudRuleInfo("SOME_NEW_RULE").label, "Some new rule");
   assert.equal(fraudRuleInfo("constructor").label, "Constructor");
   assert.equal(humanizeRuleCode(""), "Unknown rule");
