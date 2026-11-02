@@ -74,3 +74,9 @@ sresp.txt
 s1.txt
 code.txt
 *.qa.txt
+
+# Playwright
+node_modules/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
