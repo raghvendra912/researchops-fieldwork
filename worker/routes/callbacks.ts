@@ -1,4 +1,4 @@
-import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
+import { checkSharedRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { requestId, safeLog } from "../lib/observability";
 import { providerAdapters } from "../providers/adapters";
 import type { ProviderName } from "../providers/types";
@@ -12,7 +12,7 @@ export async function handleCallbacksApi(request: Request, pathname: string, env
   const match = pathname.match(/^\/api\/callbacks\/(cpx|bitlabs|purespectrum)$/);
   if (!match || request.method !== "POST") return null;
   const provider = match[1] as ProviderName; const id = requestId(request); const started = Date.now();
-  const limited = checkRateLimit(`callback:${provider}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 60, 60);
+  const limited = await checkSharedRateLimit(env, `callback:${provider}`, 60, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
   if (!limited.allowed) { safeLog("warn", "provider_callback_rate_limited", { requestId: id, provider }); return rateLimitResponse(limited); }
   const secret = env[secretKeys[provider]];
   if (typeof secret !== "string" || !secret) return Response.json({ error: `${provider} callback is not configured` }, { status: 503 });

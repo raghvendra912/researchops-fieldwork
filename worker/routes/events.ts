@@ -1,5 +1,5 @@
 import type { SupabaseEnv } from "../lib/supabase";
-import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
+import { checkSharedRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { requestId, safeLog } from "../lib/observability";
 import type { NormalizedEvent } from "../providers/types";
 import { riskMetadata } from "../lib/fraud";
@@ -39,7 +39,7 @@ export async function ingestNormalizedEvent(body: NormalizedEvent, env: EventEnv
 export async function handleEventsApi(request: Request, pathname: string, env: EventEnv): Promise<Response | null> {
   if (pathname !== "/api/events" || request.method !== "POST") return null;
   const id = requestId(request);
-  const limited = checkRateLimit(`event:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 120, 60);
+  const limited = await checkSharedRateLimit(env, "event", 120, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
   if (!limited.allowed) { safeLog("warn", "event_rate_limited", { requestId: id }); return rateLimitResponse(limited); }
   if (!env.EVENT_INGESTION_SECRET) return Response.json({ error: "Event ingestion is not configured" }, { status: 503 });
   const rawBody = await request.text();

@@ -1,6 +1,6 @@
 import { ingestNormalizedEvent, type EventEnv } from "./events";
 import { riskMetadata } from "../lib/fraud";
-import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit";
+import { checkSharedRateLimit, rateLimitResponse } from "../lib/rate-limit";
 import { standardSupplierRedirect } from "../domain/supplier-redirect";
 import { hasUnresolvedClientAttemptId, outcomeRouteFromSession, parseAssignmentRoute, parseClientRoute, parseOutcomeRoute, parseSupplierRoute, parseSupplierShortRoute, readClientAttemptId, readProjectCode, readRespondentRef, ROUTING_HELP } from "../domain/routing-links";
 import { requestId, safeLog } from "../lib/observability";
@@ -261,7 +261,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
 
       const isTest = url.searchParams.get("mode") === "test";
       const routeToken = assignmentRoute?.token ?? supplierRoute!.token;
-      const limited = checkRateLimit(`supplier-live:${routeToken}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 120, 60);
+      const limited = await checkSharedRateLimit(env, `supplier-live:${routeToken}`, 120, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
       if (!limited.allowed) return rateLimitResponse(limited);
       const projectCode = project?.project_code ?? readProjectCode(url.searchParams);
       const respondentRef = readRespondentRef(url.searchParams);

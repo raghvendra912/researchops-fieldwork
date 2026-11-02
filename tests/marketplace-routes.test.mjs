@@ -82,7 +82,7 @@ test("marketplace callbacks reject bad signatures, stale timestamps and missing 
     assert.equal((await request(signed("callback-secret", body, Math.floor(Date.now() / 1000) - 3600))).status, 401, "replayed/stale");
     assert.equal((await request(signed("callback-secret", `${body} `))).status, 401, "body altered after signing");
     assert.equal((await request(signed("callback-secret", body), { ...configured, MARKETPLACE_TEST_SECRET: undefined })).status, 503, "secret variable not set");
-    assert.equal(mock.calls.filter((call) => call.path.includes("/rpc/")).length, 0, "no ledger change without a valid signature");
+    assert.equal(mock.calls.filter((call) => call.path.includes("/rpc/") && !call.path.endsWith("/rpc/check_rate_limit")).length, 0, "no ledger change without a valid signature");
     const wrongMethod = await handleMarketplaceApi(new Request(`https://app.example${path}`), path, configured);
     assert.equal(wrongMethod.status, 405);
   } finally { mock.restore(); }

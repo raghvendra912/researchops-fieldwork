@@ -1,6 +1,7 @@
 import type { SupabaseEnv } from "../lib/supabase";
 import { reconcileAbandoned } from "./analytics";
 import { safeLog } from "../lib/observability";
+import { purgeSharedRateLimitBuckets } from "../lib/rate-limit";
 
 export type MaintenanceEnv = SupabaseEnv & {
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -106,6 +107,9 @@ export async function handleMaintenanceCronApi(
       safeLog("warn", "maintain_routing_hits_failed", { status: 0 });
     }
 
+    // 5. Expired shared rate-limit buckets (null means migration 056 is not applied or the call failed; never fails the cron)
+    const purgedRateLimitBuckets = await purgeSharedRateLimitBuckets(env);
+
     safeLog("info", "maintenance_cron_completed", {
       reconciled,
       maintenance: maintenanceData,
@@ -120,6 +124,7 @@ export async function handleMaintenanceCronApi(
       maintenance: maintenanceData,
       marketplace,
       routingHits,
+      purgedRateLimitBuckets,
     });
   } catch (error) {
     safeLog("error", "maintenance_cron_exception", {

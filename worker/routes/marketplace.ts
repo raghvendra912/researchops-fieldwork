@@ -1,6 +1,6 @@
 import { authorizationError, authorizeWorkspace, workspacePermissions } from "../lib/authorization.ts";
 import { isSupabaseConfigured, SupabaseRequestError, supabaseJson, supabaseRequest, type SupabaseEnv } from "../lib/supabase.ts";
-import { checkRateLimit, rateLimitResponse } from "../lib/rate-limit.ts";
+import { checkSharedRateLimit, rateLimitResponse } from "../lib/rate-limit.ts";
 import { requestId, safeLog } from "../lib/observability.ts";
 import { estimateEarningsPerClick, isValidSecretEnvName } from "../domain/marketplace.ts";
 import { adapterFor, marketplaceProviders, type MarketplaceConfig } from "../providers/marketplace.ts";
@@ -316,7 +316,7 @@ export async function handleMarketplaceApi(request: Request, pathname: string, e
 async function handleCallback(request: Request, marketplaceId: string, env: MarketplaceEnv): Promise<Response> {
   if (request.method !== "POST") return bad("Method not allowed", 405);
   const id = requestId(request);
-  const limited = checkRateLimit(`marketplace-callback:${marketplaceId}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`, 60, 60);
+  const limited = await checkSharedRateLimit(env, `marketplace-callback:${marketplaceId}`, 60, 60, { ip: request.headers.get("cf-connecting-ip") ?? "unknown" });
   if (!limited.allowed) return rateLimitResponse(limited);
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return bad("Marketplace callbacks are not configured", 503);
   try {

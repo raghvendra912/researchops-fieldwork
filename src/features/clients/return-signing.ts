@@ -34,6 +34,7 @@ const fraudLabels: Record<string, { label: string; explain: string; holds?: bool
   DUPLICATE: { label: "Duplicate", explain: "Matches an earlier respondent or attempt." },
   UNVERIFIED_RETURN: { label: "Unverified return", explain: "Complete arrived without the client's signature.", holds: true },
   NO_CLIENT_REACH: { label: "No client hand-off", explain: "Complete without a recorded hand-off to the client.", holds: true },
+  HOSTING_ASN: { label: "Hosting network", explain: "Entered from a data-centre or hosting network. Advisory only; it does not remove the complete." },
 };
 
 export const holdingRuleCodes = ["UNVERIFIED_RETURN", "NO_CLIENT_REACH"];
