@@ -10,6 +10,8 @@ export type RoutingTrace = {
   respondentRef?: string;
   decision?: string;
   targetHost?: string;
+  /** Additional hop rows (CLIENT_REDIRECT / SUPPLIER_EXIT) logged beside the request row; host only, never a full URL. */
+  extraHops?: Array<{ hop: RoutingHop; decision: string; targetHost?: string }>;
 };
 
 export type RoutingHitEnv = { SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; FRAUD_HASH_SECRET?: string };

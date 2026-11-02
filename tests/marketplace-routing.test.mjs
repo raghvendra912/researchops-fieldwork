@@ -22,7 +22,6 @@ function liveFixture({ clientId, marketplaces }) {
   const original = globalThis.fetch; const lookups = [];
   globalThis.fetch = async (input) => {
     const url = new URL(input); const path = url.pathname; lookups.push(path);
-    if (path.endsWith("/rpc/supplier_scoped_ref_ready")) return Response.json(true);
     if (path.endsWith("/rpc/ingest_survey_event")) return Response.json([{ session_id: attemptId, event_id: crypto.randomUUID(), created: true }]);
     if (path.endsWith("/rpc/reserve_project_quota")) return Response.json([{ allowed: true, reservation_id: "reservation-1" }]);
     if (path.endsWith("/marketplaces")) return marketplaces(url);
