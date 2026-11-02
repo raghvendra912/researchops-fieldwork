@@ -115,6 +115,14 @@ Read PROJECT_TRACKER.md and README.md in the current workspace. Inspect the exis
 - Smoke test (production): `/api/health` and `/api/readiness` 200; a click on an unknown supplier token returned 404 with an `ro_vid` HttpOnly cookie and created a `routing_hits` row (decision INACTIVE, hop SUPPLIER_ENTRY, route_kind supplier, visitor id present). That one test row (respondent SMOKE1) remains in `routing_hits`.
 - Not yet done: authenticated browser smoke test; a real accepted click and client return; a pilot client with `CLIENT_<NAME>_SECRET` on HOLD.
 
+## Return signing UI and Fraud review wording - 2026-11-02
+
+- Status: BUILT LOCALLY, not deployed, not driven in a browser.
+- Built: `app/components/ClientReturnSigning.tsx` (OWNER/ADMIN section shown inside the client Edit panel when the Clients API reports `canOperate`; policy select OFF/HOLD/REJECT with plain-language help, secret variable NAME input validated client-side to `^CLIENT_[A-Z0-9_]{1,40}_SECRET$`, `secretConfigured` status, read-only postback URL with copy, collapsible signing recipe, saves with `PUT /api/clients/:id/return-signing`; the secret value is never requested, shown or sent; 501 and other failures show calm text). Pure helpers and labels in `src/features/clients/return-signing.ts`. Fraud review now shows friendly labels and one-line explanations (`UNVERIFIED_RETURN`, `NO_CLIENT_REACH`, plus existing codes; unknown codes are humanized) and a note that these two hold the complete out of valid delivery until resolved. `worker/routes/fraud.ts` does not whitelist rule codes, so it is unchanged; Fraud review has no rule-code filter.
+- Verified: `npx tsc --noEmit` and ESLint on changed files clean; new `tests/client-return-signing-ui.test.mjs` (5 tests: validator, form validation, error text, labels, static wiring checks).
+- Not verified: rendering in a browser, the live GET/PUT against a database, and the copy button. No Playwright spec was added (the e2e needs an authenticated workspace for this section).
+- Next: set one `CLIENT_<NAME>_SECRET` in hosting and pilot HOLD; held-completes queue remains unbuilt.
+
 ## Signed client returns and held completes (Phase 2 of the click-tracking plan) - 2026-11-02
 
 - Status: DATABASE APPLIED 2026-11-02 (migrations `046`-`055` pushed to linked production project `cmrktkzdptmywrtscalu` with `supabase db push`, after a dry run listed exactly those ten; remote history now matches local through `055`). Hosted checks: 3 routing_hits partitions, RLS on, both client signing columns, 7 new functions, 4 outcome-token columns present. The Worker/app code is NOT deployed, so hit logging, signed returns and postbacks are not live yet; no secrets exist; no `CLIENT_<NAME>_SECRET` exists anywhere; nothing here has run on a deployed Worker or been driven in a browser.

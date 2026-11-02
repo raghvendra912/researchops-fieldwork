@@ -4,6 +4,7 @@ import Link from "./NavigationLink";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { apiRequest } from "../../src/lib/api";
+import { fraudRuleInfo } from "../../src/features/clients/return-signing";
 
 type Flag = {
   id: string;
@@ -17,6 +18,11 @@ type Flag = {
     project: { projectCode: string; projectName: string };
   };
 };
+
+function RuleCell({ code, open }: { code: string; open: boolean }) {
+  const info = fraudRuleInfo(code);
+  return <><strong>{info.label}</strong>{info.explain ? <div className="panel-note">{info.explain}</div> : null}{info.holds && open ? <div className="panel-note">On hold: not counted as valid until resolved.</div> : null}</>;
+}
 
 export function FraudReview() {
   const { configured, session } = useAuth();
@@ -65,14 +71,15 @@ export function FraudReview() {
       <div className="reference-filter-extra"><span className="panel-note">Fraud review · {projectFilter ? `Showing alerts for ${projectFilter}` : "Review explainable duplicate, speeding, and quality signals."}</span>{projectFilter ? <Link className="panel-note" href="/fraud">Clear project filter</Link> : null}</div>
     </section>
     {error ? <div className="form-error data-error" role="alert">{error}</div> : null}
-    <section className="panel"><div className="panel-head"><h2 className="panel-title">Quality flags</h2><span className="panel-note">Duplicate · speeding · quality</span></div>
+    <p className="panel-note" role="note">Unverified return and No client hand-off flags hold the complete out of valid delivery, supplier cost and quota until you confirm or dismiss them.</p>
+    <section className="panel"><div className="panel-head"><h2 className="panel-title">Quality flags</h2><span className="panel-note">Duplicate · speeding · returns · quality</span></div>
       <div className="table-wrap">
         <table className="data-table">
           <thead><tr><th>Respondent</th><th>Project</th><th>Rule</th><th>Severity</th><th>Evidence</th><th>Status</th><th>Decision</th></tr></thead>
           <tbody>{visibleFlags.map((flag) => <tr key={flag.id}>
             <td><strong>{flag.session.respondentRef}</strong></td>
             <td>{flag.session.project.projectCode} · {flag.session.project.projectName}</td>
-            <td>{flag.ruleCode.replaceAll("_", " ")}</td>
+            <td><RuleCell code={flag.ruleCode} open={flag.status === "OPEN"} /></td>
             <td>{flag.severity}</td>
             <td>{Object.entries(flag.evidence).map(([key, value]) => `${key}: ${String(value)}`).join(" · ")}</td>
             <td><span className={`status-pill status-${flag.status}`}>{flag.status}</span></td>
