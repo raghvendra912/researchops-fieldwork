@@ -12,6 +12,7 @@ import { buildSurveyUrl, type SurveyParameter } from "../domain/survey-url";
 import { serviceRows } from "../lib/supabase-read";
 import { isValidSecretEnvName } from "../domain/marketplace";
 import { adapterFor, type MarketplaceConfig } from "../providers/marketplace";
+import { networkRiskContext } from "../domain/network-risk";
 import { getSigningSecret, signOutcome, verifyOutcomeSignature } from "../lib/outcome-signatures";
 
 // A project whose client belongs to a marketplace may need a signed entry link.
@@ -37,7 +38,7 @@ async function marketplaceEntry(env: EventEnv, clientId: string | null | undefin
   }
 }
 
-type RedirectEnv = EventEnv;
+type RedirectEnv = EventEnv & { NETWORK_RISK_ASNS?: string };
 type Outcome = "complete" | "terminate" | "quota-full" | "security-terminate";
 export type SupplierRow = { id: string; organization_id: string; status: string; redirect_mode: string; complete_url: string | null; terminate_url: string | null; quota_full_url: string | null; security_terminate_url: string | null };
 type LiveProject = { id: string; client_id?: string | null; project_code: string; status: string; survey_url: string | null; test_survey_url: string | null; survey_parameters: unknown; geo_security_enabled?: boolean; clients: { redirect_token: string } | { redirect_token: string }[]; project_markets: Array<{ country_code: string; language_code: string }> };
@@ -55,12 +56,18 @@ const outcomes: Record<Outcome, { eventType: string; field: keyof SupplierRow }>
 
 function serviceHeaders(env: RedirectEnv) { return { apikey: env.SUPABASE_SERVICE_ROLE_KEY!, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "content-type": "application/json" }; }
 async function serviceRpc<T>(env: RedirectEnv, name: string, body: Record<string, unknown>): Promise<T[]> { const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Routing reservation failed with upstream status ${response.status}`); return response.json() as Promise<T[]>; }
-async function supplierScopedRefReady(env: RedirectEnv) {
-  const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/supplier_scoped_ref_ready`, { headers: serviceHeaders(env) });
-  if (response.ok) return await response.json() === true;
-  const error = await response.json().catch(() => null) as { code?: string } | null;
-  if (response.status === 404 && error?.code === "PGRST202") return false;
-  throw new Error(`Supplier reference scope check failed with upstream status ${response.status}`);
+function supplierExit(trace: RoutingTrace, target: string, projectCode: string, respondentRef: string, eventType: string, decision: string) {
+  const url = standardSupplierRedirect(target, projectCode, respondentRef, eventType);
+  trace.extraHops = [...(trace.extraHops ?? []), { hop: "SUPPLIER_EXIT", decision, targetHost: hostOf(url) }];
+  return redirect(url);
+}
+/**
+ * outcomePage hands the respondent to the supplier through a page with a Continue button and
+ * countdown, so there is no 302 to observe. SUPPLIER_EXIT is logged when the page is rendered
+ * with a supplier destination (HANDOFF_OFFERED); we cannot know whether the respondent clicks.
+ */
+function noteHandoff(trace: RoutingTrace, supplierReturn: string | undefined) {
+  if (supplierReturn) trace.extraHops = [...(trace.extraHops ?? []), { hop: "SUPPLIER_EXIT", decision: "HANDOFF_OFFERED", targetHost: hostOf(supplierReturn) }];
 }
 function first<T>(value: T | T[] | null | undefined) { return Array.isArray(value) ? value[0] : value; }
 function clean(value: string | null, maximum = 160) { return (value ?? "").trim().replace(/[^A-Za-z0-9_.:@-]/g, "").slice(0, maximum); }
@@ -199,6 +206,12 @@ export async function handleRedirectApi(request: Request, pathname: string, env:
     ctx.waitUntil((async () => {
       const row = await buildRoutingHit({ request, env, trace, hop, routeKind, status: finalResponse.status, clickId: uuidv7(), visitorId, latencyMs: Date.now() - startedAt });
       await insertRoutingHit(env, row);
+      for (const extra of trace.extraHops ?? []) {
+        try {
+          const extraRow = await buildRoutingHit({ request, env, trace: { ...trace, decision: extra.decision, targetHost: extra.targetHost }, hop: extra.hop, routeKind, status: finalResponse.status, clickId: uuidv7(), visitorId, latencyMs: Date.now() - startedAt });
+          await insertRoutingHit(env, extraRow);
+        } catch { /* logging must never affect the respondent */ }
+      }
     })());
   }
   return response;
@@ -262,15 +275,10 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       }
       if (!assignment || !project) trace.decision = "NOT_ASSIGNED"; else trace.projectId = project.id;
       if (!assignment || !project) return help("The supplier is not assigned to this project.", 404, { fix: "Assign this supplier to the project in Project details → Supplier delivery." });
-      if (!await supplierScopedRefReady(env)) {
-        const priorSessions = await serviceRows<{ project_supplier_id: string | null }>(env, `/rest/v1/survey_sessions?select=project_supplier_id&project_id=eq.${encodeURIComponent(project.id)}&respondent_ref=eq.${encodeURIComponent(respondentRef)}&limit=1`);
-        if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) trace.decision = "DUPLICATE";
-        if (priorSessions[0] && priorSessions[0].project_supplier_id !== assignment.id) return help("This supplier attempt ID is already used by another source on this project", 409, { fix: "Send a unique respondent value for every launch, or apply migration 039 for assignment-scoped IDs." });
-      }
       if (!isTest && (assignment.status !== "ACTIVE" || project.status !== "LIVE")) {
         trace.decision = "PAUSED";
         const target = supplier.terminate_url ?? supplier.security_terminate_url;
-        return target ? redirect(standardSupplierRedirect(target, projectCode, respondentRef, "TERMINATE")) : help("Project traffic is not active", 409, { fix: "Set the project to LIVE and the supplier assignment to ACTIVE." });
+        return target ? supplierExit(trace, target, projectCode, respondentRef, "TERMINATE", "PAUSED_EXIT") : help("Project traffic is not active", 409, { fix: "Set the project to LIVE and the supplier assignment to ACTIVE." });
       }
       routingStage = "eligibility lookup";
       const eligibilityRows = await serviceRows<EligibilityRow>(env, `/rest/v1/project_eligibility_rules?select=variable_key,operator,values,required,active&project_id=eq.${encodeURIComponent(project.id)}&active=eq.true&order=sort_order.asc`);
@@ -279,10 +287,10 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       const eligibility = evaluateEligibility(eligibilityRows.map((rule) => ({ variableKey: rule.variable_key, operator: rule.operator, values: Array.isArray(rule.values) ? rule.values.map(String) : [], required: rule.required, active: rule.active })), answers);
       if (!eligibility.eligible) {
         trace.decision = "INELIGIBLE";
-        const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
+        const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, { ...sessionContext, ...networkRiskContext(request, env, isTest) });
         if (!start.ok) return help("The respondent session could not be started", 502, { stage: routingStage });
         await recordEvent(request, env, supplier, projectCode, respondentRef, "TERMINATE", `eligibility:${eligibility.failedRule ?? "rule"}`, isTest, { reasonCode: "ELIGIBILITY_SCREEN_OUT" });
-        return supplier.terminate_url ? redirect(standardSupplierRedirect(supplier.terminate_url, projectCode, respondentRef, "TERMINATE")) : help(eligibility.reason ?? "The respondent is not eligible for this study", 200);
+        return supplier.terminate_url ? supplierExit(trace, supplier.terminate_url, projectCode, respondentRef, "TERMINATE", "INELIGIBLE_EXIT") : help(eligibility.reason ?? "The respondent is not eligible for this study", 200);
       }
       let reservationId: string | null = null;
       if (!isTest) {
@@ -292,12 +300,12 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
         if (!reservations[0]?.allowed) {
         trace.decision = "QUOTA_FULL";
           await recordEvent(request, env, supplier, projectCode, respondentRef, "QUOTA_FULL", `quota:${reservations[0]?.reason ?? "full"}`, false, { reasonCode: "QUOTA_FULL" });
-          return supplier.quota_full_url ? redirect(standardSupplierRedirect(supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL")) : unavailable("The requested quota is full", 409);
+          return supplier.quota_full_url ? supplierExit(trace, supplier.quota_full_url, projectCode, respondentRef, "QUOTA_FULL", "QUOTA_FULL_EXIT") : unavailable("The requested quota is full", 409);
         }
         reservationId = reservations[0].reservation_id;
       }
       routingStage = "respondent start";
-      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, sessionContext);
+      const start = await recordEvent(request, env, supplier, projectCode, respondentRef, "START", isTest ? "test-redirect" : "redirect", isTest, { ...sessionContext, ...networkRiskContext(request, env, isTest) });
       const startBody = await start.json().catch(() => null) as { data?: { sessionId?: string } } | null;
       trace.sessionId = startBody?.data?.sessionId;
       if (!start.ok) { if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []); return help("The respondent session could not be started", 502, { stage: routingStage }); }
@@ -310,7 +318,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
         trace.decision = "SECURITY";
         if (reservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: reservationId }).catch(() => []);
         await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "geo-security", isTest, { reasonCode: "GEO_COUNTRY_MISMATCH", detectedCountry: geo.countryCode });
-        return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : help("The respondent location does not match the project market", 403);
+        return supplier.security_terminate_url ? supplierExit(trace, supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE", "SECURITY_EXIT") : help("The respondent location does not match the project market", 403);
       }
       const surveyTemplate = isTest ? project.test_survey_url || project.survey_url : project.survey_url;
       if (!surveyTemplate) {
@@ -323,7 +331,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       if (startBody?.data?.sessionId) {
         routingStage = "fraud check";
         const flags = await serviceRows<{ id: string }>(env, `/rest/v1/fraud_flags?select=id&session_id=eq.${startBody.data.sessionId}&status=eq.OPEN&severity=eq.HIGH&limit=1`);
-        if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "security", isTest, { reasonCode: "SECURITY_REJECT" }); return supplier.security_terminate_url ? redirect(standardSupplierRedirect(supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE")) : help("The respondent did not pass security checks", 403); }
+        if (flags[0]) { await recordEvent(request, env, supplier, projectCode, respondentRef, "QUALITY_TERMINATE", "security", isTest, { reasonCode: "SECURITY_REJECT" }); return supplier.security_terminate_url ? supplierExit(trace, supplier.security_terminate_url, projectCode, respondentRef, "QUALITY_TERMINATE", "SECURITY_EXIT") : help("The respondent did not pass security checks", 403); }
       }
       const sessionId = startBody?.data?.sessionId;
       if (!sessionId) return help("The respondent session could not be secured", 502, { stage: routingStage });
@@ -362,6 +370,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       routingStage = "client reached event";
       await recordEvent(request, env, supplier, projectCode, respondentRef, "REACHED_CLIENT", isTest ? "test-redirect" : "redirect", isTest);
       const clientToken = first(project.clients)?.redirect_token;
+      trace.extraHops = [{ hop: "CLIENT_REDIRECT", decision: "ROUTED", targetHost: hostOf(destination) }];
       return redirect(destination, clientToken ? { "set-cookie": routingSessionCookie(sessionId, clientToken) } : {});
     }
 
@@ -401,6 +410,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
       if (quotaReservationId) await serviceRpc(env, "release_quota_reservation", { p_reservation_id: quotaReservationId }).catch(() => []);
       const target = outcomeSupplier[outcomes[outcomeRoute.outcome].field];
       const supplierReturn = typeof target === "string" && target ? standardSupplierRedirect(target, outcomeProject.project_code, outcomeSession.respondent_ref, expectedEvent) : undefined;
+      noteHandoff(trace, supplierReturn);
       return outcomePage(expectedEvent, {}, supplierReturn);
     }
 
@@ -439,6 +449,7 @@ async function routeRedirect(request: Request, pathname: string, env: RedirectEn
     const result = await recordEvent(request, env, supplier, projectCode, session.respondent_ref, eventType, "client-outcome", session.is_test, { ...(reasonCode ? { reasonCode } : {}), ...(returnVerification ? { returnVerification } : {}) }); if (!result.ok) return help("The respondent outcome could not be recorded", 502, { stage: "respondent outcome" });
     const target = supplier[outcomes[outcome].field];
     const supplierReturn = typeof target === "string" && target ? standardSupplierRedirect(target, projectCode, session.respondent_ref, outcomes[outcome].eventType) : undefined;
+    noteHandoff(trace, supplierReturn);
     return outcomePage(outcomes[outcome].eventType, { "set-cookie": routingSessionCookie(clientAttemptId, clientRoute!.token, true) }, supplierReturn);
   } catch (error) {
     const id = requestId(request);

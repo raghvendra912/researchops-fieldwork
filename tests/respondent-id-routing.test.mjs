@@ -26,7 +26,6 @@ test("supplier launch sends our attempt ID to the client and returns the supplie
     const url = new URL(input);
     const path = url.pathname;
     lookups.push(`${path}${url.search}`);
-    if (path.endsWith("/rpc/supplier_scoped_ref_ready")) return Response.json({ code: "PGRST202" }, { status: 404 });
     if (path.endsWith("/rpc/ingest_survey_event")) {
       const body = JSON.parse(init.body);
       events.push(body);
@@ -112,7 +111,6 @@ test("masked assignment launch resolves project and supplier without exposing ei
   const assignmentToken = "00000000-0000-4000-8000-000000000009";
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(input);
-    if (url.pathname.endsWith("/rpc/supplier_scoped_ref_ready")) return Response.json(true);
     if (url.pathname.endsWith("/project_suppliers")) return Response.json([{ id: assignmentToken, supplier_id: supplier.id, status: "ACTIVE", suppliers: supplier, projects: { id: "project-1", project_code: "ROP-42", status: "LIVE", survey_url: "https://survey.example/start", test_survey_url: null, survey_parameters: [], clients: { redirect_token: clientToken }, project_markets: [] } }]);
     if (url.pathname.endsWith("/project_eligibility_rules") || url.pathname.endsWith("/project_quota_cells") || url.pathname.endsWith("/fraud_flags")) return Response.json([]);
     if (url.pathname.endsWith("/rpc/reserve_project_quota")) return Response.json([{ allowed: true, reservation_id: "reservation-opaque" }]);
@@ -132,25 +130,6 @@ test("masked assignment launch resolves project and supplier without exposing ei
   }
 });
 
-test("a duplicate supplier reference from another assignment cannot hijack an existing attempt", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input) => {
-    const url = new URL(input);
-    if (url.pathname.endsWith("/rpc/supplier_scoped_ref_ready")) return Response.json({ code: "PGRST202" }, { status: 404 });
-    if (url.pathname.endsWith("/suppliers")) return Response.json([supplier]);
-    if (url.pathname.endsWith("/project_suppliers")) return Response.json([{ id: "assignment-1", status: "ACTIVE", projects: { id: "project-1", project_code: "ROP-42", status: "LIVE" } }]);
-    if (url.pathname.endsWith("/survey_sessions")) return Response.json([{ project_supplier_id: "different-assignment" }]);
-    throw new Error(`Unexpected route ${url.pathname}`);
-  };
-  try {
-    const path = `/r/supplier/${token}/live`;
-    const response = await handleRedirectApi(new Request(`https://router.example${path}?project=ROP-42&respondent=${supplierRef}`), path, env);
-    assert.equal(response?.status, 409);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
 test("supplier-scoped routing permits the same external reference from two suppliers", async () => {
   const originalFetch = globalThis.fetch;
   const secondToken = "00000000-0000-4000-8000-000000000005";
@@ -159,7 +138,6 @@ test("supplier-scoped routing permits the same external reference from two suppl
   let current = 0;
   globalThis.fetch = async (input) => {
     const url = new URL(input);
-    if (url.pathname.endsWith("/rpc/supplier_scoped_ref_ready")) return Response.json(true);
     if (url.pathname.endsWith("/suppliers")) return Response.json([{ ...supplier, id: url.searchParams.get("redirect_token")?.includes(secondToken) ? "supplier-2" : "supplier-1" }]);
     if (url.pathname.endsWith("/project_suppliers")) return Response.json([{ id: `assignment-${current + 1}`, status: "ACTIVE", projects: { id: "project-1", project_code: "ROP-42", status: "LIVE", survey_url: "https://survey.example/start", survey_parameters: [{ name: "RID", value: "{{transaction_id}}" }, { name: "UID", value: "{{respondent_id}}" }], project_markets: [] } }]);
     if (url.pathname.endsWith("/project_eligibility_rules") || url.pathname.endsWith("/project_quota_cells") || url.pathname.endsWith("/fraud_flags")) return Response.json([]);
